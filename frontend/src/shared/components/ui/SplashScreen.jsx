@@ -1,19 +1,24 @@
 import React, { useState, useEffect } from 'react';
 
 const SplashScreen = ({ children }) => {
-    const [showSplash, setShowSplash] = useState(true);
+    const [showSplash, setShowSplash] = useState(false);
 
     useEffect(() => {
-        // Only show once per session
+        // Customer app splash screen is disabled
+        const isDelivery = window.location.pathname.startsWith('/delivery');
+        if (!isDelivery) {
+            return;
+        }
+
+        // Only show once per session for delivery route on mobile view
         const hasSeenSplash = sessionStorage.getItem('hasSeenSplash');
-        
-        // We also want to check if it's mobile view. A simple check:
         const isMobile = window.innerWidth <= 768;
 
         if (hasSeenSplash || !isMobile) {
-            setShowSplash(false);
             return;
         }
+
+        setShowSplash(true);
 
         const timer = setTimeout(() => {
             setShowSplash(false);
@@ -24,15 +29,10 @@ const SplashScreen = ({ children }) => {
     }, []);
 
     if (showSplash) {
-        let splashImage = "/init page .png";
-        if (window.location.pathname.startsWith('/delivery')) {
-            splashImage = "/driverinit page .png";
-        }
-        
         return (
             <div className="fixed inset-0 z-[9999] bg-white flex items-center justify-center overflow-hidden lg:hidden">
                 <img 
-                    src={splashImage} 
+                    src="/driverinit page .png" 
                     alt="App Init" 
                     className="w-full h-full object-cover"
                 />
