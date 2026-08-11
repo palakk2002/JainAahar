@@ -1,0 +1,160 @@
+import mongoose from "mongoose";
+
+const deliverySchema = new mongoose.Schema(
+    {
+        name: {
+            type: String,
+            required: true,
+            trim: true,
+        },
+
+        phone: {
+            type: String,
+            required: true,
+            unique: true,
+        },
+
+        vehicleType: {
+            type: String,
+            enum: ["bike", "cycle", "scooter"],
+            default: "bike",
+        },
+
+        email: {
+            type: String,
+            trim: true,
+        },
+
+        address: {
+            type: String,
+            trim: true,
+        },
+
+        accountHolder: {
+            type: String,
+            trim: true,
+        },
+
+        accountNumber: {
+            type: String,
+            trim: true,
+        },
+
+        ifsc: {
+            type: String,
+            trim: true,
+        },
+
+        documents: {
+            aadhar: { type: String },
+            pan: { type: String },
+            drivingLicense: { type: String },
+        },
+
+        vehicleNumber: {
+            type: String,
+            trim: true,
+        },
+
+        drivingLicenseNumber: {
+            type: String,
+            trim: true,
+        },
+
+        currentArea: {
+            type: String,
+            trim: true,
+        },
+        profileImage: {
+            type: String,
+            trim: true,
+        },
+
+        isVerified: {
+            type: Boolean,
+            default: false,
+        },
+
+
+
+        isOnline: {
+            type: Boolean,
+            default: true,
+        },
+        location: {
+            type: {
+                type: String,
+                enum: ["Point"],
+                default: "Point",
+            },
+            coordinates: {
+                type: [Number],
+                default: [0, 0],
+            },
+        },
+        emergencyContacts: [
+            {
+                name: { type: String, required: true, trim: true },
+                phone: { type: String, required: true, trim: true },
+            },
+        ],
+
+        role: {
+            type: String,
+            default: "delivery",
+        },
+
+        otp: {
+            type: String,
+            select: false,
+        },
+
+        otpExpiry: {
+            type: Date,
+            select: false,
+        },
+
+        lastLogin: Date,
+
+        /** Last GPS fix from POST /delivery/location (for radius matching). */
+        lastLocationAt: {
+            type: Date,
+        },
+
+        // ── Warehouse Queue System ───────────────────────────────────────────
+        /** Reference to the rider's current active check-in session (null = not checked in) */
+        activeCheckinId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "WarehouseCheckin",
+            default: null,
+        },
+
+        /** The warehouse where the rider is currently checked in */
+        activeWarehouseId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Warehouse",
+            default: null,
+        },
+
+        /** Current queue/delivery status */
+        queueStatus: {
+            type: String,
+            enum: ["not_checked_in", "waiting", "order_offered", "order_assigned", "delivering", "offline"],
+            default: "not_checked_in",
+        },
+    },
+    {
+        timestamps: true,
+        toJSON: { virtuals: true },
+        toObject: { virtuals: true }
+    }
+);
+
+deliverySchema.index({ location: "2dsphere" });
+deliverySchema.index({ isOnline: 1, isVerified: 1 });
+
+deliverySchema.virtual('id').get(function () {
+    return this._id.toHexString();
+});
+
+export default mongoose.model("Delivery", deliverySchema);

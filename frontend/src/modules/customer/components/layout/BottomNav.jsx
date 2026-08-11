@@ -1,0 +1,115 @@
+import React from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Home, LayoutGrid, CalendarCheck, Wallet, User, ShoppingCart } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useCart } from '../../context/CartContext';
+import { motion } from 'framer-motion';
+
+const isRouteActive = (itemPath, currentPath) => {
+    if (itemPath === '/') {
+        return currentPath === '/' || currentPath === '/offers' || currentPath === '/search';
+    }
+    if (itemPath === '/categories') {
+        return currentPath.startsWith('/categories') || currentPath.startsWith('/category');
+    }
+    if (itemPath === '/orders') {
+        return currentPath.startsWith('/orders') || currentPath.startsWith('/payment-status');
+    }
+    if (itemPath === '/wallet') {
+        return currentPath.startsWith('/wallet');
+    }
+    if (itemPath === '/profile') {
+        return (
+            currentPath.startsWith('/profile') ||
+            currentPath.startsWith('/addresses') ||
+            currentPath.startsWith('/settings') ||
+            currentPath.startsWith('/support') ||
+            currentPath.startsWith('/about') ||
+            currentPath.startsWith('/privacy') ||
+            currentPath.startsWith('/terms') ||
+            currentPath.startsWith('/wishlist') ||
+            currentPath.startsWith('/transactions')
+        );
+    }
+    return currentPath === itemPath || (itemPath !== '/' && currentPath.startsWith(itemPath));
+};
+
+const BottomNav = () => {
+    const location = useLocation();
+    const navigate = useNavigate();
+    const { cartCount } = useCart();
+
+    const leftNavItems = [
+        { label: 'Home', icon: Home, path: '/' },
+        { label: 'Categories', icon: LayoutGrid, path: '/categories' },
+        { label: 'Orders', icon: CalendarCheck, path: '/orders' },
+    ];
+
+    const rightNavItems = [
+        { label: 'Wallet', icon: Wallet, path: '/wallet' },
+        { label: 'Account', icon: User, path: '/profile' },
+    ];
+
+    return (
+        <div className="fixed bottom-3 left-1.5 right-1.5 z-[500] max-w-lg mx-auto md:hidden pointer-events-auto">
+            <div className="bg-white/95 backdrop-blur-md rounded-full border border-slate-100 shadow-[0_12px_36px_rgba(15,23,42,0.12)] px-1.5 py-1 flex items-center justify-between relative">
+
+                {/* Center Elevated Floating Cart Button */}
+                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-3.5 z-20">
+                    <motion.button
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => navigate(cartCount > 0 ? '/checkout' : '/orders')}
+                        className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-tr from-[#ff5500] to-[#ff7700] text-white flex items-center justify-center border-[3px] border-white shadow-[0_12px_24px_rgba(255,85,0,0.55)] transition-all cursor-pointer hover:scale-105 active:scale-95"
+                        title="View Cart"
+                    >
+                        <ShoppingCart size={18} className="text-white" strokeWidth={2.3} />
+                    </motion.button>
+                    {cartCount > 0 && (
+                        <div className="absolute -top-1 -right-1 bg-red-500 text-white font-black text-[9px] w-4.5 h-4.5 rounded-full border border-white flex items-center justify-center shadow-md pointer-events-none animate-in zoom-in">
+                            {cartCount > 99 ? '99+' : cartCount}
+                        </div>
+                    )}
+                </div>
+
+                {/* 5 Icons */}
+                <div className="flex items-center justify-between w-full px-2">
+                    {[...leftNavItems, ...rightNavItems].map((item) => {
+                        const isActive = isRouteActive(item.path, location.pathname);
+
+                        return (
+                            <Link
+                                key={item.path}
+                                to={item.path}
+                                className={cn(
+                                    "flex flex-col items-center justify-center gap-1 px-2 py-1 rounded-xl transition-all duration-300 flex-1 min-w-0",
+                                    isActive
+                                        ? "bg-[#fff0e6] text-[#ff5500] font-extrabold shadow-2xs"
+                                        : "text-slate-500 hover:text-slate-700 font-medium"
+                                )}
+                            >
+                                <motion.div
+                                    animate={{ scale: isActive ? 1.25 : 1 }}
+                                    transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                                    className="flex items-center justify-center"
+                                >
+                                    <item.icon
+                                        size={17}
+                                        strokeWidth={isActive ? 2.5 : 2}
+                                        className={cn("transition-colors shrink-0", isActive ? "text-[#ff5500]" : "text-slate-500")}
+                                    />
+                                </motion.div>
+                                <span className={cn("text-[10.5px] whitespace-nowrap leading-none", isActive ? "text-[#ff5500] font-extrabold mt-1" : "text-slate-600 font-semibold")}>
+                                    {item.label}
+                                </span>
+                            </Link>
+                        );
+                    })}
+                </div>
+
+            </div>
+        </div>
+    );
+};
+
+export default BottomNav;
+
