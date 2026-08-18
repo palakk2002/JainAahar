@@ -45,6 +45,9 @@ import { requireCanonicalOrderId } from "../utils/orderLookup.js";
 import { emitNotificationEvent } from "../modules/notifications/notification.emitter.js";
 import logger from "./logger.js";
 import { NOTIFICATION_EVENTS } from "../modules/notifications/notification.constants.js";
+import { deliveryBroadcastPayloadFromOrder } from "../modules/delivery/internal/deliveryBroadcastPayload.js";
+import { markBroadcastAssigned } from "../modules/delivery/deliveryManager.js";
+import { deliveryShipmentQueue } from "../queues/deliveryQueues.js";
 // NOTE: warehouseQueueAssignmentService is dynamically imported inside sellerAcceptAtomic
 // to avoid circular dependency (warehouseQueueAssignmentService -> orderWorkflowService -> warehouseQueueAssignmentService)
 
@@ -55,34 +58,6 @@ const DELIVERY_RADIUS_MULTIPLIER = () =>
   parseFloat(process.env.DELIVERY_RADIUS_MULTIPLIER || "1.5");
 const INITIAL_DELIVERY_RADIUS_M = () =>
   parseInt(process.env.INITIAL_DELIVERY_RADIUS_METERS || "5000", 10);
-
-/** Payload for `delivery:broadcast` + Notification.data — lets the app show a modal without relying on GET /available alone. */
-function deliveryBroadcastPayloadFromOrder(order, extra = {}) {
-  const seller =
-    order.seller && typeof order.seller === "object" && order.seller !== null
-      ? order.seller
-      : null;
-  const pickup = seller?.shopName || "Seller";
-  const drop =
-    typeof order.address?.address === "string" && order.address.address.trim()
-      ? order.address.address.trim()
-      : "Customer address";
-  const meta = order.deliverySearchMeta || {};
-  const sid = seller?._id ?? order.seller;
-  return {
-    orderId: order.orderId,
-    workflowStatus: order.workflowStatus || WORKFLOW_STATUS.DELIVERY_SEARCH,
-    sellerId: sid != null ? String(sid) : undefined,
-    radiusMeters: meta.radiusMeters ?? INITIAL_DELIVERY_RADIUS_M(),
-    preview: {
-      pickup,
-      drop,
-      total: order.pricing?.total ?? 0,
-    },
-    deliverySearchExpiresAt: order.deliverySearchExpiresAt,
-    ...extra,
-  };
-}
 const PICKUP_RADIUS_M = () =>
   parseInt(process.env.PICKUP_RADIUS_METERS || "150", 10);
 const OTP_RADIUS_M = () =>
@@ -103,6 +78,20 @@ export function resolveWorkflowStatus(order) {
 export async function afterPlaceOrderV2(orderDoc) {
   const orderId = orderDoc.orderId;
   await scheduleSellerTimeoutJob(orderId);
+
+  // Automatically evaluate and assign to best warehouse based on location & stock
+  try {
+    const { assignWarehouseToOrder } = await import("./warehouseAssignmentService.js");
+    await assignWarehouseToOrder({
+      orderId: orderDoc._id || orderDoc.orderId,
+      assignedBy: "system",
+    });
+  } catch (whErr) {
+    logger.warn(
+      `[afterPlaceOrderV2] Auto warehouse assignment error for order #${orderId}:`,
+      whErr?.message || whErr,
+    );
+  }
 
   const payload = {
     orderId,

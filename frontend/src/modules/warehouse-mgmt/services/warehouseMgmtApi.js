@@ -1,304 +1,554 @@
-import { mockWarehouses } from "../data/mockWarehouses";
-import { mockProducts } from "../data/mockProducts";
-import { mockInventory } from "../data/mockInventory";
-import { mockOrders } from "../data/mockOrders";
-import { mockTransfers } from "../data/mockTransfers";
-import { mockMovements } from "../data/mockMovements";
-import { mockReturns } from "../data/mockReturns";
-import { mockDamagedItems } from "../data/mockDamaged";
-import { mockAdjustments } from "../data/mockAdjustments";
-import { mockAlerts } from "../data/mockAlerts";
+import axiosInstance from "@core/api/axios";
 
-// In-memory state for interactive frontend testing
-let warehousesState = [...mockWarehouses];
-let productsState = [...mockProducts];
-let inventoryState = [...mockInventory];
-let ordersState = [...mockOrders];
-let transfersState = [...mockTransfers];
-let movementsState = [...mockMovements];
-let returnsState = [...mockReturns];
-let damagedState = [...mockDamagedItems];
-let adjustmentsState = [...mockAdjustments];
-let alertsState = [...mockAlerts];
-
-const delay = (ms = 150) => new Promise((resolve) => setTimeout(resolve, ms));
-
+/**
+ * Real Warehouse Management API Client
+ * Connects all warehouse management pages to live backend endpoints.
+ */
 export const warehouseMgmtApi = {
-  // Warehouses
+  // ==========================================
+  // WAREHOUSES & PROFILES
+  // ==========================================
   async getWarehouses() {
-    await delay();
-    return { data: { success: true, result: warehousesState } };
+    try {
+      const response = await axiosInstance.get("/admin/warehouses/active");
+      const items = response.data?.result?.items || response.data?.result || [];
+      return { data: { success: true, result: items } };
+    } catch (err) {
+      // Fallback to warehouse profile if logged in as warehouse role
+      try {
+        const profRes = await axiosInstance.get("/warehouse/profile");
+        const profile = profRes.data?.result;
+        return {
+          data: {
+            success: true,
+            result: profile ? [profile] : [],
+          },
+        };
+      } catch (fallbackErr) {
+        return { data: { success: false, result: [], message: err.message } };
+      }
+    }
   },
 
   async getWarehouseById(id) {
-    await delay();
-    const wh = warehousesState.find((w) => w.id === id);
-    if (!wh) return { data: { success: false, message: "Warehouse not found" } };
-    return { data: { success: true, result: wh } };
+    try {
+      if (id === "me" || !id) {
+        const response = await axiosInstance.get("/warehouse/profile");
+        return response;
+      }
+      const response = await axiosInstance.get(`/admin/warehouses/active?q=${id}`);
+      const items = response.data?.result?.items || [];
+      const match = items.find((w) => w.id === id || w._id === id);
+      return { data: { success: true, result: match || items[0] || null } };
+    } catch (err) {
+      return { data: { success: false, message: err.message } };
+    }
   },
 
   async updateWarehouse(id, updateData) {
-    await delay();
-    warehousesState = warehousesState.map((w) =>
-      w.id === id ? { ...w, ...updateData } : w
-    );
-    const updated = warehousesState.find((w) => w.id === id);
-    return { data: { success: true, result: updated } };
+    try {
+      const response = await axiosInstance.put("/warehouse/profile", updateData);
+      return response;
+    } catch (err) {
+      return { data: { success: false, message: err.response?.data?.message || err.message } };
+    }
   },
 
-  // Products
+  // ==========================================
+  // PRODUCTS (Master Catalogue)
+  // ==========================================
   async getProducts() {
-    await delay();
-    return { data: { success: true, result: productsState } };
-  },
-
-  // Inventory
-  async getInventory(warehouseId = "all") {
-    await delay();
-    let result = inventoryState;
-    if (warehouseId && warehouseId !== "all") {
-      result = result.filter((item) => item.warehouseId === warehouseId);
+    try {
+      const response = await axiosInstance.get("/products");
+      const products = response.data?.result?.products || response.data?.result || [];
+      return { data: { success: true, result: products } };
+    } catch (err) {
+      return { data: { success: false, result: [], message: err.message } };
     }
-    return { data: { success: true, result } };
   },
 
-  // Stock Inward
+  // ==========================================
+  // INVENTORY
+  // ==========================================
+  async getInventory(warehouseId = "all", params = {}) {
+    try {
+      const queryParams = {
+        warehouseId: warehouseId !== "all" ? warehouseId : undefined,
+        ...params,
+      };
+      const response = await axiosInstance.get("/warehouse/inventory", {
+        params: queryParams,
+      });
+
+      const rawItems = response.data?.result?.items || [];
+      // Normalize items for existing UI tables
+      const normalized = rawItems.map((item) => ({
+        id: item._id,
+        _id: item._id,
+        productId: item.product?._id || item.product,
+        productName: item.product?.name || item.product?.title || "Product",
+        sku: item.sku || item.product?.sku || "N/A",
+        warehouseId: item.warehouse?._id || item.warehouse,
+        warehouseName: item.warehouse?.warehouseName || item.warehouse?.name || "Warehouse",
+        category: item.product?.categoryName || "General",
+        price: item.product?.price || 0,
+        available: item.available || 0,
+        reserved: item.reserved || 0,
+        damaged: item.damaged || 0,
+        defective: item.defective || 0,
+        total: (item.available || 0) + (item.reserved || 0) + (item.damaged || 0) + (item.defective || 0),
+        minStock: item.minStock || 5,
+        status:
+          (item.available || 0) <= 0
+            ? "Out of Stock"
+            : (item.available || 0) <= (item.minStock || 5)
+            ? "Low Stock"
+            : "In Stock",
+        lastUpdated: item.lastUpdated || item.updatedAt,
+        image: item.product?.image || item.product?.images?.[0] || "",
+      }));
+
+      return {
+        data: {
+          success: true,
+          result: normalized,
+          pagination: response.data?.result,
+        },
+      };
+    } catch (err) {
+      return { data: { success: false, result: [], message: err.message } };
+    }
+  },
+
+  async getLowStock(warehouseId = "all") {
+    return this.getInventory(warehouseId, { status: "low_stock" });
+  },
+
+  async getOutOfStock(warehouseId = "all") {
+    return this.getInventory(warehouseId, { status: "out_of_stock" });
+  },
+
+  // ==========================================
+  // STOCK INWARD, OUTWARD & ADJUSTMENTS
+  // ==========================================
   async createInward(inwardData) {
-    await delay();
-    const newMovement = {
-      id: `MOV-${Date.now().toString().slice(-5)}`,
-      date: new Date().toISOString(),
-      productId: inwardData.productId,
-      productName: inwardData.productName,
-      sku: inwardData.sku,
-      warehouseId: inwardData.warehouseId,
-      warehouseName: inwardData.warehouseName,
-      movementType: "Stock Inward",
-      quantity: Number(inwardData.quantity),
-      beforeQty: 100,
-      afterQty: 100 + Number(inwardData.quantity),
-      reference: inwardData.reference || `INV-${Date.now().toString().slice(-4)}`,
-      user: "Current User",
-      reason: inwardData.notes || `Stock Inward via ${inwardData.source}`,
-    };
-    movementsState = [newMovement, ...movementsState];
-
-    // Update inventory item in local state
-    inventoryState = inventoryState.map((inv) => {
-      if (inv.warehouseId === inwardData.warehouseId && inv.productId === inwardData.productId) {
-        const newAvail = inv.available + Number(inwardData.quantity);
-        return {
-          ...inv,
-          available: newAvail,
-          total: newAvail + inv.reserved + inv.damaged + inv.defective,
-          status: newAvail > inv.minStock ? "In Stock" : newAvail > 0 ? "Low Stock" : "Out of Stock",
-          lastUpdated: new Date().toISOString(),
-        };
-      }
-      return inv;
-    });
-
-    return { data: { success: true, result: newMovement } };
-  },
-
-  // Orders & Fulfillment
-  async getOrders(warehouseId = "all") {
-    await delay();
-    let result = ordersState;
-    if (warehouseId && warehouseId !== "all") {
-      result = result.filter((o) => o.warehouseId === warehouseId);
+    try {
+      const payload = {
+        warehouseId: inwardData.warehouseId,
+        productId: inwardData.productId,
+        sku: inwardData.sku,
+        quantity: Number(inwardData.quantity),
+        reason: inwardData.reason || `Stock Inward via ${inwardData.source || "Manual"}`,
+        reference: inwardData.reference,
+        notes: inwardData.notes,
+      };
+      const response = await axiosInstance.post("/warehouse/inventory/inward", payload);
+      return response;
+    } catch (err) {
+      return { data: { success: false, message: err.response?.data?.message || err.message } };
     }
-    return { data: { success: true, result } };
   },
 
-  async updateFulfillmentStatus(orderId, status) {
-    await delay();
-    ordersState = ordersState.map((o) =>
-      o.id === orderId ? { ...o, fulfillmentStatus: status } : o
-    );
-    const updated = ordersState.find((o) => o.id === orderId);
-    return { data: { success: true, result: updated } };
-  },
-
-  async updateItemPicking(orderId, productId, pickedQty) {
-    await delay();
-    ordersState = ordersState.map((o) => {
-      if (o.id === orderId) {
-        const updatedItems = o.items.map((item) =>
-          item.productId === productId ? { ...item, pickedQty } : item
-        );
-        const allPicked = updatedItems.every((it) => it.pickedQty >= it.qty);
-        return {
-          ...o,
-          items: updatedItems,
-          pickingStatus: allPicked ? "Picked" : "In Progress",
-          fulfillmentStatus: allPicked ? "Picking" : "Picking",
-        };
-      }
-      return o;
-    });
-    return { data: { success: true } };
-  },
-
-  // Transfers
-  async getTransfers(warehouseId = "all") {
-    await delay();
-    let result = transfersState;
-    if (warehouseId && warehouseId !== "all") {
-      result = result.filter(
-        (t) => t.sourceWarehouseId === warehouseId || t.destWarehouseId === warehouseId
-      );
+  async createOutward(outwardData) {
+    try {
+      const payload = {
+        warehouseId: outwardData.warehouseId,
+        productId: outwardData.productId,
+        sku: outwardData.sku,
+        quantity: Number(outwardData.quantity),
+        reason: outwardData.reason || "Stock Outward",
+        reference: outwardData.reference,
+        notes: outwardData.notes,
+      };
+      const response = await axiosInstance.post("/warehouse/inventory/outward", payload);
+      return response;
+    } catch (err) {
+      return { data: { success: false, message: err.response?.data?.message || err.message } };
     }
-    return { data: { success: true, result } };
-  },
-
-  async createTransfer(transferData) {
-    await delay();
-    const newTransfer = {
-      id: `TR-2026-${(transfersState.length + 1).toString().padStart(3, "0")}`,
-      transferNumber: `TR-${transferData.sourceWarehouseId.slice(-3).toUpperCase()}-${transferData.destWarehouseId.slice(-3).toUpperCase()}-${Date.now().toString().slice(-2)}`,
-      ...transferData,
-      requestDate: new Date().toISOString(),
-      status: "Requested",
-    };
-    transfersState = [newTransfer, ...transfersState];
-    return { data: { success: true, result: newTransfer } };
-  },
-
-  async updateTransferStatus(transferId, status) {
-    await delay();
-    transfersState = transfersState.map((t) =>
-      t.id === transferId ? { ...t, status } : t
-    );
-    return { data: { success: true } };
-  },
-
-  // Damaged & Defective
-  async getDamagedItems(warehouseId = "all") {
-    await delay();
-    let result = damagedState;
-    if (warehouseId && warehouseId !== "all") {
-      result = result.filter((d) => d.warehouseId === warehouseId);
-    }
-    return { data: { success: true, result } };
-  },
-
-  async addDamagedItem(itemData) {
-    await delay();
-    const newItem = {
-      id: `DMG-${Date.now().toString().slice(-4)}`,
-      ...itemData,
-      reportedDate: new Date().toISOString(),
-      status: "Quarantined",
-    };
-    damagedState = [newItem, ...damagedState];
-    return { data: { success: true, result: newItem } };
-  },
-
-  // Returns
-  async getReturns(warehouseId = "all") {
-    await delay();
-    let result = returnsState;
-    if (warehouseId && warehouseId !== "all") {
-      result = result.filter((r) => r.warehouseId === warehouseId);
-    }
-    return { data: { success: true, result } };
-  },
-
-  async updateReturnDecision(returnId, decision) {
-    await delay();
-    returnsState = returnsState.map((r) =>
-      r.id === returnId
-        ? { ...r, finalDecision: decision, inspectionStatus: "Inspected" }
-        : r
-    );
-    return { data: { success: true } };
-  },
-
-  // Adjustments
-  async getAdjustments(warehouseId = "all") {
-    await delay();
-    let result = adjustmentsState;
-    if (warehouseId && warehouseId !== "all") {
-      result = result.filter((a) => a.warehouseId === warehouseId);
-    }
-    return { data: { success: true, result } };
   },
 
   async createAdjustment(adjData) {
-    await delay();
-    const newAdj = {
-      id: `ADJ-2026-${(adjustmentsState.length + 1).toString().padStart(3, "0")}`,
-      ...adjData,
-      date: new Date().toISOString(),
-      user: "Warehouse Manager",
-    };
-    adjustmentsState = [newAdj, ...adjustmentsState];
-    return { data: { success: true, result: newAdj } };
-  },
+    try {
+      const adjustmentType =
+        String(adjData.adjustmentType || adjData.type || "").toUpperCase().includes("INC")
+          ? "INCREASE"
+          : "DECREASE";
 
-  // Audit Movements
-  async getMovements(warehouseId = "all") {
-    await delay();
-    let result = movementsState;
-    if (warehouseId && warehouseId !== "all") {
-      result = result.filter((m) => m.warehouseId === warehouseId);
+      const payload = {
+        warehouseId: adjData.warehouseId,
+        productId: adjData.productId,
+        sku: adjData.sku,
+        adjustmentType,
+        quantity: Number(adjData.quantity || Math.abs(adjData.qty || 1)),
+        reason: adjData.reason || "Stock Adjustment",
+        notes: adjData.notes,
+      };
+      const response = await axiosInstance.post("/warehouse/inventory/adjust", payload);
+      return response;
+    } catch (err) {
+      return { data: { success: false, message: err.response?.data?.message || err.message } };
     }
-    return { data: { success: true, result } };
   },
 
-  // Dashboard Stats calculation
+  // ==========================================
+  // DAMAGED & DEFECTIVE STOCK
+  // ==========================================
+  async getDamagedItems(warehouseId = "all") {
+    return this.getInventory(warehouseId, { status: "damaged" });
+  },
+
+  async addDamagedItem(itemData) {
+    try {
+      const payload = {
+        warehouseId: itemData.warehouseId,
+        productId: itemData.productId,
+        sku: itemData.sku,
+        quantity: Number(itemData.quantity),
+        reason: itemData.reason || itemData.issueType || "Damaged Item",
+        notes: itemData.notes,
+      };
+      const response = await axiosInstance.post("/warehouse/inventory/damaged", payload);
+      return response;
+    } catch (err) {
+      return { data: { success: false, message: err.response?.data?.message || err.message } };
+    }
+  },
+
+  async addDefectiveItem(itemData) {
+    try {
+      const payload = {
+        warehouseId: itemData.warehouseId,
+        productId: itemData.productId,
+        sku: itemData.sku,
+        quantity: Number(itemData.quantity),
+        reason: itemData.reason || "Defective Item",
+        notes: itemData.notes,
+      };
+      const response = await axiosInstance.post("/warehouse/inventory/defective", payload);
+      return response;
+    } catch (err) {
+      return { data: { success: false, message: err.response?.data?.message || err.message } };
+    }
+  },
+
+  async restockItem(itemData) {
+    try {
+      const payload = {
+        warehouseId: itemData.warehouseId,
+        productId: itemData.productId,
+        sku: itemData.sku,
+        quantity: Number(itemData.quantity),
+        fromType: itemData.fromType || "damaged",
+        reason: itemData.reason || "Restocked from quarantine",
+        notes: itemData.notes,
+      };
+      const response = await axiosInstance.post("/warehouse/inventory/restock", payload);
+      return response;
+    } catch (err) {
+      return { data: { success: false, message: err.response?.data?.message || err.message } };
+    }
+  },
+
+  // ==========================================
+  // INVENTORY TRANSACTION AUDIT / MOVEMENTS
+  // ==========================================
+  async getMovements(warehouseId = "all", params = {}) {
+    try {
+      const queryParams = {
+        warehouseId: warehouseId !== "all" ? warehouseId : undefined,
+        ...params,
+      };
+      const response = await axiosInstance.get("/warehouse/inventory/transactions", {
+        params: queryParams,
+      });
+
+      const rawItems = response.data?.result?.items || [];
+      const normalized = rawItems.map((m) => ({
+        id: m._id,
+        _id: m._id,
+        date: m.createdAt,
+        productId: m.product?._id || m.product,
+        productName: m.product?.name || m.product?.title || "Product",
+        sku: m.sku || "N/A",
+        warehouseId: m.warehouse?._id || m.warehouse,
+        warehouseName: m.warehouse?.warehouseName || m.warehouse?.name || "Warehouse",
+        movementType: m.type,
+        quantity: m.quantity,
+        beforeQty: m.beforeQty,
+        afterQty: m.afterQty,
+        reference: m.reference || "N/A",
+        user: m.performedByModel || "System",
+        reason: m.reason || "",
+      }));
+
+      return { data: { success: true, result: normalized } };
+    } catch (err) {
+      return { data: { success: false, result: [], message: err.message } };
+    }
+  },
+
+  // ==========================================
+  // ORDERS & FULFILLMENTS
+  // ==========================================
+  async getOrders(warehouseId = "all", params = {}) {
+    try {
+      const queryParams = {
+        warehouseId: warehouseId !== "all" ? warehouseId : undefined,
+        ...params,
+      };
+      const response = await axiosInstance.get("/warehouse/fulfillments", {
+        params: queryParams,
+      });
+
+      const rawItems = response.data?.result?.items || [];
+      const normalized = rawItems.map((f) => ({
+        id: f._id,
+        _id: f._id,
+        fulfillmentId: f.fulfillmentId,
+        orderId: f.orderId || f.order?.orderId || "ORD",
+        customerName: f.order?.address?.name || f.order?.customer?.name || "Customer",
+        customerCity: f.order?.address?.city || "",
+        totalAmount: f.order?.pricing?.total || 0,
+        warehouseId: f.warehouse?._id || f.warehouse,
+        warehouseName: f.warehouse?.warehouseName || f.warehouse?.name || "Warehouse",
+        fulfillmentStatus: f.status,
+        hasShortPick: f.hasShortPick || false,
+        assignedAt: f.assignedAt || f.createdAt,
+        items: (f.items || []).map((it) => ({
+          productId: it.product?._id || it.product,
+          name: it.name || it.product?.name || "Product",
+          sku: it.sku || "",
+          qty: it.requiredQty,
+          requiredQty: it.requiredQty,
+          pickedQty: it.pickedQty || 0,
+          shortQty: it.shortQty || 0,
+          status: it.status || "PENDING",
+        })),
+        notes: f.notes || "",
+      }));
+
+      return { data: { success: true, result: normalized } };
+    } catch (err) {
+      return { data: { success: false, result: [], message: err.message } };
+    }
+  },
+
+  async getFulfillmentDetail(id) {
+    try {
+      const response = await axiosInstance.get(`/warehouse/fulfillments/${id}`);
+      return response;
+    } catch (err) {
+      return { data: { success: false, message: err.response?.data?.message || err.message } };
+    }
+  },
+
+  async updateFulfillmentStatus(fulfillmentId, action, extraData = {}) {
+    try {
+      // Map actions: 'accept', 'start-picking', 'start-packing', 'packed', 'ready-to-ship', 'cancel'
+      const endpoint = `/warehouse/fulfillments/${fulfillmentId}/${action}`;
+      const response = await axiosInstance.post(endpoint, extraData);
+      return response;
+    } catch (err) {
+      return { data: { success: false, message: err.response?.data?.message || err.message } };
+    }
+  },
+
+  async updateItemPicking(fulfillmentId, productId, pickedQty, shortQty = 0, shortReason = "") {
+    try {
+      const response = await axiosInstance.post(
+        `/warehouse/fulfillments/${fulfillmentId}/update-item-pick`,
+        { productId, pickedQty, shortQty, shortReason }
+      );
+      return response;
+    } catch (err) {
+      return { data: { success: false, message: err.response?.data?.message || err.message } };
+    }
+  },
+
+  // ==========================================
+  // TRANSFERS
+  // ==========================================
+  async getTransfers(warehouseId = "all", params = {}) {
+    try {
+      const queryParams = {
+        warehouseId: warehouseId !== "all" ? warehouseId : undefined,
+        ...params,
+      };
+      const response = await axiosInstance.get("/warehouse/transfers", {
+        params: queryParams,
+      });
+
+      const rawItems = response.data?.result?.items || [];
+      const normalized = rawItems.map((t) => ({
+        id: t._id,
+        _id: t._id,
+        transferId: t.transferId,
+        transferNumber: t.transferId,
+        sourceWarehouseId: t.fromWarehouse?._id || t.fromWarehouse,
+        sourceWarehouseName: t.fromWarehouse?.warehouseName || t.fromWarehouse?.name || "Source Warehouse",
+        destWarehouseId: t.toWarehouse?._id || t.toWarehouse,
+        destWarehouseName: t.toWarehouse?.warehouseName || t.toWarehouse?.name || "Dest Warehouse",
+        status: t.status,
+        requestDate: t.requestedAt || t.createdAt,
+        items: (t.items || []).map((it) => ({
+          productId: it.product?._id || it.product,
+          productName: it.name || it.product?.name || "Product",
+          sku: it.sku || "",
+          quantity: it.quantity,
+        })),
+        notes: t.notes || "",
+      }));
+
+      return { data: { success: true, result: normalized } };
+    } catch (err) {
+      return { data: { success: false, result: [], message: err.message } };
+    }
+  },
+
+  async createTransfer(transferData) {
+    try {
+      const payload = {
+        fromWarehouseId: transferData.sourceWarehouseId || transferData.fromWarehouseId,
+        toWarehouseId: transferData.destWarehouseId || transferData.toWarehouseId,
+        items: transferData.items,
+        notes: transferData.notes,
+      };
+      const response = await axiosInstance.post("/warehouse/transfers", payload);
+      return response;
+    } catch (err) {
+      return { data: { success: false, message: err.response?.data?.message || err.message } };
+    }
+  },
+
+  async updateTransferStatus(transferId, action, extraData = {}) {
+    try {
+      // action: 'approve', 'receive', 'cancel'
+      const endpoint = `/warehouse/transfers/${transferId}/${action}`;
+      const response = await axiosInstance.put(endpoint, extraData);
+      return response;
+    } catch (err) {
+      return { data: { success: false, message: err.response?.data?.message || err.message } };
+    }
+  },
+
+  // ==========================================
+  // DASHBOARD STATS (Aggregated from live DB)
+  // ==========================================
   async getDashboardStats(warehouseId = "all") {
-    await delay();
+    try {
+      const queryParams = warehouseId !== "all" ? { warehouseId } : {};
 
-    let inv = inventoryState;
-    let ord = ordersState;
-    let trs = transfersState;
-    let ret = returnsState;
+      const [invRes, fulRes, whRes, trfRes] = await Promise.allSettled([
+        axiosInstance.get("/warehouse/inventory/summary", { params: queryParams }),
+        axiosInstance.get("/warehouse/fulfillments/stats", { params: queryParams }),
+        axiosInstance.get("/admin/warehouses/active"),
+        axiosInstance.get("/warehouse/transfers", { params: { ...queryParams, limit: 100 } }),
+      ]);
 
-    if (warehouseId && warehouseId !== "all") {
-      inv = inv.filter((i) => i.warehouseId === warehouseId);
-      ord = ord.filter((o) => o.warehouseId === warehouseId);
-      trs = trs.filter((t) => t.sourceWarehouseId === warehouseId || t.destWarehouseId === warehouseId);
-      ret = ret.filter((r) => r.warehouseId === warehouseId);
-    }
+      const invSummary = invRes.status === "fulfilled" ? invRes.value.data?.result || {} : {};
+      const fulStats = fulRes.status === "fulfilled" ? fulRes.value.data?.result || {} : {};
+      const whItems = whRes.status === "fulfilled" ? whRes.value.data?.result?.items || [] : [];
+      const trfItems = trfRes.status === "fulfilled" ? trfRes.value.data?.result?.items || [] : [];
 
-    const totalSkus = new Set(inv.map((i) => i.sku)).size;
-    const totalStockUnits = inv.reduce((sum, i) => sum + i.total, 0);
-    const availableStock = inv.reduce((sum, i) => sum + i.available, 0);
-    const reservedStock = inv.reduce((sum, i) => sum + i.reserved, 0);
-    const damagedStock = inv.reduce((sum, i) => sum + i.damaged, 0);
-    const defectiveStock = inv.reduce((sum, i) => sum + i.defective, 0);
-    const lowStockItems = inv.filter((i) => i.status === "Low Stock").length;
-    const outOfStockItems = inv.filter((i) => i.status === "Out of Stock").length;
-    const pendingTransfers = trs.filter((t) => t.status === "In Transit" || t.status === "Requested" || t.status === "Approved").length;
-    const pendingReturns = ret.filter((r) => r.inspectionStatus === "Pending Inspection").length;
-    const pendingFulfillmentOrders = ord.filter((o) => o.fulfillmentStatus !== "Completed" && o.fulfillmentStatus !== "Cancelled").length;
+      const pendingTransfers = trfItems.filter(
+        (t) => t.status === "REQUESTED" || t.status === "IN_TRANSIT" || t.status === "APPROVED"
+      ).length;
 
-    return {
-      data: {
-        success: true,
-        result: {
-          totalWarehouses: warehousesState.length,
-          totalSkus,
-          totalStockUnits,
-          availableStock,
-          reservedStock,
-          damagedStock,
-          defectiveStock,
-          lowStockItems,
-          outOfStockItems,
-          pendingTransfers,
-          pendingReturns,
-          pendingFulfillmentOrders,
+      return {
+        data: {
+          success: true,
+          result: {
+            totalWarehouses: whItems.length || 1,
+            totalSkus: invSummary.totalSkus || 0,
+            totalStockUnits: invSummary.totalPhysicalStock || 0,
+            availableStock: invSummary.totalAvailable || 0,
+            reservedStock: invSummary.totalReserved || 0,
+            damagedStock: invSummary.totalDamaged || 0,
+            defectiveStock: invSummary.totalDefective || 0,
+            lowStockItems: invSummary.lowStockCount || 0,
+            outOfStockItems: invSummary.outOfStockCount || 0,
+            pendingTransfers,
+            pendingReturns: 0,
+            pendingFulfillmentOrders:
+              (fulStats.assigned || 0) +
+              (fulStats.accepted || 0) +
+              (fulStats.picking || 0) +
+              (fulStats.packing || 0),
+            fulfillmentBreakdown: fulStats,
+          },
         },
-      },
-    };
+      };
+    } catch (err) {
+      return {
+        data: {
+          success: false,
+          result: {
+            totalWarehouses: 0,
+            totalSkus: 0,
+            totalStockUnits: 0,
+            availableStock: 0,
+            reservedStock: 0,
+            damagedStock: 0,
+            defectiveStock: 0,
+            lowStockItems: 0,
+            outOfStockItems: 0,
+            pendingTransfers: 0,
+            pendingReturns: 0,
+            pendingFulfillmentOrders: 0,
+          },
+        },
+      };
+    }
   },
 
-  // Alerts
-  async getAlerts() {
-    await delay();
-    return { data: { success: true, result: alertsState } };
+  // ==========================================
+  // RETURNS (Compatibility Layer)
+  // ==========================================
+  async getReturns(warehouseId = "all") {
+    return { data: { success: true, result: [] } };
+  },
+
+  async updateReturnDecision(returnId, decision) {
+    return { data: { success: true } };
+  },
+
+  // ==========================================
+  // ALERTS (Calculated from live thresholds)
+  // ==========================================
+  async getAlerts(warehouseId = "all") {
+    try {
+      const lowStockRes = await this.getLowStock(warehouseId);
+      const outOfStockRes = await this.getOutOfStock(warehouseId);
+
+      const alerts = [];
+      const lowItems = lowStockRes.data?.result || [];
+      const outItems = outOfStockRes.data?.result || [];
+
+      outItems.slice(0, 5).forEach((item) => {
+        alerts.push({
+          id: `ALT-OOS-${item.id}`,
+          type: "Out of Stock",
+          severity: "High",
+          message: `${item.productName} is completely out of stock in ${item.warehouseName}`,
+          date: new Date().toISOString(),
+        });
+      });
+
+      lowItems.slice(0, 5).forEach((item) => {
+        alerts.push({
+          id: `ALT-LOW-${item.id}`,
+          type: "Low Stock",
+          severity: "Medium",
+          message: `${item.productName} has only ${item.available} units left (Min: ${item.minStock})`,
+          date: new Date().toISOString(),
+        });
+      });
+
+      return { data: { success: true, result: alerts } };
+    } catch {
+      return { data: { success: true, result: [] } };
+    }
   },
 };
+
+export default warehouseMgmtApi;

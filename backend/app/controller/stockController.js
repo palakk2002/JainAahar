@@ -10,13 +10,23 @@ import {
 
 /* ===============================
    ADJUST STOCK MANUALLY
-================================ */
+ ================================ */
 export const adjustStock = async (req, res) => {
     try {
         const { productId, type, quantity, note } = req.body;
-        const sellerId = req.user.id;
+        const role = String(req.user.role || "").toLowerCase();
+        let sellerId = req.user.id;
 
-        const product = await Product.findOne({ _id: productId, sellerId });
+        let product;
+        if (role === "admin" || role === "warehouse") {
+            product = await Product.findById(productId);
+            if (product) {
+                sellerId = product.sellerId ? product.sellerId.toString() : sellerId;
+            }
+        } else {
+            product = await Product.findOne({ _id: productId, sellerId });
+        }
+
         if (!product) {
             return handleResponse(res, 404, "Product not found or unauthorized");
         }
@@ -71,13 +81,13 @@ export const adjustStock = async (req, res) => {
 
 /* ===============================
    GET STOCK HISTORY LOG
-================================ */
+ ================================ */
 export const getStockHistory = async (req, res) => {
     try {
         const userId = req.user.id;
         const role = req.user.role;
 
-        const query = role === "warehouse" ? { warehouseId: userId } : { seller: userId };
+        const query = role === "warehouse" ? { warehouseId: userId } : (role === "admin" ? {} : { seller: userId });
 
         const history = await StockHistory.find(query)
             .sort({ createdAt: -1 })
@@ -98,3 +108,4 @@ export const getStockHistory = async (req, res) => {
         return handleResponse(res, 500, error.message);
     }
 };
+

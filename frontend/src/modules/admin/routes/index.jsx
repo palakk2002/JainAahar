@@ -104,6 +104,11 @@ const SOSAlerts = React.lazy(() => import("../pages/SOSAlerts"));
 const EmployeeManagement = React.lazy(() => import("../pages/EmployeeManagement"));
 const EmployeeDetail = React.lazy(() => import("../pages/EmployeeDetail"));
 
+const InventoryManagement = React.lazy(() => import("../pages/InventoryManagement"));
+const StoreProfile = React.lazy(() => import("../pages/StoreProfile"));
+const StoreAnalytics = React.lazy(() => import("../pages/StoreAnalytics"));
+
+
 
 const navItems = [
   {
@@ -125,6 +130,39 @@ const navItems = [
     ],
   },
   { label: "Products", path: "/admin/products", icon: Box, color: "amber" },
+  { label: "Inventory", path: "/admin/inventory", icon: Box, color: "orange" },
+  {
+    label: "Warehouses",
+    icon: Building2,
+    color: "teal",
+    children: [
+      { label: "Dashboard", path: "/warehouse-mgmt/dashboard" },
+      { label: "All Warehouses", path: "/warehouse-mgmt/warehouses" },
+      { label: "Inventory Levels", path: "/warehouse-mgmt/inventory" },
+      { label: "Stock Inward", path: "/warehouse-mgmt/inward" },
+      { label: "Stock Outward", path: "/warehouse-mgmt/outward" },
+      { label: "Warehouse Orders", path: "/warehouse-mgmt/orders" },
+      { label: "Picking & Packing", path: "/warehouse-mgmt/fulfillment" },
+      { label: "Stock Transfers", path: "/warehouse-mgmt/transfers" },
+      { label: "Damaged & Defective", path: "/warehouse-mgmt/damaged" },
+      { label: "Returned Items", path: "/warehouse-mgmt/returns" },
+      { label: "Stock Adjustments", path: "/warehouse-mgmt/adjustments" },
+      { label: "Movement History", path: "/warehouse-mgmt/audit" },
+      { label: "Low Stock Alerts", path: "/warehouse-mgmt/low-stock" },
+      { label: "Out of Stock Items", path: "/warehouse-mgmt/out-of-stock" },
+      { label: "Operational Reports", path: "/warehouse-mgmt/reports" },
+    ],
+  },
+  {
+    label: "Store Management",
+    icon: Building2,
+    color: "blue",
+    children: [
+      { label: "Store Status & Profile", path: "/admin/store-profile" },
+      { label: "Business Details", path: "/admin/settings" },
+    ],
+  },
+  { label: "Store Analytics", path: "/admin/store-analytics", icon: Sparkles, color: "rose" },
   {
     label: "Marketing Tools",
     icon: Sparkles,
@@ -155,14 +193,6 @@ const navItems = [
       { label: "Active Sellers", path: "/admin/sellers/active" },
       { label: "Waiting for Review", path: "/admin/sellers/pending" },
       { label: "Seller Locations", path: "/admin/seller-locations" },
-    ],
-  },
-  {
-    label: "Warehouses",
-    icon: Building2,
-    color: "teal",
-    children: [
-      { label: "Warehouse Management ⚡", path: "/warehouse-mgmt/dashboard" },
     ],
   },
   {
@@ -316,6 +346,9 @@ const AdminRoutes = () => {
         <Route path="/returns" element={<Returns />} />
         <Route path="/billing" element={<BillingCharges />} />
         <Route path="/settings" element={<AdminSettings />} />
+        <Route path="/inventory" element={<InventoryManagement />} />
+        <Route path="/store-profile" element={<StoreProfile />} />
+        <Route path="/store-analytics" element={<StoreAnalytics />} />
         <Route path="/env" element={<EnvSettings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

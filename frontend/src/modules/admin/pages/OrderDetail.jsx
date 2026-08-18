@@ -6,6 +6,7 @@ import { useSettings } from '@core/context/SettingsContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import Card from '@shared/components/ui/Card';
 import Badge from '@shared/components/ui/Badge';
+import Modal from '@shared/components/ui/Modal';
 import { adminApi } from '../services/adminApi';
 import {
     ChevronLeft,
@@ -39,6 +40,10 @@ const OrderDetail = () => {
     const { settings } = useSettings();
     const [order, setOrder] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [showAssignModal, setShowAssignModal] = useState(false);
+    const [eligibilityData, setEligibilityData] = useState(null);
+    const [isEvaluating, setIsEvaluating] = useState(false);
+    const [isAssigning, setIsAssigning] = useState(false);
     const invoiceRef = useRef(null);
 
     const fetchDetail = async () => {
@@ -63,6 +68,63 @@ const OrderDetail = () => {
         } catch (error) {
             console.error("Failed to update status:", error);
             showToast("Failed to update status", "error");
+        }
+    };
+
+    const handleShiprocketCreateAdmin = async () => {
+        try {
+            const token = localStorage.getItem('adminToken') || localStorage.getItem('token');
+            const API_URL = import.meta.env.VITE_API_URL || "http://localhost:7000/api";
+            const res = await fetch(`${API_URL}/delivery/shipment/create`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: token ? `Bearer ${token}` : "",
+                },
+                body: JSON.stringify({ orderId: order.orderId, preferredProvider: "shiprocket" }),
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                showToast(`Shiprocket AWB #${data.result?.externalId || "Generated"} Created!`, "success");
+                fetchDetail();
+            } else {
+                showToast(data.message || "Shipment creation failed", "error");
+            }
+        } catch (err) {
+            showToast("Failed to connect to Shiprocket service", "error");
+        }
+    };
+
+    const handleOpenAssignModal = async () => {
+        setShowAssignModal(true);
+        setIsEvaluating(true);
+        try {
+            const res = await adminApi.getWarehouseEligibility(orderId);
+            if (res.data.success) {
+                setEligibilityData(res.data.result);
+            }
+        } catch (err) {
+            showToast("Failed to evaluate warehouse eligibility", "error");
+        } finally {
+            setIsEvaluating(false);
+        }
+    };
+
+    const handleAssignWarehouse = async (warehouseId) => {
+        setIsAssigning(true);
+        try {
+            const res = await adminApi.assignWarehouse(orderId, { warehouseId, force: true });
+            if (res.data.success) {
+                showToast("Order assigned to warehouse successfully", "success");
+                setShowAssignModal(false);
+                fetchDetail();
+            } else {
+                showToast(res.data.message || "Assignment failed", "error");
+            }
+        } catch (err) {
+            showToast(err.response?.data?.message || "Failed to assign warehouse", "error");
+        } finally {
+            setIsAssigning(false);
         }
     };
 
@@ -284,6 +346,49 @@ const OrderDetail = () => {
                         </div>
                     </Card>
 
+                    {/* Warehouse Node & Fulfillment State */}
+                    <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-white rounded-2xl p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                <Building2 className="h-4 w-4 text-primary" />
+                                Fulfillment Warehouse Node
+                            </h4>
+                            <Badge
+                                variant={order.warehouseId || order.warehouse ? "success" : "warning"}
+                                className="text-[9px] font-black uppercase"
+                            >
+                                {order.warehouseAssignmentStatus || (order.warehouseId ? "ASSIGNED" : "UNASSIGNED")}
+                            </Badge>
+                        </div>
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-4">
+                                <div className="h-16 w-16 bg-blue-50 rounded-2xl flex items-center justify-center font-black text-primary text-xl">
+                                    <Building2 className="h-8 w-8 text-primary" />
+                                </div>
+                                <div className="text-left">
+                                    <h3 className="text-lg font-black text-slate-900 leading-tight">
+                                        {order.warehouse?.warehouseName || order.warehouse?.name || (order.warehouseId ? "Assigned Warehouse" : "No Warehouse Assigned")}
+                                    </h3>
+                                    <p className="text-xs font-bold text-slate-500">
+                                        {order.warehouse?.city ? `Hub: ${order.warehouse.city}` : "Order requires physical fulfillment assignment"}
+                                    </p>
+                                    {order.warehouseAssignedAt && (
+                                        <p className="text-[10px] font-bold text-slate-400 mt-0.5">
+                                            Assigned: {new Date(order.warehouseAssignedAt).toLocaleString()}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleOpenAssignModal}
+                                className="px-4 py-2 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl shadow-sm transition-all"
+                            >
+                                {order.warehouseId ? "Reassign Hub" : "Assign Warehouse"}
+                            </button>
+                        </div>
+                    </Card>
+
                     {/* Shop Details */}
                     <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-white rounded-2xl p-6">
                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
@@ -323,6 +428,50 @@ const OrderDetail = () => {
                                 </div>
                             </div>
                         </div>
+                    </Card>
+                    {/* Shiprocket Delivery Integration Card */}
+                    <Card className="border-none shadow-xl ring-1 ring-purple-100 bg-gradient-to-br from-purple-50/40 via-white to-indigo-50/20 rounded-xl p-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-sm font-black text-purple-900 uppercase tracking-widest flex items-center gap-2.5">
+                                <Truck className="h-4 w-4 text-purple-600" />
+                                Shiprocket Third-Party Delivery
+                            </h3>
+                            <Badge className="bg-purple-100 text-purple-800 border-none text-[9px] font-black uppercase">
+                                {order.externalShipmentId ? "AWB GENERATED" : "READY TO BOOK"}
+                            </Badge>
+                        </div>
+
+                        {order.externalShipmentId ? (
+                            <div className="space-y-3 text-xs">
+                                <div className="flex justify-between items-center bg-white p-3 rounded-lg border border-purple-100">
+                                    <span className="font-bold text-slate-500">AWB Code:</span>
+                                    <span className="font-mono font-black text-purple-700">{order.externalShipmentId}</span>
+                                </div>
+                                {order.trackingUrl && (
+                                    <a
+                                        href={order.trackingUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-lg flex items-center justify-center gap-2 shadow-sm transition-all"
+                                    >
+                                        <Navigation className="h-3.5 w-3.5" /> Live Shiprocket Tracking
+                                    </a>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                <p className="text-xs text-slate-500 font-medium">
+                                    No Shiprocket shipment booked yet. Book automated courier dispatch below:
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={handleShiprocketCreateAdmin}
+                                    className="w-full py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-2 transition-all"
+                                >
+                                    <Truck className="h-4 w-4" /> Ship via Shiprocket (Generate AWB)
+                                </button>
+                            </div>
+                        )}
                     </Card>
                 </div>
 
@@ -593,7 +742,7 @@ const OrderDetail = () => {
                                             <td align="right" style={{ fontSize: "13px", fontWeight: "800", color: "#2563eb" }}>+ ₹{order.pricing?.deliveryFee || 0}</td>
                                         </tr>
                                         <tr>
-                                            <td colSpan="2" style={{ padding: "12px 0" }}><div style={{ height: "1px", backgroundColor: "#e2e8f0" }}></div></td>
+                                            <td colSpan={2} style={{ padding: "12px 0" }}><div style={{ height: "1px", backgroundColor: "#e2e8f0" }}></div></td>
                                         </tr>
                                         <tr>
                                             <td align="left" style={{ fontSize: "15px", fontWeight: "900", color: "#0f172a" }}>Grand Total</td>
@@ -619,6 +768,92 @@ const OrderDetail = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Warehouse Assignment Modal */}
+            {showAssignModal && (
+                <Modal
+                    isOpen={showAssignModal}
+                    onClose={() => setShowAssignModal(false)}
+                    title={`Assign Warehouse for Order #${order?.orderId || orderId}`}
+                    size="lg"
+                >
+                    <div className="space-y-4 pt-2">
+                        {isEvaluating ? (
+                            <div className="py-12 text-center text-slate-500 font-semibold text-xs">
+                                Evaluating live stock, distances & service radiuses across all active warehouses...
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                <div className="text-xs text-slate-500 font-medium">
+                                    Select the optimal fulfillment location. Warehouses with 100% available stock are prioritized.
+                                </div>
+
+                                <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+                                    {(eligibilityData?.allEvaluations || []).map((wh) => {
+                                        const isCurrent = String(order?.warehouse?._id || order?.warehouseId) === String(wh.warehouseId);
+
+                                        return (
+                                            <div
+                                                key={wh.warehouseId}
+                                                className={cn(
+                                                    "p-4 rounded-xl border transition-all flex items-center justify-between gap-4",
+                                                    wh.hasAllStock
+                                                        ? "border-emerald-200 bg-emerald-50/40 hover:bg-emerald-50"
+                                                        : "border-slate-200 bg-slate-50/70 opacity-80"
+                                                )}
+                                            >
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <h4 className="font-bold text-slate-900 text-sm">{wh.warehouseName}</h4>
+                                                        <span className="text-xs text-slate-500">({wh.city})</span>
+                                                        {isCurrent && (
+                                                            <span className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-black rounded-md">
+                                                                CURRENT
+                                                            </span>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-600">
+                                                        <span>
+                                                            Stock: <strong className={wh.hasAllStock ? "text-emerald-700 font-black" : "text-amber-700 font-bold"}>
+                                                                {wh.stockFulfillmentPercent}% Available
+                                                            </strong>
+                                                        </span>
+                                                        {wh.distanceKm != null && (
+                                                            <span>
+                                                                Distance: <strong>{wh.distanceKm} km</strong>
+                                                            </span>
+                                                        )}
+                                                        <span>
+                                                            Radius: <strong className={wh.withinServiceRadius ? "text-emerald-600" : "text-amber-600"}>
+                                                                {wh.withinServiceRadius ? "Inside Service Zone" : "Outside Zone"}
+                                                            </strong>
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                <button
+                                                    type="button"
+                                                    disabled={isAssigning}
+                                                    onClick={() => handleAssignWarehouse(wh.warehouseId)}
+                                                    className={cn(
+                                                        "px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition-all",
+                                                        wh.hasAllStock
+                                                            ? "bg-primary hover:bg-primary/90 text-white"
+                                                            : "bg-slate-200 hover:bg-slate-300 text-slate-800"
+                                                    )}
+                                                >
+                                                    {isCurrent ? "Re-confirm" : wh.hasAllStock ? "Assign Hub" : "Force Assign"}
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </Modal>
+            )}
         </div>
     );
 };

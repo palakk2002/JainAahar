@@ -1,8 +1,12 @@
 import customerRoute from "./customerAuth.js";
 import deliveryRoute from "./deliveryAuth.js";
+import deliveryWebhookRoute from "./deliveryWebhookRoutes.js";
 import adminRoute from "./adminAuth.js";
 import sellerRoute from "./sellerAuth.js";
 import warehouseRoute from "./warehouseAuth.js";
+import warehouseInventoryRoute from "./warehouseInventoryRoutes.js";
+import warehouseTransferRoute from "./warehouseTransferRoutes.js";
+import warehouseFulfillmentRoute from "./warehouseFulfillmentRoutes.js";
 import categoryRoute from "./categoryRoutes.js";
 import productRoute from "./productRoutes.js";
 import cartRoute from "./cartRoutes.js";
@@ -38,6 +42,7 @@ const setupRoutes = (app) => {
 
     router.use("/customer", customerRoute);
     router.use("/delivery", deliveryRoute);
+    router.use("/delivery", deliveryWebhookRoute);
     // categoryRoute is mounted twice on purpose:
     //   /admin/categories → admin category management (auth enforced inside the router)
     //   /categories       → public category browsing (read-only handlers)
@@ -45,6 +50,9 @@ const setupRoutes = (app) => {
     router.use("/admin/categories", categoryRoute);
     router.use("/admin", adminRoute);
     router.use("/seller", sellerRoute);
+    router.use("/warehouse/inventory", warehouseInventoryRoute);
+    router.use("/warehouse/transfers", warehouseTransferRoute);
+    router.use("/warehouse/fulfillments", warehouseFulfillmentRoute);
     router.use("/warehouse", warehouseRoute);
     router.use("/settings", settingsRoute);
     router.use("/categories", categoryRoute);

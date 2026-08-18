@@ -29,8 +29,8 @@ router.get("/", optionalVerifyToken, getProducts);
 
 // Seller protected routes
 router.get("/seller/me", verifyToken, allowRoles("seller", "warehouse"), requireApprovedSeller, getSellerProducts);
-router.get("/stock-history", verifyToken, allowRoles("seller", "warehouse"), requireApprovedSeller, getStockHistory);
-router.post("/adjust-stock", verifyToken, allowRoles("seller", "warehouse"), requireApprovedSeller, adjustStock);
+router.get("/stock-history", verifyToken, allowRoles("seller", "admin", "warehouse"), getStockHistory);
+router.post("/adjust-stock", verifyToken, allowRoles("seller", "admin", "warehouse"), adjustStock);
 router.get("/moderation", verifyToken, allowRoles("admin"), getModerationProducts);
 router.patch("/moderation/:id/approve", verifyToken, allowRoles("admin"), approveProduct);
 router.patch("/moderation/:id/reject", verifyToken, allowRoles("admin"), rejectProduct);

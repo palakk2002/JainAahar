@@ -22,8 +22,13 @@ export const adminOrdersApi = {
         axiosInstance.put(`/orders/returns/${orderId}/reject`, data),
     assignReturnDelivery: (orderId, data) =>
         axiosInstance.put(`/orders/returns/${orderId}/assign-delivery`, data),
-    updateReturnQc: (orderId, data) =>
-        axiosInstance.put(`/orders/returns/${orderId}/qc`, data),
+    // Warehouse Order Assignment (Single-Vendor Multi-Hub)
+    getUnassignedOrders: (params) =>
+        axiosInstance.get('/admin/orders/unassigned', { params }),
+    getWarehouseEligibility: (orderId) =>
+        axiosInstance.get(`/admin/orders/${orderId}/warehouse-eligibility`),
+    assignWarehouse: (orderId, data) =>
+        axiosInstance.post(`/admin/orders/${orderId}/assign-warehouse`, data),
 };
 
 export default adminOrdersApi;

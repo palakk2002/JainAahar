@@ -3,6 +3,7 @@ import Transaction from "../models/transaction.js";
 import { handleResponse, calculateDistance } from "../utils/helper.js";
 import mongoose from "mongoose";
 import { invalidateSellerName } from "../services/entityNameCache.js";
+import { resolveAdminStore } from "../utils/storeResolver.js";
 
 /* ===============================
    GET NEARBY SELLERS
@@ -133,7 +134,9 @@ export const requestWithdrawal = async (req, res) => {
 ================================ */
 export const getSellerProfile = async (req, res) => {
   try {
-    const seller = await Seller.findById(req.user.id);
+    const role = String(req.user.role || "").toLowerCase();
+    const sellerId = role === "admin" ? await resolveAdminStore() : req.user.id;
+    const seller = await Seller.findById(sellerId);
     if (!seller) {
       return handleResponse(res, 404, "Seller not found");
     }
@@ -156,7 +159,9 @@ export const updateSellerProfile = async (req, res) => {
     const { name, shopName, phone, address, locality, pincode, city, state, lat, lng, radius } = req.body;
 
     // Find seller
-    const seller = await Seller.findById(req.user.id);
+    const role = String(req.user.role || "").toLowerCase();
+    const sellerId = role === "admin" ? await resolveAdminStore() : req.user.id;
+    const seller = await Seller.findById(sellerId);
     if (!seller) {
       return handleResponse(res, 404, "Seller not found");
     }
@@ -193,7 +198,7 @@ export const updateSellerProfile = async (req, res) => {
     const updatedSeller = await seller.save();
 
     // Invalidate cached seller name in case shopName changed
-    invalidateSellerName(req.user.id).catch((err) => {
+    invalidateSellerName(sellerId).catch((err) => {
       console.warn("[Seller] Name cache invalidation failed:", err.message);
     });
 

@@ -55,21 +55,21 @@ router.get("/nearby", getNearbySellers);
 router.get(
     "/profile",
     verifyToken,
-    allowRoles("seller"),
+    allowRoles("seller", "admin"),
     getSellerProfile
 );
 
 router.put(
     "/profile",
     verifyToken,
-    allowRoles("seller"),
+    allowRoles("seller", "admin"),
     updateSellerProfile
 );
 
 // Analytics & Financials
-router.get("/stats", verifyToken, allowRoles("seller"), getSellerStats);
-router.get("/earnings", verifyToken, allowRoles("seller"), getSellerEarnings);
-router.get("/wallet/summary", verifyToken, allowRoles("seller"), getSellerWalletSummaryController);
+router.get("/stats", verifyToken, allowRoles("seller", "admin"), getSellerStats);
+router.get("/earnings", verifyToken, allowRoles("seller", "admin"), getSellerEarnings);
+router.get("/wallet/summary", verifyToken, allowRoles("seller", "admin"), getSellerWalletSummaryController);
 router.post("/request-withdrawal", verifyToken, allowRoles("seller"), requestWithdrawal);
 
 export default router;

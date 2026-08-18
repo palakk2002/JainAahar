@@ -4,6 +4,7 @@ import Seller from "../models/seller.js";
 import Delivery from "../models/delivery.js";
 import handleResponse from "../utils/helper.js";
 import { getAdminFinanceSummary } from "../services/finance/walletService.js";
+import { resolveAdminStore } from "../utils/storeResolver.js";
 import { getLedgerEntries } from "../services/finance/ledgerService.js";
 import { bulkProcessPayouts } from "../services/finance/payoutService.js";
 import { exportFinanceStatement } from "../services/finance/statementService.js";
@@ -186,7 +187,8 @@ export const updateDeliverySettingsController = async (req, res) => {
 
 export const getSellerWalletSummaryController = async (req, res) => {
   try {
-    const sellerId = req.user?.id;
+    const role = String(req.user?.role || "").toLowerCase();
+    const sellerId = role === "admin" ? await resolveAdminStore() : req.user?.id;
     const wallet = await Wallet.findOne({ ownerType: "SELLER", ownerId: sellerId }).lean();
     return handleResponse(res, 200, "Seller wallet summary fetched", {
       availableBalance: wallet?.availableBalance || 0,

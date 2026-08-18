@@ -104,6 +104,7 @@ import {
   resolveProductApprovalStatus,
 } from "../services/productModerationService.js";
 import { buildSearchRegex } from "../utils/regex.js";
+import { resolveAdminStore } from "../utils/storeResolver.js";
 
 // Phase 3 P3-5: when search term is reasonably specific and the env flag
 // is enabled, prefer Mongo's `name + tags` text index over case-insensitive
@@ -718,7 +719,12 @@ export const createProduct = async (req, res) => {
 
     if (role === "admin") {
       if (!productData.sellerId) {
-        return handleResponse(res, 400, "sellerId is required for admin-created products");
+        const storeId = await resolveAdminStore();
+        if (storeId) {
+          productData.sellerId = storeId;
+        } else {
+          return handleResponse(res, 400, "sellerId is required for admin-created products and no default store exists");
+        }
       }
     } else {
       productData.sellerId = req.user.id;

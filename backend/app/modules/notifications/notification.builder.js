@@ -358,6 +358,38 @@ function eventDefinition(eventType) {
           return `Only ${currentStock} left for ${itemLabel}. Restock soon.`;
         },
       };
+    case NOTIFICATION_EVENTS.WAREHOUSE_ORDER_ASSIGNED:
+      return {
+        role: NOTIFICATION_ROLES.WAREHOUSE,
+        recipientIds: (payload) => normalizeIdList(payload.warehouseId || payload.recipientId),
+        title: (payload) => `New Order Assigned #${payload.orderId || ""}`,
+        body: (payload) =>
+          `Order #${payload.orderId || ""} assigned for fulfillment. Fulfillment ID: ${payload.fulfillmentId || ""}.`,
+      };
+    case NOTIFICATION_EVENTS.WAREHOUSE_ASSIGNMENT_FAILED:
+      return {
+        role: NOTIFICATION_ROLES.ADMIN,
+        recipientIds: (payload) => normalizeIdList(payload.adminIds || "all"),
+        title: (payload) => `Warehouse Assignment Failed: Order #${payload.orderId || ""}`,
+        body: (payload) =>
+          `Auto-assignment failed for Order #${payload.orderId || ""}. Reason: ${payload.reason || "Insufficient stock"}. Manual assignment required.`,
+      };
+    case NOTIFICATION_EVENTS.WAREHOUSE_SHORT_PICK:
+      return {
+        role: NOTIFICATION_ROLES.ADMIN,
+        recipientIds: (payload) => normalizeIdList(payload.adminIds || "all"),
+        title: (payload) => `Short Pick Alert: Order #${payload.orderId || ""}`,
+        body: (payload) =>
+          `Item "${payload.productName || ""}" short picked (${payload.pickedQty || 0}/${payload.requiredQty || 0}) in fulfillment #${payload.fulfillmentId || ""}.`,
+      };
+    case NOTIFICATION_EVENTS.WAREHOUSE_READY_TO_SHIP:
+      return {
+        role: NOTIFICATION_ROLES.ADMIN,
+        recipientIds: (payload) => normalizeIdList(payload.adminIds || "all"),
+        title: (payload) => `Order #${payload.orderId || ""} Ready to Ship`,
+        body: (payload) =>
+          `Fulfillment #${payload.fulfillmentId || ""} packed and marked READY_TO_SHIP by warehouse.`,
+      };
     default:
       return null;
   }

@@ -40,6 +40,18 @@ const deliveryAssignmentSchema = new mongoose.Schema(
     meta: {
       type: mongoose.Schema.Types.Mixed,
     },
+    // Third-Party Provider Extensions
+    providerName: { type: String, default: "internal" },
+    externalShipmentId: { type: String, index: true },
+    trackingUrl: { type: String },
+    providerStatus: { type: String },
+    providerQuote: { type: mongoose.Schema.Types.Mixed },
+    webhookEvents: [{ type: mongoose.Schema.Types.Mixed }],
+    lastWebhookAt: { type: Date },
+    shipmentCreatedAt: { type: Date },
+    shipmentCancelledAt: { type: Date },
+    failureReason: { type: String },
+    retryCount: { type: Number, default: 0 },
   },
   { timestamps: true },
 );

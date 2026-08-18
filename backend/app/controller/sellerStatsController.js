@@ -4,6 +4,7 @@ import handleResponse from "../utils/helper.js";
 import mongoose from "mongoose";
 import Wallet from "../models/wallet.js";
 import { getSellerStats as getSellerStatsFromService } from "../services/seller/sellerStatsService.js";
+import { resolveAdminStore } from "../utils/storeResolver.js";
 
 /* ===============================
    GET SELLER DASHBOARD STATS
@@ -12,7 +13,9 @@ import { getSellerStats as getSellerStatsFromService } from "../services/seller/
 ================================ */
 export const getSellerStats = async (req, res) => {
     try {
-        const result = await getSellerStatsFromService(req.user.id, {
+        const role = String(req.user.role || "").toLowerCase();
+        const sellerId = role === "admin" ? await resolveAdminStore() : req.user.id;
+        const result = await getSellerStatsFromService(sellerId, {
             range: req.query?.range,
         });
         return handleResponse(res, 200, "Stats fetched successfully", result);
@@ -26,7 +29,8 @@ export const getSellerStats = async (req, res) => {
 ================================ */
 export const getSellerEarnings = async (req, res) => {
     try {
-        const sellerId = req.user.id;
+        const role = String(req.user.role || "").toLowerCase();
+        const sellerId = role === "admin" ? await resolveAdminStore() : req.user.id;
         const sellerOid = new mongoose.Types.ObjectId(sellerId);
 
         const transactions = await Transaction.find({ user: sellerId, userModel: 'Seller' })

@@ -14,6 +14,8 @@ import {
   getMyDeliveryOrders,
   requestWithdrawal,
   updateDeliveryLocation,
+  createShipmentController,
+  getShipmentDetailsController,
 } from "../controller/deliveryController.js";
 import {
   triggerSOS,
@@ -69,6 +71,10 @@ router.post("/warehouse/checkin", verifyToken, allowRoles("delivery"), warehouse
 router.post("/warehouse/checkin/location", verifyToken, allowRoles("delivery"), warehouseCheckinByLocation);
 router.post("/warehouse/checkout", verifyToken, allowRoles("delivery"), warehouseCheckout);
 router.get("/warehouse/checkin-status", verifyToken, allowRoles("delivery"), getCheckinStatus);
+
+// Third-Party Delivery & Shipment APIs
+router.post("/shipment/create", verifyToken, createShipmentController);
+router.get("/shipment/:orderId", verifyToken, getShipmentDetailsController);
 
 // NOTE: Delivery-completion OTP generation/validation lives on the
 // canonical workflow routes:

@@ -36,6 +36,8 @@ import "../models/coupon.js";
 import "../models/customer.js"; // Registers as mongoose.model("User")
 import "../models/delivery.js";
 import "../models/deliveryAssignment.js";
+import "../models/deliveryShipment.js";
+import "../models/providerTokenStore.js";
 import "../models/order.js";
 import "../models/orderOtp.js";
 import "../models/otpVerification.js";
@@ -105,6 +107,8 @@ export const REQUIRED_MODELS = Object.freeze([
   "Cart",
   "Wishlist",
   "DeliveryAssignment",
+  "DeliveryShipment",
+  "ProviderTokenStore",
   "Review",
 
   // Payments & ledger

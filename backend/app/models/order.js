@@ -347,6 +347,28 @@ const orderSchema = new mongoose.Schema(
       type: Number,
       default: 1,
     },
+    warehouse: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Warehouse",
+      index: true,
+      default: null,
+    },
+    warehouseId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Warehouse",
+      index: true,
+      default: null,
+    },
+    warehouseAssignmentStatus: {
+      type: String,
+      enum: ["UNASSIGNED", "ASSIGNED", "FAILED_STOCK", "FAILED_LOCATION", "MANUAL_REQUIRED"],
+      default: "UNASSIGNED",
+      index: true,
+    },
+    warehouseAssignedAt: {
+      type: Date,
+      default: null,
+    },
     sellerPendingExpiresAt: Date,
     deliverySearchExpiresAt: Date,
     sellerAcceptedAt: Date,

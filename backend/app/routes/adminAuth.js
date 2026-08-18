@@ -59,6 +59,11 @@ import {
     getQueueSnapshotHandler,
     getQueueStatsHandler,
 } from "../controller/warehouseCheckinController.js";
+import {
+    getUnassignedOrdersHandler,
+    getEligibleWarehousesForOrderHandler,
+    assignWarehouseToOrderHandler,
+} from "../controller/warehouseAssignmentController.js";
 
 import { verifyToken, allowRoles } from "../middleware/authMiddleware.js";
 import {
@@ -276,6 +281,11 @@ router.get(
 router.get("/warehouse-queue/all", verifyToken, allowRoles("admin"), getAllWarehouseQueuesHandler);
 router.get("/warehouse-queue/:warehouseId", verifyToken, allowRoles("admin"), getQueueSnapshotHandler);
 router.get("/warehouse-queue/:warehouseId/stats", verifyToken, allowRoles("admin"), getQueueStatsHandler);
+
+// Warehouse Order Assignment (Admin)
+router.get("/orders/unassigned", verifyToken, allowRoles("admin"), getUnassignedOrdersHandler);
+router.get("/orders/:orderId/warehouse-eligibility", verifyToken, allowRoles("admin"), getEligibleWarehousesForOrderHandler);
+router.post("/orders/:orderId/assign-warehouse", verifyToken, allowRoles("admin"), assignWarehouseToOrderHandler);
 
 export default router;
 

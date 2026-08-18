@@ -20,12 +20,29 @@ import {
     HiOutlineExclamationCircle,
     HiOutlineFolderOpen,
     HiOutlineSwatch,
-    HiOutlineSquaresPlus
+    HiOutlineSquaresPlus,
+    HiOutlineSparkles
 } from 'react-icons/hi2';
 import Modal from '@shared/components/ui/Modal';
 import Pagination from '@shared/components/ui/Pagination';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+
+export const PRESET_HIGHLIGHT_ICONS = [
+  { id: "leaf", emoji: "🌿", name: "Natural / Organic" },
+  { id: "avocado", emoji: "🥑", name: "Farm Fresh" },
+  { id: "zap", emoji: "⚡", name: "High Protein" },
+  { id: "sprout", emoji: "🌱", name: "Source of Fiber" },
+  { id: "shield", emoji: "🛡️", name: "Quality / Certified" },
+  { id: "heart", emoji: "❤️", name: "Healthy / Low Fat" },
+  { id: "star", emoji: "⭐", name: "Premium Quality" },
+  { id: "truck", emoji: "🚚", name: "Fast Express Delivery" },
+  { id: "wheat", emoji: "🌾", name: "Whole Grain / Pure" },
+  { id: "sugarfree", emoji: "🍬", name: "Sugar Free" },
+  { id: "sun", emoji: "☀️", name: "Sun Dried" },
+  { id: "smile", emoji: "😊", name: "Chemical Free" },
+];
+
 
 const ProductManagement = () => {
     const [products, setProducts] = useState([]);
@@ -78,6 +95,14 @@ const ProductManagement = () => {
         brand: '',
         mainImage: null,
         galleryImages: [],
+        mainImageFile: null,
+        galleryFiles: [],
+        highlights: [
+            { icon: "leaf", label: "100% Natural" },
+            { icon: "avocado", label: "Farm Fresh" },
+            { icon: "zap", label: "High Protein" },
+            { icon: "sprout", label: "Source of Fiber" },
+        ],
         variants: [
             { id: Date.now(), name: 'Default', price: '', salePrice: '', stock: '', sku: '' }
         ]
@@ -140,10 +165,6 @@ const ProductManagement = () => {
     }, [searchTerm, filterCategory, filterStatus, filterApprovalStatus, sortBy, pageSize]);
 
     const handleSave = async () => {
-        if (!editingItem) {
-            return toast.error('Only product editing is allowed for admins');
-        }
-
         if (!formData.name || !formData.price || !formData.stock || !formData.header || !formData.categoryId || !formData.subcategoryId) {
             return toast.error('Please fill all required fields, including categories');
         }
@@ -155,20 +176,21 @@ const ProductManagement = () => {
             data.append('slug', formData.slug);
             data.append('sku', formData.sku);
             data.append('description', formData.description);
-            data.append('price', Number(formData.price));
-            data.append('salePrice', Number(formData.salePrice) || 0);
-            data.append('stock', Number(formData.stock));
-            data.append('lowStockAlert', Number(formData.lowStockAlert) || 5);
+            data.append('price', String(formData.price));
+            data.append('salePrice', String(formData.salePrice || 0));
+            data.append('stock', String(formData.stock));
+            data.append('lowStockAlert', String(formData.lowStockAlert || 5));
             data.append('unit', formData.unit);
             data.append('headerId', formData.header);
             data.append('categoryId', formData.categoryId);
             data.append('subcategoryId', formData.subcategoryId);
             data.append('status', formData.status);
-            data.append('isFeatured', formData.isFeatured);
+            data.append('isFeatured', String(formData.isFeatured));
             data.append('brand', formData.brand);
             data.append('weight', formData.weight);
             data.append('tags', formData.tags);
             data.append('variants', JSON.stringify(formData.variants));
+            data.append('highlights', JSON.stringify(formData.highlights || []));
 
             if (formData.mainImageFile) {
                 data.append('mainImage', formData.mainImageFile);
@@ -177,8 +199,13 @@ const ProductManagement = () => {
                 formData.galleryFiles.forEach((file) => data.append('galleryImages', file));
             }
 
-            await adminApi.updateProduct(editingItem._id, data);
-            toast.success('Product updated successfully');
+            if (editingItem) {
+                await adminApi.updateProduct(editingItem._id, data);
+                toast.success('Product updated successfully');
+            } else {
+                await adminApi.createProduct(data);
+                toast.success('Product created successfully');
+            }
             setIsProductModalOpen(false);
             fetchProducts(page);
         } catch (error) {
@@ -306,6 +333,14 @@ const ProductManagement = () => {
                 brand: item.brand || '',
                 mainImage: item.mainImage || null,
                 galleryImages: item.galleryImages || item.images || [],
+                mainImageFile: null,
+                galleryFiles: [],
+                highlights: item.highlights && item.highlights.length > 0 ? item.highlights : [
+                    { icon: "leaf", label: "100% Natural" },
+                    { icon: "avocado", label: "Farm Fresh" },
+                    { icon: "zap", label: "High Protein" },
+                    { icon: "sprout", label: "Source of Fiber" }
+                ],
                 variants: (item.variants && item.variants.length > 0) ? item.variants.map(v => ({ ...v, id: v._id || Date.now() })) : [
                     {
                         id: Date.now(),
@@ -325,6 +360,13 @@ const ProductManagement = () => {
                 header: '', categoryId: '', subcategoryId: '', status: 'active',
                 isFeatured: false, tags: '', weight: '', brand: '',
                 mainImage: null, galleryImages: [],
+                mainImageFile: null, galleryFiles: [],
+                highlights: [
+                    { icon: "leaf", label: "100% Natural" },
+                    { icon: "avocado", label: "Farm Fresh" },
+                    { icon: "zap", label: "High Protein" },
+                    { icon: "sprout", label: "Source of Fiber" }
+                ],
                 variants: [
                     { id: Date.now(), name: 'Default', price: '', salePrice: '', stock: '', sku: '' }
                 ]
@@ -372,6 +414,13 @@ const ProductManagement = () => {
                     </h1>
                     <p className="ds-description mt-0.5">Track your items, prices, and how many are left in stock.</p>
                 </div>
+                <button
+                    onClick={() => openModal(null)}
+                    className="flex items-center space-x-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-md self-start lg:self-center"
+                >
+                    <HiOutlinePlus className="h-4 w-4" />
+                    <span>Add Product</span>
+                </button>
             </div>
 
             {/* Quick Stats */}
@@ -514,7 +563,7 @@ const ProductManagement = () => {
                         <tbody className="divide-y divide-slate-50">
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan="7" className="px-6 py-20 text-center">
+                                    <td colSpan={7} className="px-6 py-20 text-center">
                                         <div className="flex flex-col items-center gap-3">
                                             <HiOutlineArrowPath className="h-8 w-8 text-primary animate-spin" />
                                             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading Products...</p>
@@ -523,7 +572,7 @@ const ProductManagement = () => {
                                 </tr>
                             ) : productsList.length === 0 ? (
                                 <tr>
-                                    <td colSpan="7" className="px-6 py-20 text-center text-slate-400 font-bold text-xs uppercase tracking-widest">No products found</td>
+                                    <td colSpan={7} className="px-6 py-20 text-center text-slate-400 font-bold text-xs uppercase tracking-widest">No products found</td>
                                 </tr>
                             ) : productsList.map((p) => (
                                 <tr
@@ -693,7 +742,7 @@ const ProductManagement = () => {
                                     </div>
                                     <div>
                                         <h3 className="admin-h3">
-                                            Edit Product
+                                            {editingItem ? 'Edit Product' : 'Add Product'}
                                         </h3>
                                         <div className="flex items-center space-x-2 mt-0.5">
                                             <Badge variant="primary" className="text-[7px] font-bold uppercase tracking-widest px-1">SYSTEM</Badge>
@@ -713,6 +762,7 @@ const ProductManagement = () => {
                                     {[
                                         { id: 'general', label: 'General Info', icon: HiOutlineTag },
                                         { id: 'variants', label: 'Item Variants', icon: HiOutlineSwatch },
+                                        { id: 'highlights', label: 'Highlights', icon: HiOutlineSparkles },
                                         { id: 'category', label: 'Groups', icon: HiOutlineFolderOpen },
                                         { id: 'media', label: 'Photos', icon: HiOutlinePhoto }
                                     ].map((tab) => (
@@ -858,6 +908,84 @@ const ProductManagement = () => {
                                                         <option key={sc._id} value={sc._id}>{sc.name}</option>
                                                     ))}
                                                 </select>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {modalTab === 'highlights' && (
+                                        <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
+                                            <div>
+                                                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-1">
+                                                    Product Highlight Badges (4 Slots)
+                                                </h3>
+                                                <p className="text-xs text-slate-500 font-medium">
+                                                    Select icons and enter custom text labels to display product highlights.
+                                                </p>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                {[0, 1, 2, 3].map((slotIdx) => {
+                                                    const currentHighlight = formData.highlights?.[slotIdx] || { icon: "leaf", label: "" };
+                                                    return (
+                                                        <div key={slotIdx} className="bg-slate-50/85 p-4 rounded-2xl border border-slate-100 space-y-3">
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                                                    Highlight #{slotIdx + 1}
+                                                                </span>
+                                                                <span className="text-xl">
+                                                                    {PRESET_HIGHLIGHT_ICONS.find((i) => i.id === currentHighlight.icon)?.emoji || "🌿"}
+                                                                </span>
+                                                            </div>
+
+                                                            {/* Icon Selector Grid */}
+                                                            <div>
+                                                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
+                                                                    Select Icon
+                                                                </label>
+                                                                <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1.5 bg-white rounded-xl border border-slate-200">
+                                                                    {PRESET_HIGHLIGHT_ICONS.map((ic) => (
+                                                                        <button
+                                                                            key={ic.id}
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                const nextHL = [...(formData.highlights || [])];
+                                                                                nextHL[slotIdx] = { ...currentHighlight, icon: ic.id };
+                                                                                setFormData({ ...formData, highlights: nextHL });
+                                                                            }}
+                                                                            className={cn(
+                                                                                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all border",
+                                                                                currentHighlight.icon === ic.id
+                                                                                    ? "bg-slate-900 border-slate-950 text-white shadow-xs"
+                                                                                    : "bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-100"
+                                                                            )}
+                                                                        >
+                                                                            <span>{ic.emoji}</span>
+                                                                            <span className="text-[10px]">{ic.name}</span>
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Title Input */}
+                                                            <div>
+                                                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                                                                    Heading / Title Text
+                                                                </label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={currentHighlight.label}
+                                                                    onChange={(e) => {
+                                                                        const nextHL = [...(formData.highlights || [])];
+                                                                        nextHL[slotIdx] = { ...currentHighlight, label: e.target.value };
+                                                                        setFormData({ ...formData, highlights: nextHL });
+                                                                    }}
+                                                                    placeholder="e.g. 100% Natural"
+                                                                    className="w-full px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-primary/10"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     )}

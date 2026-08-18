@@ -450,6 +450,127 @@ export const updateDeliveryLocation = async (req, res) => {
         return handleResponse(res, 500, error.message);
     }
 };
+
+/* ===============================
+   CREATE SHIPMENT CONTROLLER (Shiprocket / Third-Party)
+================================ */
+export const createShipmentController = async (req, res) => {
+    try {
+        const { orderId, preferredProvider } = req.body;
+        if (!orderId) {
+            return handleResponse(res, 400, "orderId is required");
+        }
+
+        const order = await Order.findOne({ orderId }).populate("seller");
+        if (!order) {
+            return handleResponse(res, 404, "Order not found");
+        }
+
+        const { createShipment } = await import("../modules/delivery/deliveryManager.js");
+        const DeliveryShipment = (await import("../models/deliveryShipment.js")).default;
+        const DeliveryAssignment = (await import("../models/deliveryAssignment.js")).default;
+
+        const context = {
+            orderId: order.orderId,
+            orderMongoId: order._id,
+            pickup: {
+                name: order.seller?.shopName || "Primary Warehouse",
+                phone: order.seller?.phone || "9999999999",
+                address: order.seller?.shopAddress?.address || "Warehouse Address",
+                pincode: order.seller?.shopAddress?.pincode || "110001",
+            },
+            drop: {
+                name: order.address?.name || "Customer",
+                phone: order.address?.mobileNumber || order.address?.phone || "9999999999",
+                address: order.address?.address || "Delivery Address",
+                city: order.address?.city || "City",
+                state: order.address?.state || "State",
+                pincode: order.address?.pincode || "560001",
+            },
+            items: (order.items || []).map((i) => ({
+                name: i.name || "Product Item",
+                qty: i.quantity || 1,
+                price: i.price || 100,
+            })),
+            paymentMode: order.paymentMode === "COD" ? "COD" : "PREPAID",
+            totalValue: order.pricing?.total || 100,
+            weight: 0.5,
+            preferredProvider: preferredProvider || "shiprocket",
+        };
+
+        const result = await createShipment(context);
+        if (!result) {
+            return handleResponse(res, 400, "Failed to create shipment with delivery provider");
+        }
+
+        const providerName = result.providerName || preferredProvider || "shiprocket";
+
+        const shipment = await DeliveryShipment.findOneAndUpdate(
+            { orderId: order.orderId },
+            {
+                orderId: order.orderId,
+                orderMongoId: order._id,
+                providerName,
+                externalShipmentId: result.externalId,
+                status: "created",
+                trackingUrl: result.trackingUrl,
+                label: result.label,
+                providerStatus: result.providerStatus || "CREATED",
+                timeline: [
+                    {
+                        status: result.providerStatus || "CREATED",
+                        timestamp: new Date(),
+                        raw: result,
+                    },
+                ],
+            },
+            { upsert: true, new: true }
+        );
+
+        await DeliveryAssignment.findOneAndUpdate(
+            { orderId: order.orderId },
+            {
+                providerName,
+                externalShipmentId: result.externalId,
+                trackingUrl: result.trackingUrl,
+                providerStatus: result.providerStatus,
+                shipmentCreatedAt: new Date(),
+            },
+            { upsert: true }
+        );
+
+        return handleResponse(res, 200, "Shipment created successfully", {
+            shipment,
+            externalId: result.externalId,
+            trackingUrl: result.trackingUrl,
+            label: result.label,
+            providerName,
+        });
+    } catch (error) {
+        logger.error({ domain: "delivery", error: error.message }, "createShipmentController failed");
+        return handleResponse(res, 500, error.message);
+    }
+};
+
+/* ===============================
+   GET SHIPMENT DETAILS CONTROLLER
+================================ */
+export const getShipmentDetailsController = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const DeliveryShipment = (await import("../models/deliveryShipment.js")).default;
+        const shipment = await DeliveryShipment.findOne({ orderId });
+
+        if (!shipment) {
+            return handleResponse(res, 404, "No shipment record found for this order");
+        }
+
+        return handleResponse(res, 200, "Shipment details fetched", shipment);
+    } catch (error) {
+        return handleResponse(res, 500, error.message);
+    }
+};
+
 /*
  * DEPRECATED + REMOVED: Delivery-completion OTP generation/validation moved
  * to the canonical workflow service:

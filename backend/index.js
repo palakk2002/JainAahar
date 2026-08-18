@@ -175,6 +175,18 @@ function createApp() {
     }),
   );
 
+  // Delivery webhooks need raw body for HMAC signature verification
+  app.use(
+    "/api/delivery/webhook",
+    express.raw({
+      type: "*/*",
+      limit: process.env.DELIVERY_WEBHOOK_MAX_PAYLOAD || "1mb",
+      verify: (req, res, buf) => {
+        req.rawBody = buf;
+      },
+    }),
+  );
+
   app.use(express.json({ limit: process.env.API_JSON_LIMIT || "1mb" }));
   app.use(express.urlencoded({ limit: process.env.API_URLENCODED_LIMIT || "1mb", extended: true }));
 
