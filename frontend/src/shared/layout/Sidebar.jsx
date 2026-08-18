@@ -272,9 +272,6 @@ const SidebarContent = ({ items, title, onClose, openMenu, handleToggle, hovered
               onToggle={() => handleToggle(item.label)}
               isHovered={hoveredIdx === idx}
               onMouseEnter={() => setHoveredIdx(idx)}
-              onMouseEnterWithClose={() => {
-                setHoveredIdx(idx);
-              }}
               onMouseLeave={() => { }} // Handle in nav container
             />
           ))}
@@ -298,10 +295,10 @@ const SidebarContent = ({ items, title, onClose, openMenu, handleToggle, hovered
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-white truncate group-hover:text-primary transition-colors">
-                {title?.toLowerCase().includes('seller') ? 'Seller Console' : 'Admin Console'}
+                {title || 'Console'}
               </p>
               <p className="text-[9px] text-gray-500 truncate font-black uppercase tracking-widest">
-                {title?.toLowerCase().includes('seller') ? 'Seller' : 'Super Admin'}
+                Operational Panel
               </p>
             </div>
           </div>

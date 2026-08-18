@@ -2,7 +2,17 @@ import React from 'react';
 import { Badge as ShadcnBadge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
-const Badge = ({ children, variant = 'gray', className, ...props }) => {
+/**
+ * @typedef {Object} BadgeProps
+ * @property {React.ReactNode} [children]
+ * @property {string} [variant]
+ * @property {string} [className]
+ */
+
+/**
+ * @param {BadgeProps} props
+ */
+const Badge = ({ children = null, variant = 'gray', className = '', ...props } = {}) => {
     const variantStyles = {
         primary: 'bg-primary-50 text-primary-700 border-primary-100 hover:bg-primary-100',
         success: 'bg-brand-50 text-primary border-brand-100 hover:bg-brand-100',
@@ -28,4 +38,3 @@ const Badge = ({ children, variant = 'gray', className, ...props }) => {
 };
 
 export default Badge;
-

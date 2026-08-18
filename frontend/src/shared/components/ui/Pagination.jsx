@@ -13,7 +13,7 @@ const Pagination = ({
     onPageSizeChange,
     loading = false,
     compact = false,
-    className,
+    className = "",
 }) => {
     if (totalPages <= 1 && !onPageSizeChange) return null;
 

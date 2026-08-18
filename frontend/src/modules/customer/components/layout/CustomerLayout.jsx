@@ -13,7 +13,7 @@ import { onReturnPickupOtp, onReturnDropOtp } from '@core/services/orderSocket';
 import { toast } from 'sonner';
 import { ShieldCheck, Package } from 'lucide-react';
 
-const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = false, showCart: showCartProp, showBottomNav: showBottomNavProp }) => {
+const CustomerLayout = ({ children, showHeader: showHeaderProp = true, fullHeight = false, showCart: showCartProp = true, showBottomNav: showBottomNavProp = true }) => {
     const location = useLocation();
     const { isOpen: isProductDetailOpen } = useProductDetail();
     const { user, token } = useAuth();

@@ -47,8 +47,6 @@ const ProductManagement = React.lazy(
 const ActiveSellers = React.lazy(() => import("../pages/ActiveSellers"));
 const PendingSellers = React.lazy(() => import("../pages/PendingSellers"));
 const SellerLocations = React.lazy(() => import("../pages/SellerLocations"));
-const ActiveWarehouses = React.lazy(() => import("../pages/ActiveWarehouses"));
-const PendingWarehouses = React.lazy(() => import("../pages/PendingWarehouses"));
 const ActiveDeliveryBoys = React.lazy(
   () => import("../pages/ActiveDeliveryBoys"),
 );
@@ -105,7 +103,7 @@ const SOSAlerts = React.lazy(() => import("../pages/SOSAlerts"));
 
 const EmployeeManagement = React.lazy(() => import("../pages/EmployeeManagement"));
 const EmployeeDetail = React.lazy(() => import("../pages/EmployeeDetail"));
-const WarehouseQueueDashboard = React.lazy(() => import("../pages/WarehouseQueueDashboard"));
+
 
 const navItems = [
   {
@@ -164,9 +162,7 @@ const navItems = [
     icon: Building2,
     color: "teal",
     children: [
-      { label: "Active Warehouses", path: "/admin/warehouses/active" },
-      { label: "Waiting for Review", path: "/admin/warehouses/pending" },
-      { label: "Queue Monitor", path: "/admin/warehouse-queues" },
+      { label: "Warehouse Management ⚡", path: "/warehouse-mgmt/dashboard" },
     ],
   },
   {
@@ -281,9 +277,7 @@ const AdminRoutes = () => {
         <Route path="/sellers/active" element={<ActiveSellers />} />
         <Route path="/sellers/active/:id" element={<SellerDetail />} />
         {/* Warehouse routes */}
-        <Route path="/warehouses/active" element={<ActiveWarehouses />} />
-        <Route path="/warehouses/pending" element={<PendingWarehouses />} />
-        <Route path="/warehouse-queues" element={<WarehouseQueueDashboard />} />
+
         <Route path="/support-tickets" element={<SupportTickets />} />
         <Route path="/moderation" element={<ReviewModeration />} />
         {/* Monthly Baskets */}

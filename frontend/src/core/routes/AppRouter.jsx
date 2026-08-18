@@ -18,11 +18,11 @@ import ScrollToTop from '../../modules/customer/components/shared/ScrollToTop';
 // Public Pages
 import Auth from '../../modules/seller/pages/Auth';
 import ApplicationPending from '../../modules/seller/pages/ApplicationPending';
-import WarehouseAuth from '../../modules/warehouse/pages/Auth';
-import WarehouseApplicationPending from '../../modules/warehouse/pages/ApplicationPending';
+
 import AdminAuth from '../../modules/admin/pages/AdminAuth';
 import DeliveryAuth from '../../modules/delivery/pages/DeliveryAuth';
 import CustomerAuth from '../../modules/customer/pages/CustomerAuth';
+import WarehouseAuth from '../../modules/warehouse-mgmt/pages/WarehouseAuth';
 
 // Customer Pages (lazy-loaded)
 const Home = lazy(() => import('../../modules/customer/pages/Home'));
@@ -54,7 +54,7 @@ const NotificationsPage = lazy(() => import('../../modules/customer/pages/Notifi
 const SellerModule = lazy(() => import('../../modules/seller/routes/index'));
 const AdminModule = lazy(() => import('../../modules/admin/routes/index'));
 const DeliveryModule = lazy(() => import('../../modules/delivery/routes/index'));
-const WarehouseModule = lazy(() => import('../../modules/warehouse/routes/index'));
+const WarehouseMgmtModule = lazy(() => import('../../modules/warehouse-mgmt/routes/index'));
 
 import CustomerLayout from '../../modules/customer/components/layout/CustomerLayout';
 
@@ -108,14 +108,7 @@ const AppRouter = () => {
                     path: 'seller/pending-approval',
                     element: <ApplicationPending />,
                 },
-                {
-                    path: 'warehouse/auth',
-                    element: <WarehouseAuth />,
-                },
-                {
-                    path: 'warehouse/pending-approval',
-                    element: <WarehouseApplicationPending />,
-                },
+
                 {
                     path: 'admin/auth',
                     element: <AdminAuth />,
@@ -123,6 +116,10 @@ const AppRouter = () => {
                 {
                     path: 'delivery/auth',
                     element: <DeliveryAuth />,
+                },
+                {
+                    path: 'warehouse/auth',
+                    element: <WarehouseAuth />,
                 },
                 {
                     path: 'seller/*',
@@ -155,15 +152,16 @@ const AppRouter = () => {
                     ),
                 },
                 {
-                    path: 'warehouse/*',
+                    path: 'warehouse-mgmt/*',
                     element: (
                         <ProtectedRoute>
-                            <RoleGuard allowedRoles={[UserRole.WAREHOUSE]}>
-                                <WarehouseModule />
+                            <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.WAREHOUSE_MGMT, 'warehouse']}>
+                                <WarehouseMgmtModule />
                             </RoleGuard>
                         </ProtectedRoute>
                     ),
                 },
+
                 {
                     path: 'unauthorized',
                     element: <div className="flex h-screen items-center justify-center font-outfit">Unauthorized Access</div>,

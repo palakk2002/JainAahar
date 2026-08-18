@@ -9,7 +9,20 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from '@/lib/utils';
 
-const Modal = ({ isOpen, onClose, title, children, footer, size = 'md' }) => {
+/**
+ * @typedef {Object} ModalProps
+ * @property {boolean} [isOpen]
+ * @property {Function} [onClose]
+ * @property {string} [title]
+ * @property {React.ReactNode} [children]
+ * @property {React.ReactNode} [footer]
+ * @property {string} [size]
+ */
+
+/**
+ * @param {ModalProps} props
+ */
+const Modal = ({ isOpen = false, onClose = () => {}, title = "", children = null, footer = null, size = 'md' } = {}) => {
     const sizes = {
         sm: 'sm:max-w-md',
         md: 'sm:max-w-lg',
@@ -46,4 +59,3 @@ const Modal = ({ isOpen, onClose, title, children, footer, size = 'md' }) => {
 };
 
 export default Modal;
-

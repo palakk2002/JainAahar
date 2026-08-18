@@ -3,6 +3,6 @@ export const UserRole = {
     SELLER: 'seller',
     ADMIN: 'admin',
     DELIVERY: 'delivery',
-    WAREHOUSE: 'warehouse',
+    WAREHOUSE_MGMT: 'warehouse_mgmt',
 };
 

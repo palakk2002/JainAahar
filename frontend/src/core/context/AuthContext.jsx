@@ -1,4 +1,6 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useMemo } from 'react';
+
 import axiosInstance from '@core/api/axios';
 import { getWithDedupe } from '@core/api/dedupe';
 import { getStoredAuthToken } from '@core/utils/authStorage';
@@ -22,6 +24,7 @@ const ROLE_STORAGE_KEYS = {
     admin: STORAGE_KEYS.AUTH_ADMIN,
     delivery: STORAGE_KEYS.AUTH_DELIVERY,
     warehouse: STORAGE_KEYS.AUTH_WAREHOUSE,
+    warehouse_mgmt: STORAGE_KEYS.AUTH_WAREHOUSE,
 };
 
 const LEGACY_TOKEN_KEY = STORAGE_KEYS.AUTH_LEGACY;
@@ -35,6 +38,7 @@ export const AuthProvider = ({ children }) => {
         admin: getSafeToken('admin'),
         delivery: getSafeToken('delivery'),
         warehouse: getSafeToken('warehouse'),
+        warehouse_mgmt: getSafeToken('warehouse_mgmt'),
     });
 
     // Subscribe to the activeRoleStore so this context re-renders whenever the
@@ -44,7 +48,7 @@ export const AuthProvider = ({ children }) => {
     const [currentRole, setCurrentRole] = useState(getActiveRole());
     useEffect(() => {
         const unsub = subscribeActiveRole((next) => setCurrentRole(next));
-        return unsub;
+        return () => { unsub(); };
     }, []);
 
     const [user, setUser] = useState(null);
@@ -60,6 +64,7 @@ export const AuthProvider = ({ children }) => {
                 admin: getSafeToken('admin'),
                 delivery: getSafeToken('delivery'),
                 warehouse: getSafeToken('warehouse'),
+                warehouse_mgmt: getSafeToken('warehouse_mgmt'),
             });
         };
 
@@ -102,13 +107,13 @@ export const AuthProvider = ({ children }) => {
                         return;
                     }
 
-                    cleanupDeferredRegistration = scheduleFcmRegistrationOnUserGesture({
+                    cleanupDeferredRegistration = scheduleFcmRegistrationOnUserGesture(/** @type {any} */ ({
                         role: currentRole,
                         platform: 'web',
                         onError: (error) => {
                             console.warn('[push] Deferred registration failed:', error?.message || error);
                         },
-                    });
+                    }));
                 })
                 .catch((error) => {
                     // Permission denied / unsupported / any error: user can retry later from push-enabled actions.
@@ -153,6 +158,7 @@ export const AuthProvider = ({ children }) => {
         };
 
         fetchProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [token, currentRole]);
 
     const login = (userData) => {
@@ -200,10 +206,10 @@ export const AuthProvider = ({ children }) => {
         // Centralized sensitive-data cleanup: push tokens, recipient PII,
         // recent searches, support-unread counts, guest cart/wishlist and (for
         // delivery role) the rider's last-known GPS.
-        clearOnLogout({
+        clearOnLogout(/** @type {any} */ ({
             role: currentRole,
             userId: previousUserId,
-        });
+        }));
 
         setAuthData((prev) => ({
             ...prev,
@@ -218,8 +224,8 @@ export const AuthProvider = ({ children }) => {
         const path = window.location.pathname;
         if (path.startsWith('/admin')) window.location.href = '/admin/auth';
         else if (path.startsWith('/seller')) window.location.href = '/seller/auth';
-        else if (path.startsWith('/warehouse')) window.location.href = '/warehouse/auth';
         else if (path.startsWith('/delivery')) window.location.href = '/delivery/auth';
+        else if (path.startsWith('/warehouse')) window.location.href = '/warehouse/auth';
         else window.location.href = '/login';
     };
 

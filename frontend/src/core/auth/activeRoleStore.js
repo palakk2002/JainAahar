@@ -26,6 +26,7 @@ export const ROLES = Object.freeze({
     DELIVERY: 'delivery',
     CUSTOMER: 'customer',
     WAREHOUSE: 'warehouse',
+    WAREHOUSE_MGMT: 'warehouse_mgmt',
 });
 
 let _activeRole = null;
@@ -34,6 +35,7 @@ const _listeners = new Set();
 function inferRoleFromUrl() {
     if (typeof window === 'undefined') return ROLES.CUSTOMER;
     const path = window.location.pathname;
+    if (path.startsWith('/warehouse-mgmt')) return ROLES.WAREHOUSE;
     if (path.startsWith('/seller')) return ROLES.SELLER;
     if (path.startsWith('/admin')) return ROLES.ADMIN;
     if (path.startsWith('/delivery')) return ROLES.DELIVERY;

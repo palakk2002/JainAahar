@@ -1,19 +1,37 @@
+/* eslint-disable no-unused-vars */
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 
+/**
+ * @typedef {Object} StatCardProps
+ * @property {React.ReactNode} [label]
+ * @property {React.ReactNode} [value]
+ * @property {any} [icon]
+ * @property {React.ReactNode} [trend]
+ * @property {string} [trendDirection]
+ * @property {React.ReactNode} [description]
+ * @property {string} [color]
+ * @property {string} [bg]
+ * @property {React.MouseEventHandler<HTMLDivElement>} [onClick]
+ * @property {string} [className]
+ */
+
+/**
+ * @param {StatCardProps} props
+ */
 const StatCard = ({ 
-    label, 
-    value, 
-    icon: Icon, 
-    trend, 
+    label = "", 
+    value = "", 
+    icon: Icon = null, 
+    trend = null, 
     trendDirection = 'up',
-    description,
+    description = null,
     color = 'text-brand-600',
     bg = 'bg-brand-50',
-    onClick,
-    className 
-}) => {
+    onClick = null,
+    className = "" 
+} = {}) => {
     return (
         <div 
             onClick={onClick}

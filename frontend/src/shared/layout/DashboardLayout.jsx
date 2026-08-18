@@ -5,14 +5,12 @@ import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import BottomNav from './BottomNav';
 import { sellerApi } from '@/modules/seller/services/sellerApi';
-import { warehouseApi } from '@/modules/warehouse/services/warehouseApi';
 import { useAuth } from "@core/context/AuthContext";
 import { motion, AnimatePresence } from 'framer-motion';
 import { BellRing, Check, X, Clock, Truck, AlertTriangle, Phone, MapPin, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import SellerOrdersContext from '@/modules/seller/context/SellerOrdersContext';
-import WarehouseOrdersContext from '@/modules/warehouse/context/WarehouseOrdersContext';
 import SellerEarningsContext, { defaultEarnings } from '@/modules/seller/context/SellerEarningsContext';
 import { getOrderSocket, onSellerOrderNew, onReturnDropOtp, onSOSAlert } from '@/core/services/orderSocket';
 import { createSocketTokenReader } from '@core/utils/authStorage';
@@ -156,7 +154,7 @@ const DashboardLayout = ({ children, navItems, title }) => {
     }, [newReturnAlert]);
 
     useEffect(() => {
-        if (role !== 'seller' && role !== 'warehouse') {
+        if (role !== 'seller') {
             setSellerOrders([]);
             setOrdersLoading(false);
             return;
@@ -167,8 +165,7 @@ const DashboardLayout = ({ children, navItems, title }) => {
             if (isOrdersFetchInFlightRef.current) return;
             isOrdersFetchInFlightRef.current = true;
             try {
-                const api = role === 'warehouse' ? warehouseApi : sellerApi;
-                const res = await api.getOrders();
+                const res = await sellerApi.getOrders();
                 if (!res?.data?.success) return;
 
                 const payload = res.data.result || {};
@@ -209,7 +206,7 @@ const DashboardLayout = ({ children, navItems, title }) => {
 
     // Resilient fallback when socket events are missed (tab backgrounded/suspended).
     useEffect(() => {
-        if (role !== 'seller' && role !== 'warehouse') return undefined;
+        if (role !== 'seller') return undefined;
 
         const syncOrders = () => {
             if (fetchOrdersRef.current) fetchOrdersRef.current();
@@ -250,13 +247,13 @@ const DashboardLayout = ({ children, navItems, title }) => {
     }, []);
 
     useEffect(() => {
-        if (role === 'seller' || role === 'warehouse') return;
+        if (role === 'seller') return;
         stopOrderRingtone();
     }, [role]);
 
     useEffect(() => {
-        if (role !== 'seller' && role !== 'warehouse') return undefined;
-        const getToken = createSocketTokenReader(role === 'warehouse' ? STORAGE_KEYS.AUTH_WAREHOUSE : STORAGE_KEYS.AUTH_SELLER);
+        if (role !== 'seller') return undefined;
+        const getToken = createSocketTokenReader(STORAGE_KEYS.AUTH_SELLER);
         getOrderSocket(getToken);
         const unsubscribeSellerNew = onSellerOrderNew(getToken, () => {
             if (fetchOrdersRef.current) fetchOrdersRef.current();
@@ -398,8 +395,7 @@ const DashboardLayout = ({ children, navItems, title }) => {
 
     const handleAcceptOrder = async (orderId) => {
         try {
-            const api = role === 'warehouse' ? warehouseApi : sellerApi;
-            await api.updateOrderStatus(orderId, { status: 'confirmed' });
+            await sellerApi.updateOrderStatus(orderId, { status: 'confirmed' });
             toast.success(`Order #${orderId} Accepted!`);
             stopOrderRingtone();
             setNewOrderAlert(null);
@@ -422,8 +418,7 @@ const DashboardLayout = ({ children, navItems, title }) => {
 
     const handleDeclineOrder = async (orderId) => {
         try {
-            const api = role === 'warehouse' ? warehouseApi : sellerApi;
-            await api.updateOrderStatus(orderId, { status: 'cancelled' });
+            await sellerApi.updateOrderStatus(orderId, { status: 'cancelled' });
             toast.error(`Order #${orderId} Declined`);
             stopOrderRingtone();
             setNewOrderAlert(null);
@@ -457,12 +452,6 @@ const DashboardLayout = ({ children, navItems, title }) => {
                                 ordersLoading: role === 'seller' ? ordersLoading : false,
                                 refreshOrders,
                             }}>
-                            <WarehouseOrdersContext.Provider
-                                value={{
-                                    orders: role === 'warehouse' ? sellerOrders : [],
-                                    ordersLoading: role === 'warehouse' ? ordersLoading : false,
-                                    refreshOrders,
-                                }}>
                                 <SellerEarningsContext.Provider
                                     value={{
                                         earningsData: role === 'seller' ? sellerEarningsData : defaultEarnings,
@@ -471,7 +460,6 @@ const DashboardLayout = ({ children, navItems, title }) => {
                                     }}>
                                     {children}
                                 </SellerEarningsContext.Provider>
-                            </WarehouseOrdersContext.Provider>
                         </SellerOrdersContext.Provider>
                     </div>
                 </main>
@@ -667,7 +655,7 @@ const DashboardLayout = ({ children, navItems, title }) => {
                 )}
             </AnimatePresence>
 
-            {(role === "admin" || role === "seller") && <BottomNav navItems={navItems} />}
+            {(role === "admin" || role === "seller" || role === "warehouse_mgmt") && <BottomNav navItems={navItems} />}
         </div>
     );
 };

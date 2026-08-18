@@ -2,23 +2,17 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 
 /**
- * FilterBar
- *
- * Horizontal flex container for filter controls (selects, date pickers,
- * search inputs, action buttons). Standardizes spacing, wrapping, and
- * alignment so every list page looks the same.
- *
- *   <FilterBar
- *     left={
- *       <>
- *         <Input placeholder="Search..." value={q} onChange={setQ} />
- *         <select ...>
- *       </>
- *     }
- *     right={<Button onClick={onExport}>Export</Button>}
- *   />
+ * @typedef {Object} FilterBarProps
+ * @property {React.ReactNode} [left]
+ * @property {React.ReactNode} [right]
+ * @property {string} [className]
+ * @property {React.ReactNode} [children]
  */
-const FilterBar = ({ left, right, className, children }) => {
+
+/**
+ * @param {FilterBarProps} props
+ */
+const FilterBar = ({ left = null, right = null, className = "", children = null } = {}) => {
     if (children) {
         return (
             <div

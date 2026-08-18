@@ -2,7 +2,17 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 
-const Loader = ({ size = 'md', fullScreen = false, className }) => {
+/**
+ * @typedef {Object} LoaderProps
+ * @property {string} [size]
+ * @property {boolean} [fullScreen]
+ * @property {string} [className]
+ */
+
+/**
+ * @param {LoaderProps} props
+ */
+const Loader = ({ size = 'md', fullScreen = false, className = "" } = {}) => {
     const sizeClasses = {
         sm: 'h-6 w-6',
         md: 'h-10 w-10',
@@ -31,4 +41,3 @@ const Loader = ({ size = 'md', fullScreen = false, className }) => {
 };
 
 export default Loader;
-

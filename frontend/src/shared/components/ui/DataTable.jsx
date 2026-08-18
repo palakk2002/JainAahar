@@ -1,7 +1,18 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 
-const DataTable = ({ columns, data, onRowClick, className }) => {
+/**
+ * @typedef {Object} DataTableProps
+ * @property {Array} [columns]
+ * @property {Array} [data]
+ * @property {Function} [onRowClick]
+ * @property {string} [className]
+ */
+
+/**
+ * @param {DataTableProps} props
+ */
+const DataTable = ({ columns = [], data = [], onRowClick = null, className = "" } = {}) => {
     return (
         <div className={cn("overflow-x-auto", className)}>
             <table className="ds-table">
