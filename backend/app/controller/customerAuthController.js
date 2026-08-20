@@ -1,4 +1,6 @@
 import Customer from "../models/customer.js";
+import Cart from "../models/cart.js";
+import Wishlist from "../models/wishlist.js";
 import Transaction from "../models/transaction.js";
 import jwt from "jsonwebtoken";
 import handleResponse from "../utils/helper.js";
@@ -122,6 +124,29 @@ export const updateCustomerProfile = async (req, res) => {
         await customer.save();
 
         return handleResponse(res, 200, "Profile updated successfully", customer);
+    } catch (error) {
+        return handleResponse(res, 500, error.message);
+    }
+};
+
+/* ===============================
+   DELETE ACCOUNT
+================================ */
+export const deleteCustomerAccount = async (req, res) => {
+    try {
+        const customer = await Customer.findById(req.user.id);
+        if (!customer) {
+            return handleResponse(res, 404, "Customer not found");
+        }
+
+        // Clean up Cart and Wishlist
+        await Promise.allSettled([
+            Cart.deleteMany({ customerId: req.user.id }),
+            Wishlist.deleteMany({ customerId: req.user.id }),
+            Customer.findByIdAndDelete(req.user.id)
+        ]);
+
+        return handleResponse(res, 200, "Account deleted successfully");
     } catch (error) {
         return handleResponse(res, 500, error.message);
     }
