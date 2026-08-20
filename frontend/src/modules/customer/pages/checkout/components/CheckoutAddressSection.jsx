@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
  * Internal state for the "order for someone else" form is kept here because
  * it is purely presentational; the parent only needs the saved result.
  */
-const CheckoutAddressSection = React.memo(function CheckoutAddressSection({
+function CheckoutAddressSection({
   currentAddress,
   savedRecipient,
   savedAddresses,
@@ -230,6 +230,6 @@ const CheckoutAddressSection = React.memo(function CheckoutAddressSection({
       </motion.div>
     </motion.div>
   );
-});
+}
 
-export default CheckoutAddressSection;
+export default React.memo(CheckoutAddressSection);

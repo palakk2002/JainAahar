@@ -13,7 +13,7 @@ import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
  *   showAll           – boolean (currently unused — all items shown)
  *   onToggleShowAll   – () => void
  */
-const CheckoutCartSummary = React.memo(function CheckoutCartSummary({
+function CheckoutCartSummary({
   cart,
   onUpdateQuantity,
   onRemoveFromCart,
@@ -95,6 +95,6 @@ const CheckoutCartSummary = React.memo(function CheckoutCartSummary({
       ))}
     </div>
   );
-});
+}
 
-export default CheckoutCartSummary;
+export default React.memo(CheckoutCartSummary);

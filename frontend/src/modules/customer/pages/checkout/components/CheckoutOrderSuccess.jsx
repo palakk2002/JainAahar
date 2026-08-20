@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from "framer-motion";
  *   orderId – string order ID (last 6 chars shown)
  *   show    – boolean — controls visibility via AnimatePresence
  */
-const CheckoutOrderSuccess = React.memo(function CheckoutOrderSuccess({ orderId, show }) {
+function CheckoutOrderSuccess({ orderId, show }) {
   return (
     <AnimatePresence>
       {show && (
@@ -53,6 +53,6 @@ const CheckoutOrderSuccess = React.memo(function CheckoutOrderSuccess({ orderId,
       )}
     </AnimatePresence>
   );
-});
+}
 
-export default CheckoutOrderSuccess;
+export default React.memo(CheckoutOrderSuccess);

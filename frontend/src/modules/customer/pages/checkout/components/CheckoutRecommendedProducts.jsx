@@ -10,7 +10,7 @@ import ProductCard from "../../../components/shared/ProductCard";
  *   onAddToCart   – (product) => void
  *   onGetCartItem – (productId) => cartItem | undefined
  */
-const CheckoutRecommendedProducts = React.memo(function CheckoutRecommendedProducts({
+function CheckoutRecommendedProducts({
   products,
 }) {
   if (!products || products.length === 0) return null;
@@ -29,6 +29,6 @@ const CheckoutRecommendedProducts = React.memo(function CheckoutRecommendedProdu
       </div>
     </div>
   );
-});
+}
 
-export default CheckoutRecommendedProducts;
+export default React.memo(CheckoutRecommendedProducts);

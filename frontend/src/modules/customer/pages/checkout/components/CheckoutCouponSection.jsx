@@ -24,7 +24,7 @@ import {
  *   onOpenChange      – (open) => void
  *   onApplyManualCode – () => void — triggered when user clicks CHECK
  */
-const CheckoutCouponSection = React.memo(function CheckoutCouponSection({
+function CheckoutCouponSection({
   coupons,
   selectedCoupon,
   manualCode,
@@ -191,6 +191,6 @@ const CheckoutCouponSection = React.memo(function CheckoutCouponSection({
       </Dialog>
     </>
   );
-});
+}
 
-export default CheckoutCouponSection;
+export default React.memo(CheckoutCouponSection);

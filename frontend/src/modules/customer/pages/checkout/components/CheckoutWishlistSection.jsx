@@ -9,7 +9,7 @@ import ProductCard from "../../../components/shared/ProductCard";
  *   sectionRef – ref forwarded from CheckoutPage (wishlistSectionRef) so the
  *                IntersectionObserver in the parent can observe this container
  */
-const CheckoutWishlistSection = React.memo(function CheckoutWishlistSection({
+function CheckoutWishlistSection({
   wishlist,
   sectionRef,
 }) {
@@ -30,6 +30,6 @@ const CheckoutWishlistSection = React.memo(function CheckoutWishlistSection({
       </div>
     </div>
   );
-});
+}
 
-export default CheckoutWishlistSection;
+export default React.memo(CheckoutWishlistSection);

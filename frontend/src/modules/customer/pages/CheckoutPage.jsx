@@ -147,12 +147,14 @@ const CheckoutPage = () => {
   const postOrderNavigateRef = useRef(null);
   const previewDebounceRef = useRef(null);
   const [currentAddress, setCurrentAddress] = useState({
+    id: "",
     type: "Home",
     name: "Harshvardhan Panchal",
     address: "81 Pipliyahana Road, Near 214",
     landmark: "",
     city: "Indore - 452018",
     phone: "6268423925",
+    location: /** @type {{ lat: number, lng: number } | undefined} */ (undefined),
   });
   const [isEditAddressOpen, setIsEditAddressOpen] = useState(false);
   const [editAddressForm, setEditAddressForm] = useState({
@@ -337,7 +339,7 @@ const CheckoutPage = () => {
         e?.message ||
         null;
       const err = new Error(serverMsg || "Could not geocode address");
-      err.__serverMsg = serverMsg;
+      Object.assign(err, { __serverMsg: serverMsg });
       throw err;
     }
 

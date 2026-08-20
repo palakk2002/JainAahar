@@ -17,7 +17,7 @@ import { motion } from "framer-motion";
  *   selectedCoupon    – coupon object or null
  *   discountAmount    – number
  */
-const CheckoutPricingBreakdown = React.memo(function CheckoutPricingBreakdown({
+function CheckoutPricingBreakdown({
   pricingPreview,
   isPreviewLoading,
   selectedTip,
@@ -170,6 +170,6 @@ const CheckoutPricingBreakdown = React.memo(function CheckoutPricingBreakdown({
       </motion.div>
     </>
   );
-});
+}
 
-export default CheckoutPricingBreakdown;
+export default React.memo(CheckoutPricingBreakdown);
