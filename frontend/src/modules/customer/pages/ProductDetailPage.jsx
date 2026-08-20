@@ -204,9 +204,13 @@ const ProductDetailPage = () => {
 
     return (
         <div className="relative z-10 py-8 w-full max-w-[1920px] mx-auto px-4 md:px-[50px] animate-in fade-in duration-700 mt-24">
-            <Link to={-1} className="inline-flex items-center gap-2 text-slate-500 hover:text-primary font-bold mb-6 transition-colors group">
+            <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="inline-flex items-center gap-2 text-slate-500 hover:text-primary font-bold mb-6 transition-colors group"
+            >
                 <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" /> Back
-            </Link>
+            </button>
 
             <div className="flex flex-col lg:flex-row gap-10 xl:gap-16">
                 <div className="lg:w-[45%] xl:w-[40%] space-y-4">
@@ -297,8 +301,30 @@ const ProductDetailPage = () => {
                         </p>
                     </div>
 
+                    {/* Stock Status Badge */}
+                    {product.stockStatus === "out_of_stock" || product.isOutOfStock || (typeof product.stock === "number" && product.stock <= 0) ? (
+                        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-red-50 border border-red-200 text-red-700 font-bold text-xs">
+                            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" /> Out of Stock at nearest warehouse
+                        </div>
+                    ) : product.stockStatus === "low_stock" || (typeof product.stock === "number" && product.stock <= 5) ? (
+                        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 font-bold text-xs">
+                            <span className="w-2 h-2 rounded-full bg-amber-500" /> Only {product.stock || product.availableStock} units left in stock!
+                        </div>
+                    ) : (
+                        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-xs">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500" /> In Stock & Ready to Dispatch
+                        </div>
+                    )}
+
                     <div className="flex flex-col sm:flex-row items-center gap-6 p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100">
-                        {quantity > 0 ? (
+                        {product.stockStatus === "out_of_stock" || product.isOutOfStock || (typeof product.stock === "number" && product.stock <= 0) ? (
+                            <Button
+                                disabled
+                                className="h-16 w-full sm:w-64 bg-slate-200 text-slate-400 text-lg font-black rounded-2xl shadow-none cursor-not-allowed uppercase"
+                            >
+                                OUT OF STOCK
+                            </Button>
+                        ) : quantity > 0 ? (
                             <div className="flex items-center bg-primary text-primary-foreground rounded-2xl h-16 w-full sm:w-auto px-2 shadow-xl shadow-brand-100">
                                 <motion.button
                                     whileTap={{ scale: 0.9 }}

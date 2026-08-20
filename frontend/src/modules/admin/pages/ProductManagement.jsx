@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import Card from '@shared/components/ui/Card';
 import Badge from '@shared/components/ui/Badge';
 import { adminApi } from '../services/adminApi';
@@ -44,7 +45,10 @@ export const PRESET_HIGHLIGHT_ICONS = [
 ];
 
 
-const ProductManagement = () => {
+const ProductManagement = ({ initialOpenAdd = false }) => {
+    const navigate = useNavigate();
+    const location = useLocation();
+    const [searchParams] = useSearchParams();
     const [products, setProducts] = useState([]);
     const [categories, setCategories] = useState([]); // All categories for dropdowns
     const [page, setPage] = useState(1);
@@ -165,31 +169,74 @@ const ProductManagement = () => {
     }, [searchTerm, filterCategory, filterStatus, filterApprovalStatus, sortBy, pageSize]);
 
     const handleSave = async () => {
-        if (!formData.name || !formData.price || !formData.stock || !formData.header || !formData.categoryId || !formData.subcategoryId) {
-            return toast.error('Please fill all required fields, including categories');
+        if (!formData.name?.trim()) {
+            toast.error('Please enter Product Title in General Info tab');
+            setModalTab('general');
+            return;
+        }
+
+        const resolvedPrice = (formData.price !== '' && formData.price !== undefined)
+            ? formData.price
+            : (formData.variants?.find((v) => v.price !== '' && v.price !== undefined)?.price ?? '');
+
+        const numericPrice = Number(resolvedPrice);
+        if (resolvedPrice === '' || isNaN(numericPrice) || numericPrice < 0) {
+            toast.error('Please enter Price in Item Variants tab');
+            setModalTab('variants');
+            return;
+        }
+
+        const resolvedSalePrice = (formData.salePrice !== '' && formData.salePrice !== undefined)
+            ? formData.salePrice
+            : (formData.variants?.find((v) => v.salePrice !== '' && v.salePrice !== undefined)?.salePrice ?? '0');
+
+        const resolvedStock = (formData.stock !== '' && formData.stock !== undefined)
+            ? formData.stock
+            : (formData.variants?.find((v) => v.stock !== '' && v.stock !== undefined)?.stock ?? '0');
+
+        if (!formData.header) {
+            toast.error('Please select Main Group (Header) in Groups tab');
+            setModalTab('category');
+            return;
+        }
+
+        if (!formData.categoryId) {
+            toast.error('Please select Specific Category in Groups tab');
+            setModalTab('category');
+            return;
+        }
+
+        const selectedHeaderObj = categories.find((h) => h._id === formData.header);
+        const selectedCatObj = selectedHeaderObj?.children?.find((c) => c._id === formData.categoryId);
+        const hasSubcategories = Array.isArray(selectedCatObj?.children) && selectedCatObj.children.length > 0;
+
+        if (hasSubcategories && !formData.subcategoryId) {
+            toast.error('Please select Sub-Category in Groups tab');
+            setModalTab('category');
+            return;
         }
 
         setIsSaving(true);
         try {
             const data = new FormData();
-            data.append('name', formData.name);
-            data.append('slug', formData.slug);
-            data.append('sku', formData.sku);
-            data.append('description', formData.description);
-            data.append('price', String(formData.price));
-            data.append('salePrice', String(formData.salePrice || 0));
-            data.append('stock', String(formData.stock));
-            data.append('lowStockAlert', String(formData.lowStockAlert || 5));
-            data.append('unit', formData.unit);
+            data.append('name', formData.name.trim());
+            data.append('slug', formData.slug || '');
+            data.append('sku', formData.sku || formData.variants?.[0]?.sku || '');
+            data.append('description', formData.description || '');
+            data.append('price', String(numericPrice));
+            data.append('salePrice', String(Number(resolvedSalePrice) || 0));
+            data.append('stock', String(Number(resolvedStock) || 0));
+            data.append('lowStockAlert', String(Number(formData.lowStockAlert) || 5));
+            data.append('unit', formData.unit || 'packet');
             data.append('headerId', formData.header);
             data.append('categoryId', formData.categoryId);
-            data.append('subcategoryId', formData.subcategoryId);
-            data.append('status', formData.status);
-            data.append('isFeatured', String(formData.isFeatured));
-            data.append('brand', formData.brand);
-            data.append('weight', formData.weight);
-            data.append('tags', formData.tags);
-            data.append('variants', JSON.stringify(formData.variants));
+            data.append('subcategoryId', formData.subcategoryId || '');
+            data.append('status', formData.status || 'active');
+            data.append('isFeatured', String(Boolean(formData.isFeatured)));
+            data.append('brand', formData.brand || '');
+            data.append('weight', formData.weight || '');
+            data.append('tags', formData.tags || '');
+            data.append('variants', JSON.stringify(formData.variants || []));
             data.append('highlights', JSON.stringify(formData.highlights || []));
 
             if (formData.mainImageFile) {
@@ -206,7 +253,7 @@ const ProductManagement = () => {
                 await adminApi.createProduct(data);
                 toast.success('Product created successfully');
             }
-            setIsProductModalOpen(false);
+            handleCloseModal();
             fetchProducts(page);
         } catch (error) {
             toast.error(error.response?.data?.message || 'Failed to save product');
@@ -318,14 +365,14 @@ const ProductManagement = () => {
                 slug: item.slug || '',
                 sku: item.sku || '',
                 description: item.description || '',
-                price: item.price || '',
+                price: item.price !== undefined && item.price !== null ? String(item.price) : '',
                 salePrice: item.salePrice || item.discountPrice || '',
-                stock: item.stock || '',
+                stock: item.stock !== undefined && item.stock !== null ? String(item.stock) : '0',
                 lowStockAlert: item.lowStockAlert || 5,
                 unit: item.unit || 'packet',
-                header: item.headerId?._id || item.headerId || '',
-                categoryId: item.categoryId?._id || item.categoryId || '',
-                subcategoryId: item.subcategoryId?._id || item.subcategoryId || '',
+                header: item.headerId?._id || item.headerId || item.header?._id || item.header || '',
+                categoryId: item.categoryId?._id || item.categoryId || item.category?._id || item.category || '',
+                subcategoryId: item.subcategoryId?._id || item.subcategoryId || item.subcategory?._id || item.subcategory || '',
                 status: item.status || 'active',
                 isFeatured: item.isFeatured || false,
                 tags: Array.isArray(item.tags) ? item.tags.join(', ') : item.tags || '',
@@ -376,6 +423,19 @@ const ProductManagement = () => {
         setModalTab('general');
         setIsProductModalOpen(true);
     };
+
+    const handleCloseModal = () => {
+        setIsProductModalOpen(false);
+        if (location.pathname.endsWith('/add') || searchParams.get('action') === 'add') {
+            navigate('/admin/products', { replace: true });
+        }
+    };
+
+    useEffect(() => {
+        if (initialOpenAdd || searchParams.get('action') === 'add' || location.pathname.endsWith('/add')) {
+            openModal(null);
+        }
+    }, [initialOpenAdd, location.pathname, searchParams]);
 
     const productsList = Array.isArray(products) ? products : [];
     const stats = useMemo(() => ({
@@ -726,7 +786,7 @@ const ProductManagement = () => {
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             className="fixed inset-0 bg-slate-900/40 backdrop-blur-md"
-                            onClick={() => setIsProductModalOpen(false)}
+                            onClick={handleCloseModal}
                         />
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -751,7 +811,7 @@ const ProductManagement = () => {
                                         </div>
                                     </div>
                                 </div>
-                                <button onClick={() => setIsProductModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
+                                <button onClick={handleCloseModal} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
                                     <HiOutlineXMark className="h-5 w-5" />
                                 </button>
                             </div>
@@ -854,12 +914,80 @@ const ProductManagement = () => {
                                                     />
                                                 </div>
                                                 <div className="space-y-1.5 flex flex-col">
-                                                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">Product Code</label>
+                                                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">Product Code / SKU</label>
                                                     <input
                                                         value={formData.sku}
                                                         onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
                                                         className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl text-sm font-mono font-bold outline-none ring-primary/5 focus:ring-2"
                                                         placeholder="AUTO-GENERATED"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                <div className="space-y-1.5 flex flex-col">
+                                                    <label className="text-[9px] font-bold text-slate-700 uppercase tracking-widest ml-1">Regular MRP Price (₹) <span className="text-rose-500">*</span></label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        value={formData.price}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            setFormData((prev) => ({
+                                                                ...prev,
+                                                                price: val,
+                                                                variants: prev.variants?.length > 0 ? prev.variants.map((v, i) => i === 0 ? { ...v, price: val } : v) : [{ id: Date.now(), name: 'Default', price: val, salePrice: prev.salePrice || '', stock: prev.stock || '0', sku: prev.sku || '' }]
+                                                            }));
+                                                        }}
+                                                        className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl text-sm font-bold outline-none ring-primary/5 focus:ring-2"
+                                                        placeholder="e.g. 250"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1.5 flex flex-col">
+                                                    <label className="text-[9px] font-bold text-brand-600 uppercase tracking-widest ml-1">Selling / Discounted Price (₹)</label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        value={formData.salePrice}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            setFormData((prev) => ({
+                                                                ...prev,
+                                                                salePrice: val,
+                                                                variants: prev.variants?.length > 0 ? prev.variants.map((v, i) => i === 0 ? { ...v, salePrice: val } : v) : [{ id: Date.now(), name: 'Default', price: prev.price || '', salePrice: val, stock: prev.stock || '0', sku: prev.sku || '' }]
+                                                            }));
+                                                        }}
+                                                        className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl text-sm font-bold outline-none ring-primary/5 focus:ring-2 text-brand-700"
+                                                        placeholder="e.g. 220"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                <div className="space-y-1.5 flex flex-col">
+                                                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">Unit / Measurement</label>
+                                                    <select
+                                                        value={formData.unit}
+                                                        onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                                                        className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl text-sm font-semibold outline-none ring-primary/5 focus:ring-2 cursor-pointer"
+                                                    >
+                                                        <option value="packet">Packet (pkt)</option>
+                                                        <option value="kg">Kilogram (kg)</option>
+                                                        <option value="gm">Gram (gm)</option>
+                                                        <option value="liter">Liter (L)</option>
+                                                        <option value="ml">Milliliter (ml)</option>
+                                                        <option value="piece">Piece (pc)</option>
+                                                        <option value="box">Box</option>
+                                                        <option value="bottle">Bottle</option>
+                                                    </select>
+                                                </div>
+                                                <div className="space-y-1.5 flex flex-col">
+                                                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">Net Weight / Quantity</label>
+                                                    <input
+                                                        value={formData.weight}
+                                                        onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
+                                                        className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl text-sm font-semibold outline-none ring-primary/5 focus:ring-2"
+                                                        placeholder="e.g. 5 kg, 500 gm, 1 L"
                                                     />
                                                 </div>
                                             </div>
@@ -1025,9 +1153,14 @@ const ProductManagement = () => {
                                                                     type="number"
                                                                     value={v.price}
                                                                     onChange={e => {
+                                                                        const val = e.target.value;
                                                                         const news = [...formData.variants];
-                                                                        news[i].price = e.target.value;
-                                                                        setFormData({ ...formData, variants: news });
+                                                                        news[i].price = val;
+                                                                        setFormData(prev => ({
+                                                                            ...prev,
+                                                                            variants: news,
+                                                                            price: i === 0 ? val : (prev.price || val)
+                                                                        }));
                                                                     }}
                                                                     placeholder="200"
                                                                     className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none ring-0 focus:border-primary/40 focus:ring-2 focus:ring-primary/10"
@@ -1039,9 +1172,14 @@ const ProductManagement = () => {
                                                                     type="number"
                                                                     value={v.salePrice}
                                                                     onChange={e => {
+                                                                        const val = e.target.value;
                                                                         const news = [...formData.variants];
-                                                                        news[i].salePrice = e.target.value;
-                                                                        setFormData({ ...formData, variants: news });
+                                                                        news[i].salePrice = val;
+                                                                        setFormData(prev => ({
+                                                                            ...prev,
+                                                                            variants: news,
+                                                                            salePrice: i === 0 ? val : (prev.salePrice || val)
+                                                                        }));
                                                                     }}
                                                                     placeholder="150"
                                                                     className="w-full rounded-xl border border-brand-200 bg-brand-50/60 px-4 py-2.5 text-sm outline-none ring-0 focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
@@ -1053,9 +1191,14 @@ const ProductManagement = () => {
                                                                     type="number"
                                                                     value={v.stock}
                                                                     onChange={e => {
+                                                                        const val = e.target.value;
                                                                         const news = [...formData.variants];
-                                                                        news[i].stock = e.target.value;
-                                                                        setFormData({ ...formData, variants: news });
+                                                                        news[i].stock = val;
+                                                                        setFormData(prev => ({
+                                                                            ...prev,
+                                                                            variants: news,
+                                                                            stock: i === 0 ? val : (prev.stock || val)
+                                                                        }));
                                                                     }}
                                                                     placeholder="50"
                                                                     className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none ring-0 focus:border-primary/40 focus:ring-2 focus:ring-primary/10"
@@ -1067,9 +1210,14 @@ const ProductManagement = () => {
                                                                     <input
                                                                         value={v.sku}
                                                                         onChange={e => {
+                                                                            const val = e.target.value;
                                                                             const news = [...formData.variants];
-                                                                            news[i].sku = e.target.value;
-                                                                            setFormData({ ...formData, variants: news });
+                                                                            news[i].sku = val;
+                                                                            setFormData(prev => ({
+                                                                                ...prev,
+                                                                                variants: news,
+                                                                                sku: i === 0 ? val : (prev.sku || val)
+                                                                            }));
                                                                         }}
                                                                         placeholder="mango-001"
                                                                         className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none ring-0 focus:border-primary/40 focus:ring-2 focus:ring-primary/10"
@@ -1166,7 +1314,7 @@ const ProductManagement = () => {
                             {/* Modal Footer */}
                             <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex items-center justify-end gap-3">
                                 <button
-                                    onClick={() => setIsProductModalOpen(false)}
+                                    onClick={handleCloseModal}
                                     className="px-6 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:bg-slate-100"
                                 >
                                     CLOSE

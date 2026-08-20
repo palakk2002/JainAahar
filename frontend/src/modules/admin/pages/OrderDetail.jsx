@@ -367,10 +367,17 @@ const OrderDetail = () => {
                                 </div>
                                 <div className="text-left">
                                     <h3 className="text-lg font-black text-slate-900 leading-tight">
-                                        {order.warehouse?.warehouseName || order.warehouse?.name || (order.warehouseId ? "Assigned Warehouse" : "No Warehouse Assigned")}
+                                        {(typeof order.warehouse === 'object' && (order.warehouse?.warehouseName || order.warehouse?.name)) ||
+                                         (typeof order.warehouseId === 'object' && (order.warehouseId?.warehouseName || order.warehouseId?.name)) ||
+                                         order.assignedWarehouse?.warehouseName ||
+                                         (order.warehouseId ? "Assigned Warehouse" : "No Warehouse Assigned")}
                                     </h3>
                                     <p className="text-xs font-bold text-slate-500">
-                                        {order.warehouse?.city ? `Hub: ${order.warehouse.city}` : "Order requires physical fulfillment assignment"}
+                                        {(typeof order.warehouse === 'object' && order.warehouse?.city)
+                                            ? `Hub: ${order.warehouse.city}${order.warehouse.pincode ? ` - ${order.warehouse.pincode}` : ''}`
+                                            : (typeof order.warehouseId === 'object' && order.warehouseId?.city)
+                                                ? `Hub: ${order.warehouseId.city}${order.warehouseId.pincode ? ` - ${order.warehouseId.pincode}` : ''}`
+                                                : "Physical fulfillment warehouse node"}
                                     </p>
                                     {order.warehouseAssignedAt && (
                                         <p className="text-[10px] font-bold text-slate-400 mt-0.5">

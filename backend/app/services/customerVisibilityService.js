@@ -1,7 +1,9 @@
 import Seller from "../models/seller.js";
 import Warehouse from "../models/warehouse.js";
+import WarehouseInventory from "../models/warehouseInventory.js";
 import { calculateDistance } from "../utils/helper.js";
 import { buildKey, getOrSet, getTTL } from "./cacheService.js";
+import mongoose from "mongoose";
 
 const MAX_SELLER_SEARCH_DISTANCE_M = 100000;
 
@@ -74,11 +76,90 @@ export async function getNearbySellerIdsForCustomer(lat, lng) {
           return false;
         }
         const distanceKm = calculateDistance(lat, lng, entityLat, entityLng);
-        return distanceKm <= (entity.serviceRadius || 5);
+        return distanceKm <= (entity.serviceRadius || 50);
       })
       .map((entity) => String(entity._id));
   };
 
   return getOrSet(buildNearbySellersKey(lat, lng), fetchFn, getTTL("nearbySellers"));
 }
+
+/**
+ * Returns serviceable active warehouses for a given customer coordinate.
+ * If no coordinates provided, returns all active warehouses (for PAN-India delivery via Shiprocket).
+ */
+export async function getServiceableWarehouseIdsForCustomer(lat = null, lng = null) {
+  if (lat == null || lng == null) {
+    const allActive = await Warehouse.find({ isActive: true, isVerified: true })
+      .select("_id")
+      .lean();
+    return allActive.map((w) => String(w._id));
+  }
+
+  const coords = parseCustomerCoordinates({ lat, lng });
+  if (!coords.valid) {
+    const allActive = await Warehouse.find({ isActive: true, isVerified: true })
+      .select("_id")
+      .lean();
+    return allActive.map((w) => String(w._id));
+  }
+
+  return getNearbySellerIdsForCustomer(coords.lat, coords.lng);
+}
+
+/**
+ * Batch checks stock availability in warehouse inventory for a list of product IDs.
+ * Returns a Map: productId -> { availableStock, isAvailable, isLowStock, isOutOfStock }
+ */
+export async function getProductWarehouseAvailability(productObjectIds = [], targetWarehouseIds = null) {
+  if (!Array.isArray(productObjectIds) || productObjectIds.length === 0) {
+    return new Map();
+  }
+
+  const matchQuery = {
+    product: { $in: productObjectIds.map((id) => new mongoose.Types.ObjectId(id)) },
+  };
+
+  if (Array.isArray(targetWarehouseIds) && targetWarehouseIds.length > 0) {
+    matchQuery.warehouse = {
+      $in: targetWarehouseIds.map((id) => new mongoose.Types.ObjectId(id)),
+    };
+  }
+
+  const aggregation = await WarehouseInventory.aggregate([
+    { $match: matchQuery },
+    {
+      $group: {
+        _id: "$product",
+        totalAvailable: { $sum: "$available" },
+        totalReserved: { $sum: "$reserved" },
+        minStock: { $min: "$minStock" },
+      },
+    },
+  ]);
+
+  const availabilityMap = new Map();
+
+  for (const row of aggregation) {
+    const pId = String(row._id);
+    const availableStock = Math.max(0, row.totalAvailable || 0);
+    const minStock = row.minStock || 5;
+
+    availabilityMap.set(pId, {
+      availableStock,
+      isAvailable: availableStock > 0,
+      isLowStock: availableStock > 0 && availableStock <= minStock,
+      isOutOfStock: availableStock <= 0,
+      stockStatus:
+        availableStock <= 0
+          ? "out_of_stock"
+          : availableStock <= minStock
+          ? "low_stock"
+          : "in_stock",
+    });
+  }
+
+  return availabilityMap;
+}
+
 

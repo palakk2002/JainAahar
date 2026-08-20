@@ -439,7 +439,15 @@ export async function deliveryAcceptAtomic(deliveryId, orderId, idempotencyKey) 
 export async function processSellerTimeoutJob({ orderId }) {
   const now = new Date();
   const order = await Order.findOne({ orderId, workflowVersion: { $gte: 2 } });
-  if (!order || order.workflowStatus !== WORKFLOW_STATUS.SELLER_PENDING) return;
+  if (
+    !order ||
+    order.workflowStatus !== WORKFLOW_STATUS.SELLER_PENDING ||
+    order.warehouse ||
+    order.warehouseId ||
+    order.warehouseAssignmentStatus === "ASSIGNED"
+  ) {
+    return;
+  }
 
   if (order.sellerPendingExpiresAt && order.sellerPendingExpiresAt > now) {
     return;
@@ -480,7 +488,15 @@ export async function processSellerTimeoutJob({ orderId }) {
 export async function processDeliveryTimeoutJob({ orderId, attempt }) {
   const now = new Date();
   const order = await Order.findOne({ orderId, workflowVersion: { $gte: 2 } });
-  if (!order || order.workflowStatus !== WORKFLOW_STATUS.DELIVERY_SEARCH) return;
+  if (
+    !order ||
+    order.workflowStatus !== WORKFLOW_STATUS.DELIVERY_SEARCH ||
+    order.warehouse ||
+    order.warehouseId ||
+    order.warehouseAssignmentStatus === "ASSIGNED"
+  ) {
+    return;
+  }
 
   if (order.deliverySearchExpiresAt && order.deliverySearchExpiresAt > now) {
     return;

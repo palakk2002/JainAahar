@@ -14,6 +14,29 @@ import {
   recordRestockFromDamaged,
   resolveEffectiveWarehouseId,
 } from "../services/warehouseInventoryService.js";
+import { getWarehouseMovementTrend } from "../services/warehouseAnalyticsService.js";
+
+/**
+ * GET /api/warehouse/inventory/analytics/trend
+ * Returns 7 days trend of inwards vs outwards.
+ */
+export const getMovementTrendHandler = async (req, res) => {
+  try {
+    const warehouseId = resolveEffectiveWarehouseId(
+      req.user,
+      req.query.warehouseId || req.params.warehouseId
+    );
+
+    const trend = await getWarehouseMovementTrend(warehouseId || "all");
+    return handleResponse(res, 200, "Movement trend retrieved successfully", trend);
+  } catch (error) {
+    return handleResponse(
+      res,
+      error.statusCode || 500,
+      error.message || "Failed to retrieve movement trend"
+    );
+  }
+};
 
 /**
  * GET /api/warehouse/inventory
@@ -228,6 +251,8 @@ export const stockInwardHandler = async (req, res) => {
       productId,
       sku = "",
       quantity,
+      damagedQty = 0,
+      defectiveQty = 0,
       reason = "Stock Received",
       reference = "",
       notes = "",
@@ -248,6 +273,8 @@ export const stockInwardHandler = async (req, res) => {
       productId,
       sku,
       quantity,
+      damagedQty: Number(damagedQty) || 0,
+      defectiveQty: Number(defectiveQty) || 0,
       reason,
       reference,
       notes,

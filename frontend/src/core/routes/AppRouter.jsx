@@ -161,6 +161,16 @@ const AppRouter = () => {
                         </ProtectedRoute>
                     ),
                 },
+                {
+                    path: 'warehouse/*',
+                    element: (
+                        <ProtectedRoute>
+                            <RoleGuard allowedRoles={[UserRole.ADMIN, UserRole.WAREHOUSE_MGMT, 'warehouse']}>
+                                <WarehouseMgmtModule />
+                            </RoleGuard>
+                        </ProtectedRoute>
+                    ),
+                },
 
                 {
                     path: 'unauthorized',

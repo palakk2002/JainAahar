@@ -16,6 +16,8 @@ jest.unstable_mockModule("../app/services/sellerVerificationService.js", () => (
   issueSellerVerificationOtp: jest.fn(),
   verifySellerOtpCode: jest.fn(),
   verifySellerVerificationToken: mockVerifySellerVerificationToken,
+  issueSellerResetOtp: jest.fn(),
+  verifySellerResetOtpCode: jest.fn(),
 }));
 
 jest.unstable_mockModule("../app/services/mediaService.js", () => ({

@@ -34,6 +34,9 @@ const autoCancelExpiredOrders = async () => {
       workflowVersion: { $gte: 2 },
       workflowStatus: WORKFLOW_STATUS.SELLER_PENDING,
       sellerPendingExpiresAt: { $lte: now },
+      warehouse: { $exists: false },
+      warehouseId: { $exists: false },
+      warehouseAssignmentStatus: { $ne: "ASSIGNED" },
     })
       .select("orderId")
       .lean();
@@ -54,6 +57,9 @@ const autoCancelExpiredOrders = async () => {
       workflowVersion: { $gte: 2 },
       workflowStatus: WORKFLOW_STATUS.DELIVERY_SEARCH,
       deliverySearchExpiresAt: { $lte: now },
+      warehouse: { $exists: false },
+      warehouseId: { $exists: false },
+      warehouseAssignmentStatus: { $ne: "ASSIGNED" },
     })
       .select("orderId deliverySearchMeta")
       .lean();

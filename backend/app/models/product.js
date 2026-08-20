@@ -79,15 +79,26 @@ const productSchema = new mongoose.Schema(
             ref: "Category",
             required: true,
         },
+        /**
+         * Legacy seller reference. Optional in single-vendor model where
+         * Admin is the sole seller. Existing products with sellerId
+         * continue working; new admin-owned products leave this null.
+         */
         sellerId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Seller",
-            required: function() { return !this.isMonthlyKit; }
+            default: null,
         },
+        /**
+         * @deprecated Warehouse association is now handled via WarehouseInventory
+         * (per-warehouse, per-product records). This field is kept for backward
+         * compatibility with monthly-kit products but should NOT be used to
+         * determine which warehouse stocks a product.
+         */
         warehouseId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Warehouse",
-            required: function() { return this.isMonthlyKit; }
+            default: null,
         },
         isMonthlyKit: {
             type: Boolean,
@@ -123,7 +134,7 @@ const productSchema = new mongoose.Schema(
         },
         lastSubmittedByRole: {
             type: String,
-            enum: ["seller", "admin"],
+            enum: ["seller", "admin", "warehouse"],
             default: null,
         },
         variants: [

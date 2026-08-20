@@ -8,6 +8,41 @@ import Warehouse from "../models/warehouse.js";
 import StockHistory from "../models/stockHistory.js";
 
 /**
+ * Syncs Product.stock with the aggregate of WarehouseInventory.available
+ * across ALL warehouses stocking that product.
+ *
+ * Product.stock = SUM(WarehouseInventory.available) for the product.
+ *
+ * This keeps the legacy Product.stock field (used by the customer checkout
+ * flow and the product listing) in sync with the warehouse-based system.
+ * Call this after any warehouse inventory change (inward, outward,
+ * adjustment, damaged, transfer, reservation, release, fulfillment).
+ */
+export async function syncProductStockFromWarehouse(productId) {
+  if (!productId) return null;
+
+  const aggregation = await WarehouseInventory.aggregate([
+    { $match: { product: new mongoose.Types.ObjectId(productId) } },
+    {
+      $group: {
+        _id: null,
+        totalAvailable: { $sum: "$available" },
+      },
+    },
+  ]);
+
+  const totalAvailable = aggregation.length > 0 ? aggregation[0].totalAvailable : 0;
+
+  const updated = await Product.findByIdAndUpdate(
+    productId,
+    { $set: { stock: Math.max(0, totalAvailable) } },
+    { new: true },
+  );
+
+  return updated;
+}
+
+/**
  * Resolves the effective warehouse ID:
  * - If user is "warehouse", strictly use their own ID (prevents IDOR).
  * - If user is "admin", allow explicit targetWarehouseId from query/body or fallback.
@@ -266,24 +301,45 @@ export async function getOrCreateWarehouseInventory({
 
 /**
  * Atomic Stock Inward (Stock Received at Warehouse).
+ *
+ * Supports damaged/defective split at inward time:
+ *   receivedQty (quantity) = acceptedQty + damagedQty + defectiveQty
+ *   acceptedQty → added to `available`
+ *   damagedQty  → added to `damaged` (quarantined, not sellable)
+ *   defectiveQty → added to `defective` (quarantined, not sellable)
  */
 export async function recordStockInward({
   warehouseId,
   productId,
   sku = "",
   quantity,
+  damagedQty = 0,
+  defectiveQty = 0,
   reason = "Stock Received",
   reference = "",
   notes = "",
   performedBy,
   performedByModel = "Warehouse",
 }) {
-  const qty = Number(quantity);
-  if (!Number.isFinite(qty) || qty <= 0) {
+  const totalReceived = Number(quantity);
+  if (!Number.isFinite(totalReceived) || totalReceived <= 0) {
     const error = new Error("Inward quantity must be a positive number");
     error.statusCode = 400;
     throw error;
   }
+
+  const dmg = Math.max(0, Math.floor(Number(damagedQty) || 0));
+  const def = Math.max(0, Math.floor(Number(defectiveQty) || 0));
+
+  if (dmg + def > totalReceived) {
+    const error = new Error(
+      `Damaged (${dmg}) + Defective (${def}) cannot exceed total received (${totalReceived})`,
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const acceptedQty = totalReceived - dmg - def;
 
   const inventory = await getOrCreateWarehouseInventory({
     warehouseId,
@@ -291,33 +347,86 @@ export async function recordStockInward({
     sku,
   });
 
-  const beforeQty = Number(inventory.available || 0);
+  // Build atomic update: increment available, damaged, defective
+  const incUpdate = { available: acceptedQty };
+  if (dmg > 0) incUpdate.damaged = dmg;
+  if (def > 0) incUpdate.defective = def;
+
+  const beforeAvailable = Number(inventory.available || 0);
+  const beforeDamaged = Number(inventory.damaged || 0);
+  const beforeDefective = Number(inventory.defective || 0);
+
   const updated = await WarehouseInventory.findByIdAndUpdate(
     inventory._id,
     {
-      $inc: { available: qty },
+      $inc: incUpdate,
       $set: { lastUpdated: new Date() },
     },
     { new: true },
   );
 
-  const afterQty = Number(updated.available || 0);
+  const afterAvailable = Number(updated.available || 0);
+  const refId = reference || `INW-${Date.now()}`;
+  const transactions = [];
 
-  // Append to immutable audit log
-  const tx = await InventoryTransaction.create({
-    warehouse: warehouseId,
-    product: productId,
-    sku: updated.sku || sku,
-    type: INVENTORY_TRANSACTION_TYPES.INWARD,
-    quantity: qty,
-    beforeQty,
-    afterQty,
-    reference: reference || `INW-${Date.now()}`,
-    reason,
-    notes,
-    performedBy,
-    performedByModel,
-  });
+  // Audit record for accepted stock (into available)
+  if (acceptedQty > 0) {
+    const tx = await InventoryTransaction.create({
+      warehouse: warehouseId,
+      product: productId,
+      sku: updated.sku || sku,
+      type: INVENTORY_TRANSACTION_TYPES.INWARD,
+      quantity: acceptedQty,
+      beforeQty: beforeAvailable,
+      afterQty: afterAvailable,
+      reference: refId,
+      reason,
+      notes: notes
+        ? `${notes} | Received: ${totalReceived}, Accepted: ${acceptedQty}`
+        : `Received: ${totalReceived}, Accepted: ${acceptedQty}`,
+      performedBy,
+      performedByModel,
+    });
+    transactions.push(tx);
+  }
+
+  // Audit record for damaged stock (quarantined at inward)
+  if (dmg > 0) {
+    const tx = await InventoryTransaction.create({
+      warehouse: warehouseId,
+      product: productId,
+      sku: updated.sku || sku,
+      type: INVENTORY_TRANSACTION_TYPES.DAMAGED,
+      quantity: dmg,
+      beforeQty: beforeDamaged,
+      afterQty: Number(updated.damaged || 0),
+      reference: refId,
+      reason: `Damaged at inward: ${reason}`,
+      notes: notes || "",
+      performedBy,
+      performedByModel,
+    });
+    transactions.push(tx);
+  }
+
+  // Audit record for defective stock (quarantined at inward)
+  if (def > 0) {
+    const tx = await InventoryTransaction.create({
+      warehouse: warehouseId,
+      product: productId,
+      sku: updated.sku || sku,
+      type: INVENTORY_TRANSACTION_TYPES.DAMAGED, // Reuses DAMAGED type for defective
+      quantity: def,
+      beforeQty: beforeDefective,
+      afterQty: Number(updated.defective || 0),
+      reference: refId,
+      reason: `Defective at inward: ${reason}`,
+      notes: notes || "",
+      performedBy,
+      performedByModel,
+    });
+    transactions.push(tx);
+  }
 
   // Also maintain existing StockHistory for backward-compatibility
   try {
@@ -325,15 +434,33 @@ export async function recordStockInward({
       product: productId,
       warehouseId,
       type: "Restock",
-      quantity: qty,
-      note: `Warehouse Inward: ${reason} ${notes ? `(${notes})` : ""}`.trim(),
+      quantity: acceptedQty,
+      note: `Warehouse Inward: ${reason} (Received: ${totalReceived}, Accepted: ${acceptedQty}, Damaged: ${dmg}, Defective: ${def})${notes ? ` — ${notes}` : ""}`.trim(),
     });
   } catch (shErr) {
     // Non-critical fallback
   }
 
-  return { inventory: updated, transaction: tx };
+  // Sync Product.stock with total warehouse available stock
+  try {
+    await syncProductStockFromWarehouse(productId);
+  } catch (syncErr) {
+    // Non-critical — Product.stock sync is best-effort
+  }
+
+  return {
+    inventory: updated,
+    transaction: transactions[0] || null,
+    transactions,
+    summary: {
+      totalReceived,
+      acceptedQty,
+      damagedQty: dmg,
+      defectiveQty: def,
+    },
+  };
 }
+
 
 /**
  * Atomic Stock Outward (Stock Sent Out / Removed).
@@ -411,6 +538,10 @@ export async function recordStockOutward({
     });
   } catch (shErr) {}
 
+  try {
+    await syncProductStockFromWarehouse(productId);
+  } catch (syncErr) {}
+
   return { inventory: updated, transaction: tx };
 }
 
@@ -477,6 +608,10 @@ export async function recordStockAdjustment({
       performedByModel,
     });
 
+    try {
+      await syncProductStockFromWarehouse(productId);
+    } catch (syncErr) {}
+
     return { inventory: updated, transaction: tx };
   } else {
     // DECREASE
@@ -523,6 +658,10 @@ export async function recordStockAdjustment({
       performedBy,
       performedByModel,
     });
+
+    try {
+      await syncProductStockFromWarehouse(productId);
+    } catch (syncErr) {}
 
     return { inventory: updated, transaction: tx };
   }
@@ -593,6 +732,10 @@ export async function recordDamagedStock({
     performedByModel,
   });
 
+  try {
+    await syncProductStockFromWarehouse(productId);
+  } catch (syncErr) {}
+
   return { inventory: updated, transaction: tx };
 }
 
@@ -661,6 +804,10 @@ export async function recordDefectiveStock({
     performedByModel,
   });
 
+  try {
+    await syncProductStockFromWarehouse(productId);
+  } catch (syncErr) {}
+
   return { inventory: updated, transaction: tx };
 }
 
@@ -726,6 +873,10 @@ export async function recordRestockFromDamaged({
     performedBy,
     performedByModel,
   });
+
+  try {
+    await syncProductStockFromWarehouse(productId);
+  } catch (syncErr) {}
 
   return { inventory: updated, transaction: tx };
 }
@@ -854,6 +1005,10 @@ export async function reserveWarehouseStock({
     );
 
     reservedItems.push(updated);
+
+    try {
+      await syncProductStockFromWarehouse(productId);
+    } catch (syncErr) {}
   }
 
   return reservedItems;
@@ -914,6 +1069,10 @@ export async function releaseWarehouseStockReservation({
       );
 
       releasedItems.push(updated);
+
+      try {
+        await syncProductStockFromWarehouse(productId);
+      } catch (syncErr) {}
     }
   }
 

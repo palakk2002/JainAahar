@@ -30,10 +30,27 @@ export const Reports = () => {
         if (res.data.success) setReportData(res.data.result);
       } else if (activeReport === "movement" || activeReport === "inward" || activeReport === "outward") {
         const res = await warehouseMgmtApi.getMovements(selectedWarehouse);
-        if (res.data.success) {
-          let data = res.data.result;
-          if (activeReport === "inward") data = data.filter((m) => m.movementType === "Stock Inward");
-          if (activeReport === "outward") data = data.filter((m) => m.quantity < 0 || m.movementType === "Customer Order");
+        if (res.data?.success) {
+          let data = res.data.result || [];
+          if (activeReport === "inward") {
+            data = data.filter(
+              (m) =>
+                m.movementType === "INWARD" ||
+                m.movementType === "Stock Inward" ||
+                String(m.movementType).toUpperCase() === "INWARD",
+            );
+          }
+          if (activeReport === "outward") {
+            data = data.filter(
+              (m) =>
+                m.quantity < 0 ||
+                m.movementType === "OUTWARD" ||
+                m.movementType === "Stock Outward" ||
+                m.movementType === "Customer Order" ||
+                m.movementType === "FULFILLMENT" ||
+                m.movementType === "TRANSFER_OUT",
+            );
+          }
           setReportData(data);
         }
       } else if (activeReport === "transfer") {

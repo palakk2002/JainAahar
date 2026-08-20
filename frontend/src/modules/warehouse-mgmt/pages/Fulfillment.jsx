@@ -130,24 +130,30 @@ export const Fulfillment = () => {
     }
   };
 
-  const handleShiprocketCreate = async (orderId) => {
+  const handleMarkShipped = async (fulfillmentId, awbCode = "") => {
     try {
-      const token = localStorage.getItem("token") || localStorage.getItem("adminToken") || localStorage.getItem("warehouseToken");
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:7000/api";
-      const res = await fetch(`${API_URL}/delivery/shipment/create`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: token ? `Bearer ${token}` : "",
-        },
-        body: JSON.stringify({ orderId, preferredProvider: "shiprocket" }),
+      const res = await warehouseMgmtApi.updateFulfillmentStatus(fulfillmentId, "mark-shipped", {
+        awbCode,
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        toast.success(`Shiprocket AWB #${data.result?.externalId || "Generated"} Created Successfully!`);
+      if (res.data?.success !== false) {
+        toast.success("Order marked as Dispatched / Shipped!");
         fetchOrders();
       } else {
-        toast.error(data.message || "Failed to create Shiprocket shipment");
+        toast.error(res.data?.message || "Failed to mark shipped");
+      }
+    } catch (err) {
+      toast.error("Failed to mark shipped");
+    }
+  };
+
+  const handleShiprocketCreate = async (fulfillmentId) => {
+    try {
+      const res = await warehouseMgmtApi.updateFulfillmentStatus(fulfillmentId, "create-shipment");
+      if (res.data?.success !== false) {
+        toast.success(`Shiprocket AWB Generated: ${res.data?.result?.awbCode || "Success"}!`);
+        fetchOrders();
+      } else {
+        toast.error(res.data?.message || "Failed to create Shiprocket shipment");
       }
     } catch (err) {
       toast.error("Failed to connect to Shiprocket service");
@@ -175,8 +181,14 @@ export const Fulfillment = () => {
   const readyOrders = orders.filter(
     (o) =>
       o.fulfillmentStatus === "READY_TO_SHIP" ||
-      o.fulfillmentStatus === "Ready to Ship" ||
-      o.fulfillmentStatus === "SHIPPED"
+      o.fulfillmentStatus === "Ready to Ship"
+  );
+  const shippedOrders = orders.filter(
+    (o) =>
+      o.fulfillmentStatus === "SHIPPED" ||
+      o.fulfillmentStatus === "Shipped" ||
+      o.fulfillmentStatus === "COMPLETED" ||
+      o.fulfillmentStatus === "Completed"
   );
 
   if (loading) {
@@ -191,7 +203,7 @@ export const Fulfillment = () => {
     <div className="space-y-5">
       <PageHeader
         title="Fulfillment Station"
-        description="Warehouse floor workflow: Accept → Pick → Pack → Ready to Ship"
+        description="Warehouse floor workflow: Accept → Pick → Pack → Ready to Ship → Shiprocket Dispatch"
         actions={
           <WarehouseSelector
             selectedWarehouse={selectedWarehouse}
@@ -221,8 +233,8 @@ export const Fulfillment = () => {
               : "bg-slate-100 text-slate-600 hover:bg-slate-200"
           }`}
         >
-          <CheckSquare size={16} />
-          Picking Stage ({pickingOrders.length})
+          <Play size={16} />
+          Picking ({pickingOrders.length})
         </button>
         <button
           onClick={() => setActiveTab("packing")}
@@ -233,7 +245,7 @@ export const Fulfillment = () => {
           }`}
         >
           <PackageCheck size={16} />
-          Packing Stage ({packingOrders.length})
+          Packing ({packingOrders.length})
         </button>
         <button
           onClick={() => setActiveTab("ready")}
@@ -246,14 +258,25 @@ export const Fulfillment = () => {
           <Send size={16} />
           Ready to Ship ({readyOrders.length})
         </button>
+        <button
+          onClick={() => setActiveTab("shipped")}
+          className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all ${
+            activeTab === "shipped"
+              ? "bg-purple-600 text-white shadow-md"
+              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+          }`}
+        >
+          <Truck size={16} />
+          Shipped & In-Transit ({shippedOrders.length})
+        </button>
       </div>
 
-      {/* 1. NEW ASSIGNED STAGE */}
+      {/* 1. ASSIGNED STAGE */}
       {activeTab === "assigned" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {assignedOrders.length === 0 ? (
             <div className="col-span-2 text-center py-12 bg-slate-50 rounded-2xl border border-slate-200 text-slate-500 font-medium">
-              No new pending assignments for this warehouse.
+              No new unaccepted orders assigned to this warehouse.
             </div>
           ) : (
             assignedOrders.map((ord) => (
@@ -264,24 +287,39 @@ export const Fulfillment = () => {
                       #{ord.fulfillmentId || ord.orderId}
                     </span>
                     <span className="text-xs text-slate-500 font-medium block">
-                      Order: #{ord.orderId} • {ord.customerName} ({ord.customerCity || "Customer"})
+                      Order #{ord.orderId} • {ord.customerName}
                     </span>
                   </div>
                   <FulfillmentStatusBadge status={ord.fulfillmentStatus} />
                 </div>
 
-                <div className="text-xs text-slate-600 space-y-1">
-                  <div><strong>Items:</strong> {ord.items?.length || 0} SKU(s)</div>
-                  <div><strong>Total Amount:</strong> ₹{ord.totalAmount || 0}</div>
-                  <div><strong>Warehouse:</strong> {ord.warehouseName}</div>
+                <div className="space-y-2">
+                  <span className="text-xs font-bold text-slate-700 block">
+                    Items to Fulfill ({ord.items?.length || 0})
+                  </span>
+                  <div className="divide-y divide-slate-100 max-h-40 overflow-y-auto pr-1">
+                    {ord.items?.map((it, idx) => (
+                      <div key={idx} className="py-2 flex items-center justify-between text-xs">
+                        <div>
+                          <span className="font-bold text-slate-800">{it.name}</span>
+                          <span className="text-[10px] text-slate-400 font-mono block">
+                            SKU: {it.sku || "N/A"}
+                          </span>
+                        </div>
+                        <span className="font-black text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md">
+                          {it.qty || it.requiredQty} units
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="pt-2 flex justify-end">
+                <div className="pt-2 flex justify-end gap-2">
                   <button
                     onClick={() => handleAccept(ord.id)}
-                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-xs flex items-center gap-1.5"
+                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all"
                   >
-                    <Check size={14} /> Accept Fulfillment
+                    <CheckSquare size={14} /> Accept for Floor Picking
                   </button>
                 </div>
               </Card>
@@ -295,16 +333,16 @@ export const Fulfillment = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {pickingOrders.length === 0 ? (
             <div className="col-span-2 text-center py-12 bg-slate-50 rounded-2xl border border-slate-200 text-slate-500 font-medium">
-              No orders currently in picking stage.
+              No orders currently in floor picking.
             </div>
           ) : (
             pickingOrders.map((ord) => {
-              const allItemsPicked = (ord.items || []).every(
-                (it) => it.pickedQty >= it.requiredQty
+              const allPicked = ord.items?.every(
+                (i) => (i.pickedQty || 0) >= (i.requiredQty || 1)
               );
 
               return (
-                <Card key={ord.id} className="p-5 space-y-4">
+                <Card key={ord.id} className="p-5 space-y-4 border-l-4 border-l-primary">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                     <div>
                       <span className="font-mono font-bold text-slate-900 text-sm">
@@ -318,63 +356,47 @@ export const Fulfillment = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                      Picklist Items
-                    </span>
-                    {ord.items?.map((item) => (
-                      <div
-                        key={item.productId}
-                        className="p-3 rounded-xl border border-slate-100 bg-slate-50/60 flex items-center justify-between"
-                      >
-                        <div>
-                          <span className="font-bold text-slate-900 text-xs block">
-                            {item.name}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            SKU: {item.sku}
-                          </span>
-                          <div className="flex items-center gap-3 mt-1 text-xs">
-                            <span className="text-slate-600">
-                              Req: <strong className="text-slate-900">{item.requiredQty || item.qty}</strong>
-                            </span>
-                            <span className="text-emerald-700">
-                              Picked: <strong className="text-emerald-900">{item.pickedQty || 0}</strong>
-                            </span>
+                    <span className="text-xs font-bold text-slate-700 block">Pick List Checklist</span>
+                    <div className="divide-y divide-slate-100 max-h-48 overflow-y-auto pr-1">
+                      {ord.items?.map((it, idx) => {
+                        const isItemDone = (it.pickedQty || 0) >= (it.requiredQty || 1);
+                        return (
+                          <div key={idx} className="py-2.5 flex items-center justify-between text-xs">
+                            <div>
+                              <span className={`font-bold ${isItemDone ? "line-through text-slate-400" : "text-slate-800"}`}>
+                                {it.name}
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-mono block">
+                                SKU: {it.sku || "N/A"} • Needed: {it.requiredQty}
+                              </span>
+                            </div>
+                            <div>
+                              {isItemDone ? (
+                                <span className="inline-flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 px-2.5 py-1 rounded-lg">
+                                  <Check size={13} /> {it.pickedQty} Picked
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => handlePickItem(ord.id, it.productId, it.requiredQty)}
+                                  className="px-3 py-1 rounded-lg bg-primary text-white font-bold text-[11px] hover:bg-primary/90 shadow-xs"
+                                >
+                                  Verify Pick ({it.requiredQty})
+                                </button>
+                              )}
+                            </div>
                           </div>
-                        </div>
-
-                        {(item.pickedQty || 0) >= (item.requiredQty || item.qty) ? (
-                          <Badge variant="success" className="flex items-center gap-1 text-[11px]">
-                            <Check size={12} /> Picked
-                          </Badge>
-                        ) : (
-                          <button
-                            onClick={() =>
-                              handlePickItem(ord.id, item.productId, item.requiredQty || item.qty)
-                            }
-                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs"
-                          >
-                            Pick All
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                        );
+                      })}
+                    </div>
                   </div>
 
-                  <div className="pt-2 flex justify-end gap-2">
-                    {ord.fulfillmentStatus === "ACCEPTED" || ord.fulfillmentStatus === "Accepted" ? (
-                      <button
-                        onClick={() => handleStartPicking(ord.id)}
-                        className="px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs shadow-xs flex items-center gap-1.5"
-                      >
-                        <Play size={14} /> Start Picking
-                      </button>
-                    ) : allItemsPicked ? (
+                  <div className="pt-2 flex justify-end gap-2 border-t border-slate-100">
+                    {allPicked ? (
                       <button
                         onClick={() => handleStartPacking(ord.id)}
                         className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs flex items-center gap-1.5"
                       >
-                        <PackageCheck size={14} /> Move to Packing Station
+                        <PackageCheck size={14} /> Send to Packing Station
                       </button>
                     ) : (
                       <span className="text-xs text-amber-600 font-semibold py-1">
@@ -461,30 +483,104 @@ export const Fulfillment = () => {
                       #{ord.fulfillmentId || ord.orderId}
                     </span>
                     <span className="text-xs text-slate-500 font-medium block">
+                      Order #{ord.orderId} • {ord.customerName} • {ord.customerCity || "City"}
+                    </span>
+                  </div>
+                  <FulfillmentStatusBadge status={ord.fulfillmentStatus} />
+                </div>
+
+                <div className="bg-emerald-50/60 p-3.5 rounded-xl border border-emerald-200/80 text-xs space-y-2 text-emerald-950">
+                  <div className="flex justify-between">
+                    <span className="font-semibold text-emerald-800">Fulfillment State:</span>
+                    <span className="font-bold">Ready for Dispatch / Pickup</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-semibold text-emerald-800">Stock Status:</span>
+                    <span className="font-bold text-emerald-700">Committed & Deducted</span>
+                  </div>
+
+                  {ord.awbCode ? (
+                    <div className="pt-2 border-t border-emerald-200 flex items-center justify-between">
+                      <span className="font-semibold text-purple-900">Shiprocket AWB:</span>
+                      <a
+                        href={ord.trackingUrl || `https://shiprocket.co/tracking/${ord.awbCode}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-mono font-bold text-purple-700 hover:text-purple-900 underline text-xs flex items-center gap-1"
+                      >
+                        #{ord.awbCode} ↗
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="pt-1.5 border-t border-emerald-200 text-amber-700 font-medium">
+                      ⚠️ AWB generation pending (use button below to generate via Shiprocket)
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-2 flex justify-end gap-2 flex-wrap">
+                  {!ord.awbCode ? (
+                    <button
+                      onClick={() => handleShiprocketCreate(ord.id)}
+                      className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all"
+                    >
+                      <Truck size={14} /> Generate Shiprocket AWB
+                    </button>
+                  ) : null}
+
+                  <button
+                    onClick={() => handleMarkShipped(ord.id, ord.awbCode)}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all"
+                  >
+                    <Send size={14} /> Handover to Courier (Mark Shipped)
+                  </button>
+                </div>
+              </Card>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* 5. SHIPPED & DISPATCHED STAGE */}
+      {activeTab === "shipped" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {shippedOrders.length === 0 ? (
+            <div className="col-span-2 text-center py-12 bg-slate-50 rounded-2xl border border-slate-200 text-slate-500 font-medium">
+              No orders currently in-transit or dispatched.
+            </div>
+          ) : (
+            shippedOrders.map((ord) => (
+              <Card key={ord.id} className="p-5 space-y-4 border-l-4 border-l-purple-500">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div>
+                    <span className="font-mono font-bold text-slate-900 text-sm">
+                      #{ord.fulfillmentId || ord.orderId}
+                    </span>
+                    <span className="text-xs text-slate-500 font-medium block">
                       Order #{ord.orderId} • {ord.customerName}
                     </span>
                   </div>
                   <FulfillmentStatusBadge status={ord.fulfillmentStatus} />
                 </div>
 
-                <div className="bg-emerald-50/60 p-3 rounded-xl border border-emerald-200/80 text-xs space-y-1.5 text-emerald-900">
+                <div className="bg-purple-50 p-3 rounded-xl border border-purple-100 text-xs space-y-2 text-purple-950">
                   <div className="flex justify-between">
-                    <span className="font-semibold">Fulfillment State:</span>
-                    <span className="font-bold">Ready for Dispatch / Pickup</span>
+                    <span className="font-semibold text-purple-700">Courier Provider:</span>
+                    <span className="font-bold">{ord.courierName || "Shiprocket Delivery"}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="font-semibold">Stock Status:</span>
-                    <span className="font-bold text-emerald-700">Committed & Deducted</span>
-                  </div>
-                </div>
-
-                <div className="pt-2 flex justify-end gap-2 flex-wrap">
-                  <button
-                    onClick={() => handleShiprocketCreate(ord.orderId || ord.id)}
-                    className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all"
-                  >
-                    <Truck size={14} /> Ship via Shiprocket (Generate AWB)
-                  </button>
+                  {ord.awbCode && (
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-purple-700">AWB Tracking Code:</span>
+                      <a
+                        href={ord.trackingUrl || `https://shiprocket.co/tracking/${ord.awbCode}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-mono font-bold text-purple-900 underline flex items-center gap-1"
+                      >
+                        #{ord.awbCode} ↗
+                      </a>
+                    </div>
+                  )}
                 </div>
               </Card>
             ))

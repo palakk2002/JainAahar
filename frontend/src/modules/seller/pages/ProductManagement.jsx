@@ -197,6 +197,7 @@ const ProductManagement = () => {
     salePrice: "",
     stock: "",
     lowStockAlert: 5,
+    unit: "packet",
     category: "",
     header: "",
     subcategory: "",
@@ -206,6 +207,14 @@ const ProductManagement = () => {
     brand: "",
     mainImage: null,
     galleryImages: [],
+    mainImageFile: null,
+    galleryFiles: [],
+    highlights: [
+      { icon: "leaf", label: "100% Natural" },
+      { icon: "avocado", label: "Farm Fresh" },
+      { icon: "zap", label: "High Protein" },
+      { icon: "sprout", label: "Source of Fiber" }
+    ],
     variants: [
       { id: Date.now(), name: "", price: "", salePrice: "", stock: "", sku: "" },
     ],
@@ -311,27 +320,58 @@ const ProductManagement = () => {
 
   const handleSave = async () => {
     try {
-      if (!formData.name || !formData.price || !formData.stock || !formData.header || !formData.category || !formData.subcategory) {
-        toast.error("Please fill all required fields, including categories");
+      if (!formData.name?.trim()) {
+        toast.error("Please enter Product Title in General Info tab");
+        setModalTab("general");
+        return;
+      }
+
+      const priceToUse = formData.price !== "" && formData.price !== undefined ? formData.price : (formData.variants?.[0]?.price || "");
+      const numericPrice = Number(priceToUse);
+      if (priceToUse === "" || isNaN(numericPrice) || numericPrice < 0) {
+        toast.error("Please enter Regular MRP Price in General Info tab");
+        setModalTab("general");
+        return;
+      }
+
+      if (!formData.header) {
+        toast.error("Please select Main Group (Header) in Groups tab");
+        setModalTab("category");
+        return;
+      }
+
+      if (!formData.category) {
+        toast.error("Please select Specific Category in Groups tab");
+        setModalTab("category");
+        return;
+      }
+
+      const selectedHeaderObj = categories.find((h) => h._id === formData.header);
+      const selectedCatObj = selectedHeaderObj?.children?.find((c) => c._id === formData.category);
+      const hasSubcategories = Array.isArray(selectedCatObj?.children) && selectedCatObj.children.length > 0;
+
+      if (hasSubcategories && !formData.subcategory) {
+        toast.error("Please select Sub-Category in Groups tab");
+        setModalTab("category");
         return;
       }
 
       const data = new FormData();
-      data.append("name", formData.name);
-      data.append("slug", formData.slug);
-      data.append("sku", formData.sku);
-      data.append("description", formData.description);
-      data.append("price", Number(formData.price));
-      data.append("salePrice", Number(formData.salePrice) || 0);
-      data.append("stock", Number(formData.stock));
+      data.append("name", formData.name.trim());
+      data.append("slug", formData.slug || "");
+      data.append("sku", formData.sku || "");
+      data.append("description", formData.description || "");
+      data.append("price", String(numericPrice));
+      data.append("salePrice", String(Number(formData.salePrice) || 0));
+      data.append("stock", String(formData.stock !== "" && formData.stock !== undefined ? Number(formData.stock) : 0));
       data.append("headerId", formData.header);
       data.append("categoryId", formData.category);
-      data.append("subcategoryId", formData.subcategory);
-      data.append("status", formData.status);
-      data.append("brand", formData.brand);
-      data.append("weight", formData.weight);
-      data.append("tags", formData.tags);
-      data.append("variants", JSON.stringify(formData.variants));
+      data.append("subcategoryId", formData.subcategory || "");
+      data.append("status", formData.status || "active");
+      data.append("brand", formData.brand || "");
+      data.append("weight", formData.weight || "");
+      data.append("tags", formData.tags || "");
+      data.append("variants", JSON.stringify(formData.variants || []));
       data.append("highlights", JSON.stringify(formData.highlights || []));
 
       if (formData.mainImageFile) {
@@ -415,19 +455,22 @@ const ProductManagement = () => {
         slug: item.slug || "",
         sku: item.sku || "",
         description: item.description || "",
-        price: item.price || "",
+        price: item.price !== undefined && item.price !== null ? String(item.price) : "",
         salePrice: item.salePrice || "",
-        stock: item.stock || "",
+        stock: item.stock !== undefined && item.stock !== null ? String(item.stock) : "0",
         lowStockAlert: item.lowStockAlert || 5,
-        header: item.headerId?._id || item.headerId || "",
-        category: item.categoryId?._id || item.categoryId || "",
-        subcategory: item.subcategoryId?._id || item.subcategoryId || "",
+        unit: item.unit || "packet",
+        header: item.headerId?._id || item.headerId || item.header?._id || item.header || "",
+        category: item.categoryId?._id || item.categoryId || item.category?._id || item.category || "",
+        subcategory: item.subcategoryId?._id || item.subcategoryId || item.subcategory?._id || item.subcategory || "",
         status: item.status || "active",
         tags: Array.isArray(item.tags) ? item.tags.join(", ") : item.tags || "",
         weight: item.weight || "",
         brand: item.brand || "",
         mainImage: item.mainImage || null,
         galleryImages: item.galleryImages || [],
+        mainImageFile: null,
+        galleryFiles: [],
         highlights: (Array.isArray(item.highlights) && item.highlights.length > 0)
           ? item.highlights
           : [
@@ -458,14 +501,24 @@ const ProductManagement = () => {
         salePrice: "",
         stock: "",
         lowStockAlert: 5,
+        unit: "packet",
         category: "",
         header: "",
+        subcategory: "",
         status: "active",
         tags: "",
         weight: "",
         brand: "",
         mainImage: null,
         galleryImages: [],
+        mainImageFile: null,
+        galleryFiles: [],
+        highlights: [
+          { icon: "leaf", label: "100% Natural" },
+          { icon: "avocado", label: "Farm Fresh" },
+          { icon: "zap", label: "High Protein" },
+          { icon: "sprout", label: "Source of Fiber" }
+        ],
         variants: [
           {
             id: Date.now(),
@@ -1080,7 +1133,7 @@ const ProductManagement = () => {
                         </div>
                         <div className="space-y-1.5 flex flex-col">
                           <label className="text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">
-                            Product Code
+                            Product Code / SKU
                           </label>
                           <input
                             value={formData.sku}
@@ -1089,6 +1142,82 @@ const ProductManagement = () => {
                             }
                             className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl text-sm font-mono font-bold outline-none ring-primary/5 focus:ring-2"
                             placeholder="AUTO-GENERATED"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-1.5 flex flex-col">
+                          <label className="text-[10px] sm:text-xs font-bold text-slate-700 uppercase tracking-widest ml-1">
+                            Regular MRP Price (₹) <span className="text-rose-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={formData.price}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setFormData((prev) => ({
+                                ...prev,
+                                price: val,
+                                variants: prev.variants?.length > 0 ? prev.variants.map((v, i) => i === 0 ? { ...v, price: val } : v) : [{ id: Date.now(), name: "Default", price: val, salePrice: prev.salePrice || "", stock: prev.stock || "0", sku: prev.sku || "" }]
+                              }));
+                            }}
+                            className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl text-sm font-bold outline-none ring-primary/5 focus:ring-2"
+                            placeholder="e.g. 250"
+                          />
+                        </div>
+                        <div className="space-y-1.5 flex flex-col">
+                          <label className="text-[10px] sm:text-xs font-bold text-brand-600 uppercase tracking-widest ml-1">
+                            Selling / Discounted Price (₹)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={formData.salePrice}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setFormData((prev) => ({
+                                ...prev,
+                                salePrice: val,
+                                variants: prev.variants?.length > 0 ? prev.variants.map((v, i) => i === 0 ? { ...v, salePrice: val } : v) : [{ id: Date.now(), name: "Default", price: prev.price || "", salePrice: val, stock: prev.stock || "0", sku: prev.sku || "" }]
+                              }));
+                            }}
+                            className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl text-sm font-bold outline-none ring-primary/5 focus:ring-2 text-brand-700"
+                            placeholder="e.g. 220"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-1.5 flex flex-col">
+                          <label className="text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">
+                            Unit / Measurement
+                          </label>
+                          <select
+                            value={formData.unit || "packet"}
+                            onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                            className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl text-sm font-semibold outline-none ring-primary/5 focus:ring-2 cursor-pointer"
+                          >
+                            <option value="packet">Packet (pkt)</option>
+                            <option value="kg">Kilogram (kg)</option>
+                            <option value="gm">Gram (gm)</option>
+                            <option value="liter">Liter (L)</option>
+                            <option value="ml">Milliliter (ml)</option>
+                            <option value="piece">Piece (pc)</option>
+                            <option value="box">Box</option>
+                            <option value="bottle">Bottle</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1.5 flex flex-col">
+                          <label className="text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-widest ml-1">
+                            Net Weight / Quantity
+                          </label>
+                          <input
+                            value={formData.weight}
+                            onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
+                            className="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl text-sm font-semibold outline-none ring-primary/5 focus:ring-2"
+                            placeholder="e.g. 5 kg, 500 gm, 1 L"
                           />
                         </div>
                       </div>
@@ -1265,7 +1394,11 @@ const ProductManagement = () => {
                                 if (val !== '' && Number(val) < 0) return;
                                 const news = [...formData.variants];
                                 news[i].price = val;
-                                setFormData({ ...formData, variants: news });
+                                setFormData(prev => ({
+                                  ...prev,
+                                  variants: news,
+                                  price: i === 0 ? val : (prev.price || val)
+                                }));
                               }} placeholder="Price" className="w-full bg-white px-3 py-2 rounded-xl text-xs ring-1 ring-slate-100 outline-none" />
                             </div>
                             <div className="space-y-1">
@@ -1275,7 +1408,11 @@ const ProductManagement = () => {
                                 if (val !== '' && Number(val) < 0) return;
                                 const news = [...formData.variants];
                                 news[i].salePrice = val;
-                                setFormData({ ...formData, variants: news });
+                                setFormData(prev => ({
+                                  ...prev,
+                                  variants: news,
+                                  salePrice: i === 0 ? val : (prev.salePrice || val)
+                                }));
                               }} placeholder="Sale" className="w-full bg-brand-50/50 px-3 py-2 rounded-xl text-xs ring-1 ring-brand-100 text-brand-700 outline-none" />
                             </div>
                             <div className="space-y-1">
@@ -1285,16 +1422,25 @@ const ProductManagement = () => {
                                 if (val !== '' && Number(val) < 0) return;
                                 const news = [...formData.variants];
                                 news[i].stock = val;
-                                setFormData({ ...formData, variants: news });
+                                setFormData(prev => ({
+                                  ...prev,
+                                  variants: news,
+                                  stock: i === 0 ? val : (prev.stock || val)
+                                }));
                               }} placeholder="Stock" className="w-full bg-white px-3 py-2 rounded-xl text-xs ring-1 ring-slate-100 outline-none" />
                             </div>
                             <div className="flex items-center gap-2">
                               <div className="flex-1 space-y-1">
                                 <label className="text-[8px] font-bold text-slate-600 uppercase tracking-widest ml-1">SKU</label>
                                 <input value={v.sku} onChange={e => {
+                                  const val = e.target.value;
                                   const news = [...formData.variants];
-                                  news[i].sku = e.target.value;
-                                  setFormData({ ...formData, variants: news });
+                                  news[i].sku = val;
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    variants: news,
+                                    sku: i === 0 ? val : (prev.sku || val)
+                                  }));
                                 }} placeholder="SKU" className="w-full bg-white px-3 py-2 rounded-xl text-[10px] ring-1 ring-slate-100 outline-none" />
                               </div>
                               <button type="button" onClick={() => {

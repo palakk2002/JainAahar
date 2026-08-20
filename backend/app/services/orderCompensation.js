@@ -1,7 +1,9 @@
 import Transaction from "../models/transaction.js";
 import Order from "../models/order.js";
 import CheckoutGroup from "../models/checkoutGroup.js";
+import WarehouseFulfillment, { FULFILLMENT_STATUS } from "../models/warehouseFulfillment.js";
 import { releaseReservedStockForOrder } from "./stockService.js";
+import { releaseWarehouseStockReservation } from "./warehouseInventoryService.js";
 import { clearOrderTracking } from "./firebaseService.js";
 import { reverseOrderFinanceOnCancellation } from "./finance/orderFinanceService.js";
 import logger from "./logger.js";
@@ -31,6 +33,40 @@ export async function compensateOrderCancellation(order, orderIdString, opts = {
     await releaseReservedStockForOrder(existing, {
       reason: "Cancelled",
     });
+
+    // Also release warehouse inventory reservation and cancel active fulfillment if assigned
+    const targetWhId = existing.warehouseId || existing.warehouse;
+    if (targetWhId) {
+      try {
+        await releaseWarehouseStockReservation({
+          warehouseId: targetWhId,
+          items: existing.items,
+          reference: existing.orderId || orderIdString,
+          reason: `Order cancelled: ${reason}`,
+          performedBy: actorId || existing.customer || existing._id,
+          performedByModel: "Admin",
+        });
+
+        await WarehouseFulfillment.updateOne(
+          {
+            order: existing._id,
+            status: { $in: [FULFILLMENT_STATUS.ASSIGNED, FULFILLMENT_STATUS.ACCEPTED] },
+          },
+          {
+            $set: {
+              status: FULFILLMENT_STATUS.CANCELLED,
+              cancelledAt: new Date(),
+              cancelReason: reason,
+            },
+          },
+        );
+      } catch (whRelErr) {
+        logger.warn?.("Warehouse reservation release on cancellation non-fatal error", {
+          error: whRelErr?.message,
+        });
+      }
+    }
+
     await existing.save();
   }
 

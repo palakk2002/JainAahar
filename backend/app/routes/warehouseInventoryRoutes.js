@@ -11,6 +11,7 @@ import {
   stockDamagedHandler,
   stockDefectiveHandler,
   stockRestockHandler,
+  getMovementTrendHandler,
 } from "../controller/warehouseInventoryController.js";
 import { verifyToken, allowRoles } from "../middleware/authMiddleware.js";
 
@@ -22,6 +23,7 @@ router.use(verifyToken, allowRoles("warehouse", "admin"));
 // Read routes
 router.get("/", getInventoryHandler);
 router.get("/summary", getInventorySummaryHandler);
+router.get("/analytics/trend", getMovementTrendHandler);
 router.get("/low-stock", getLowStockHandler);
 router.get("/out-of-stock", getOutOfStockHandler);
 router.get("/transactions", getInventoryTransactionsHandler);

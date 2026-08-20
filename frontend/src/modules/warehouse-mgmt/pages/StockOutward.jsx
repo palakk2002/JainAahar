@@ -29,10 +29,16 @@ export const StockOutward = () => {
     try {
       const activeWhId = getActiveWarehouse(selectedWarehouse);
       const res = await warehouseMgmtApi.getMovements(activeWhId);
-      if (res.data.success) {
-        // Filter outward movements (where quantity < 0 or movementType is Customer Order / Transfer Out)
-        const outward = res.data.result.filter(
-          (m) => m.quantity < 0 || m.movementType === "Customer Order"
+      if (res.data?.success) {
+        // Filter outward movements (where quantity < 0 or movementType is OUTWARD / Customer Order / Transfer Out / Fulfillment)
+        const outward = (res.data.result || []).filter(
+          (m) =>
+            m.quantity < 0 ||
+            m.movementType === "OUTWARD" ||
+            m.movementType === "Stock Outward" ||
+            m.movementType === "Customer Order" ||
+            m.movementType === "FULFILLMENT" ||
+            m.movementType === "TRANSFER_OUT",
         );
         setMovements(outward);
       }

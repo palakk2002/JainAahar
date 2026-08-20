@@ -52,6 +52,7 @@ const fulfillmentItemSchema = new mongoose.Schema(
     name: { type: String, default: "" },
     sku: { type: String, default: "" },
     image: { type: String, default: "" },
+    price: { type: Number, default: 0 },
     requiredQty: { type: Number, required: true, min: 1 },
     pickedQty: { type: Number, default: 0, min: 0 },
     shortQty: { type: Number, default: 0, min: 0 },

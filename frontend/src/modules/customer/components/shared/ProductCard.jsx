@@ -12,12 +12,18 @@ import { useProductDetail } from "../../context/ProductDetailContext";
 import ParticleBurst from "./ParticleBurst";
 
 /**
- * @param {{ product: any, badge?: any, className?: string, compact?: boolean, neutralBg?: boolean, layout?: string }} props
+ * @param {{ product?: any, badge?: any, className?: string, compact?: boolean, neutralBg?: boolean, layout?: string }} props
  */
-const ProductCard = React.memo(
-  ({ product, badge, className, compact = false, neutralBg = false, layout = "grid" }) => {
-    const { toggleWishlist: toggleWishlistGlobal, isInWishlist } =
-      useWishlist();
+function ProductCardComponent({
+  product,
+  badge,
+  className,
+  compact = false,
+  neutralBg = false,
+  layout = "grid",
+}) {
+  const { toggleWishlist: toggleWishlistGlobal, isInWishlist } =
+    useWishlist();
     const { cart, addToCart, updateQuantity, removeFromCart } = useCart();
     const { showToast } = useToast();
     const { animateAddToCart, animateRemoveFromCart } = useCartAnimation();
@@ -104,10 +110,17 @@ const ProductCard = React.memo(
       [isWishlisted, toggleWishlistGlobal, product, showToast],
     );
 
+    const isOutOfStock =
+      product?.isOutOfStock === true ||
+      product?.stockStatus === "out_of_stock" ||
+      (typeof product?.stock === "number" && product?.stock <= 0 && product?.stock !== undefined) ||
+      (typeof product?.availableStock === "number" && product?.availableStock <= 0);
+
     const handleAddToCart = React.useCallback(
       (e) => {
         e.preventDefault();
         e.stopPropagation();
+        if (isOutOfStock) return;
         if (imageRef.current) {
           animateAddToCart(
             imageRef.current.getBoundingClientRect(),
@@ -120,7 +133,7 @@ const ProductCard = React.memo(
           variantName: defaultVariant?.name || "",
         });
       },
-      [animateAddToCart, product, addToCart, variantKey, defaultVariant?.name],
+      [animateAddToCart, product, addToCart, variantKey, defaultVariant?.name, isOutOfStock],
     );
 
     const handleIncrement = React.useCallback(
@@ -262,7 +275,14 @@ const ProductCard = React.memo(
 
             {/* Orange Plus/Check Toggle Button */}
             <div className="shrink-0">
-              {quantity > 0 ? (
+              {isOutOfStock ? (
+                <span
+                  className="px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-slate-400 font-bold text-[10px] uppercase tracking-wider select-none"
+                  title="Currently Out of Stock"
+                >
+                  Out of stock
+                </span>
+              ) : quantity > 0 ? (
                 <button
                   onClick={(e) => {
                     e.preventDefault();
@@ -295,7 +315,8 @@ const ProductCard = React.memo(
         </div>
       </div>
     );
-  }
-);
+}
+
+const ProductCard = React.memo(ProductCardComponent);
 
 export default ProductCard;

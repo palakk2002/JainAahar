@@ -80,13 +80,18 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp = true, fullHeigh
     const path = location.pathname.replace(/\/$/, '') || '/';
 
     const hideHeaderRoutes = ['/', '/categories', '/orders', '/transactions', '/profile', '/profile/edit', '/wishlist', '/addresses', '/wallet', '/support', '/privacy', '/about', '/terms', '/checkout', '/search', '/chat', '/notifications'];
-    const hideBottomNavRoutes = ['/checkout', '/search', '/chat'];
-    const hideCartRoutes = ['/checkout', '/search', '/chat'];
+    const isCheckout = path === '/checkout' || path.startsWith('/checkout');
+    const isSearch = path === '/search' || path.startsWith('/search');
+    const isChat = path === '/chat' || path.startsWith('/chat');
+    const isProduct = path.startsWith('/product');
+    const isPaymentStatus = path.startsWith('/payment-status');
+
+    const hideBottomNav = isCheckout || isSearch || isChat || isProduct || isPaymentStatus;
 
     // If props are passed, use them. Otherwise, use route-based logic.
     const showHeader = showHeaderProp !== undefined ? showHeaderProp : (!hideHeaderRoutes.includes(path) && !path.startsWith('/category') && !path.startsWith('/orders'));
-    const showBottomNav = showBottomNavProp !== undefined ? showBottomNavProp : !hideBottomNavRoutes.includes(path);
-    const showCart = showCartProp !== undefined ? showCartProp : (!hideCartRoutes.includes(path) && !path.startsWith('/orders'));
+    const showBottomNav = showBottomNavProp !== undefined ? showBottomNavProp : !hideBottomNav;
+    const showCart = showCartProp !== undefined ? showCartProp : (!isCheckout && !isSearch && !isChat && !path.startsWith('/orders'));
 
     // Condition to hide the MobileFooterMessage ("India's last minute app") on specific pages
     const hideFooterMessageRoutes = ['/profile', '/profile/edit'];

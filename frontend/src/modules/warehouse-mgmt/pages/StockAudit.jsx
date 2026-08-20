@@ -39,11 +39,24 @@ export const StockAudit = () => {
 
   const filteredMovements = movements.filter((m) => {
     const matchesSearch =
-      m.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.reference.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesType =
-      typeFilter === "all" || m.movementType.toLowerCase() === typeFilter.toLowerCase();
+      (m.productName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (m.sku || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (m.reference || "").toLowerCase().includes(searchQuery.toLowerCase());
+
+    const movType = (m.movementType || "").toUpperCase();
+    const filter = typeFilter.toUpperCase();
+
+    let matchesType = filter === "ALL";
+    if (!matchesType) {
+      if (filter.includes("INWARD") && (movType === "INWARD" || movType === "STOCK INWARD")) matchesType = true;
+      else if (filter.includes("ORDER") && (movType === "OUTWARD" || movType === "FULFILLMENT" || movType === "CUSTOMER ORDER")) matchesType = true;
+      else if (filter.includes("TRANSFER") && movType.includes("TRANSFER")) matchesType = true;
+      else if (filter.includes("RETURN") && movType.includes("RETURN")) matchesType = true;
+      else if (filter.includes("DAMAGE") && movType.includes("DAMAG")) matchesType = true;
+      else if (filter.includes("ADJUST") && movType.includes("ADJUST")) matchesType = true;
+      else matchesType = movType.toLowerCase() === typeFilter.toLowerCase();
+    }
+
     return matchesSearch && matchesType;
   });
 

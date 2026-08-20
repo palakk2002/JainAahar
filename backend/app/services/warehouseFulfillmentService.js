@@ -9,8 +9,11 @@ import {
   commitWarehouseStock,
   releaseWarehouseStockReservation,
 } from "./warehouseInventoryService.js";
+import { shiprocketProvider } from "../modules/delivery/providers/shiprocket/shiprocketProvider.js";
 import { emitNotificationEvent } from "../modules/notifications/notification.emitter.js";
 import { NOTIFICATION_EVENTS } from "../modules/notifications/notification.constants.js";
+import { WORKFLOW_STATUS } from "../constants/orderWorkflow.js";
+import { emitOrderStatusUpdate } from "./orderSocketEmitter.js";
 import * as logger from "./logger.js";
 
 /**
@@ -48,7 +51,7 @@ export async function getFulfillmentsList({
     WarehouseFulfillment.find(query)
       .populate("warehouse", "warehouseName name city address phone")
       .populate("order", "orderId status workflowStatus pricing address customer paymentMode paymentStatus createdAt")
-      .populate("items.product", "name title sku price images image")
+      .populate("items.product", "name title sku price salePrice discountPrice images image")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -77,7 +80,7 @@ export async function getFulfillmentById(idOrFulfillmentId, user = null) {
   const fulfillment = await WarehouseFulfillment.findOne(query)
     .populate("warehouse", "warehouseName name city address phone location serviceRadius")
     .populate("order")
-    .populate("items.product", "name title sku price images image variants")
+    .populate("items.product", "name title sku price salePrice discountPrice images image variants")
     .lean();
 
   if (!fulfillment) {
@@ -146,6 +149,36 @@ export async function acceptFulfillment({ id, user }) {
   fulfillment.acceptedAt = new Date();
   await fulfillment.save();
 
+  try {
+    const updatedOrder = await Order.findByIdAndUpdate(
+      fulfillment.order,
+      {
+        $set: {
+          status: "confirmed",
+          orderStatus: "confirmed",
+          workflowStatus: WORKFLOW_STATUS.SELLER_ACCEPTED,
+        },
+        $unset: {
+          sellerPendingExpiresAt: 1,
+          deliverySearchExpiresAt: 1,
+        },
+      },
+      { new: true },
+    );
+    if (updatedOrder) {
+      emitOrderStatusUpdate(
+        fulfillment.orderId,
+        {
+          workflowStatus: WORKFLOW_STATUS.SELLER_ACCEPTED,
+          status: "confirmed",
+        },
+        updatedOrder.customer,
+      );
+    }
+  } catch (syncErr) {
+    logger.warn(`[WarehouseFulfillment] Error syncing order on accept: ${syncErr.message}`);
+  }
+
   return fulfillment;
 }
 
@@ -169,6 +202,36 @@ export async function startPicking({ id, user }) {
   fulfillment.status = FULFILLMENT_STATUS.PICKING;
   fulfillment.pickingStartedAt = new Date();
   await fulfillment.save();
+
+  try {
+    const updatedOrder = await Order.findByIdAndUpdate(
+      fulfillment.order,
+      {
+        $set: {
+          status: "packed",
+          orderStatus: "packed",
+          workflowStatus: WORKFLOW_STATUS.PICKUP_READY,
+        },
+        $unset: {
+          sellerPendingExpiresAt: 1,
+          deliverySearchExpiresAt: 1,
+        },
+      },
+      { new: true },
+    );
+    if (updatedOrder) {
+      emitOrderStatusUpdate(
+        fulfillment.orderId,
+        {
+          workflowStatus: WORKFLOW_STATUS.PICKUP_READY,
+          status: "packed",
+        },
+        updatedOrder.customer,
+      );
+    }
+  } catch (syncErr) {
+    logger.warn(`[WarehouseFulfillment] Error syncing order on picking: ${syncErr.message}`);
+  }
 
   return fulfillment;
 }
@@ -330,6 +393,43 @@ export async function markReadyToShip({
   }
   await fulfillment.save();
 
+  try {
+    const updatedOrder = await Order.findByIdAndUpdate(
+      fulfillment.order,
+      {
+        $set: {
+          status: "packed",
+          orderStatus: "packed",
+          workflowStatus: WORKFLOW_STATUS.PICKUP_READY,
+        },
+        $unset: {
+          sellerPendingExpiresAt: 1,
+          deliverySearchExpiresAt: 1,
+        },
+      },
+      { new: true },
+    );
+    if (updatedOrder) {
+      emitOrderStatusUpdate(
+        fulfillment.orderId,
+        {
+          workflowStatus: WORKFLOW_STATUS.PICKUP_READY,
+          status: "packed",
+        },
+        updatedOrder.customer,
+      );
+    }
+  } catch (syncErr) {
+    logger.warn(`[WarehouseFulfillment] Error syncing order on ready to ship: ${syncErr.message}`);
+  }
+
+  // Attempt automatic Shiprocket shipment creation
+  try {
+    await createShiprocketShipmentForFulfillment(fulfillment);
+  } catch (shipErr) {
+    logger.warn(`[WarehouseFulfillment] Automatic Shiprocket creation on READY_TO_SHIP failed (can retry): ${shipErr.message}`);
+  }
+
   // Notify Admin that fulfillment is ready for dispatch
   try {
     await emitNotificationEvent({
@@ -341,6 +441,186 @@ export async function markReadyToShip({
       },
     });
   } catch (notifErr) {}
+
+  return fulfillment;
+}
+
+/**
+ * Creates/generates a Shiprocket shipment for an existing fulfillment.
+ * Idempotent — will not duplicate if already generated.
+ */
+export async function createShiprocketShipmentForFulfillment(fulfillmentDoc) {
+  if (!fulfillmentDoc) return null;
+
+  if (fulfillmentDoc.awbCode || fulfillmentDoc.shiprocketOrderId) {
+    return {
+      success: true,
+      alreadyCreated: true,
+      awbCode: fulfillmentDoc.awbCode,
+      trackingUrl: fulfillmentDoc.trackingUrl,
+    };
+  }
+
+  const [order, warehouse] = await Promise.all([
+    Order.findById(fulfillmentDoc.order).lean(),
+    Warehouse.findById(fulfillmentDoc.warehouse).lean(),
+  ]);
+
+  if (!order) {
+    throw new Error("Associated order not found for Shiprocket shipment");
+  }
+
+  const context = {
+    orderId: fulfillmentDoc.orderId || order.orderId,
+    pickup: {
+      name: warehouse?.warehouseName || warehouse?.name || "Primary Warehouse",
+      phone: warehouse?.phone || "9999999999",
+      address: warehouse?.address || "Warehouse Address",
+      city: warehouse?.city || "Indore",
+      state: warehouse?.state || "Madhya Pradesh",
+      pincode: warehouse?.pincode || "452001",
+    },
+    drop: {
+      name: order.address?.name || "Customer",
+      phone: order.address?.phone || "9999999999",
+      address: order.address?.address || "Address",
+      city: order.address?.city || "City",
+      state: order.address?.state || "State",
+      pincode: order.address?.pincode || "452001",
+      email: order.customer?.email || "customer@example.com",
+    },
+    items: (fulfillmentDoc.items || []).map((item) => ({
+      name: item.name || "Item",
+      sku: item.sku || "SKU-001",
+      qty: item.pickedQty || item.requiredQty || 1,
+      price: item.price || 100,
+    })),
+    paymentMode: order.paymentMode || "COD",
+    totalValue: Number(order.paymentBreakdown?.grandTotal || order.pricing?.total || 100),
+    weight: 0.5,
+  };
+
+  const shipmentResult = await shiprocketProvider.createShipment(context);
+
+  fulfillmentDoc.shiprocketOrderId = shipmentResult.externalId || `SR-${order.orderId}`;
+  fulfillmentDoc.awbCode = shipmentResult.externalId;
+  fulfillmentDoc.courierName = "Shiprocket";
+  fulfillmentDoc.trackingUrl = shipmentResult.trackingUrl || (shipmentResult.externalId ? `https://shiprocket.co/tracking/${shipmentResult.externalId}` : null);
+  fulfillmentDoc.shipmentStatus = shipmentResult.providerStatus || "SHIPMENT_CREATED";
+
+  await fulfillmentDoc.save();
+  return fulfillmentDoc;
+}
+
+/**
+ * Mark Shipped (READY_TO_SHIP -> SHIPPED).
+ * Updates Order status and notifies customer.
+ */
+export async function markShipped({
+  id,
+  user,
+  awbCode = "",
+  courierName = "",
+  trackingUrl = "",
+  notes = "",
+}) {
+  const fulfillment = await getAuthorizedFulfillmentDoc(id, user);
+
+  if (
+    fulfillment.status !== FULFILLMENT_STATUS.READY_TO_SHIP &&
+    fulfillment.status !== FULFILLMENT_STATUS.PACKED
+  ) {
+    const error = new Error(`Cannot mark shipped from status "${fulfillment.status}". Current status must be READY_TO_SHIP.`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  fulfillment.status = FULFILLMENT_STATUS.SHIPPED;
+  fulfillment.shippedAt = new Date();
+  if (awbCode) fulfillment.awbCode = awbCode;
+  if (courierName) fulfillment.courierName = courierName;
+  if (trackingUrl) fulfillment.trackingUrl = trackingUrl;
+  if (notes) {
+    fulfillment.notes = fulfillment.notes ? `${fulfillment.notes}\n${notes}` : notes;
+  }
+  await fulfillment.save();
+
+  // Update order status
+  try {
+    await Order.findByIdAndUpdate(fulfillment.order, {
+      $set: {
+        status: "out_for_delivery",
+        orderStatus: "out_for_delivery",
+        workflowStatus: "OUT_FOR_DELIVERY",
+        outForDeliveryAt: new Date(),
+      },
+    });
+  } catch (ordErr) {
+    logger.warn(`[WarehouseFulfillment] Error updating order status to out_for_delivery: ${ordErr.message}`);
+  }
+
+  // Notify customer and admin
+  try {
+    await emitNotificationEvent({
+      event: NOTIFICATION_EVENTS.ORDER_OUT_FOR_DELIVERY,
+      recipients: [{ role: "customer", id: String(fulfillment.order) }],
+      data: {
+        orderId: fulfillment.orderId,
+        awbCode: fulfillment.awbCode,
+        trackingUrl: fulfillment.trackingUrl,
+      },
+    });
+  } catch (notifErr) {}
+
+  return fulfillment;
+}
+
+/**
+ * Mark Completed / Delivered (SHIPPED -> COMPLETED).
+ */
+export async function markCompleted({ id, user, notes = "" }) {
+  const fulfillment = await getAuthorizedFulfillmentDoc(id, user);
+
+  if (fulfillment.status !== FULFILLMENT_STATUS.SHIPPED) {
+    const error = new Error(`Cannot complete fulfillment from status "${fulfillment.status}". Current status must be SHIPPED.`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  fulfillment.status = FULFILLMENT_STATUS.COMPLETED;
+  fulfillment.completedAt = new Date();
+  if (notes) {
+    fulfillment.notes = fulfillment.notes ? `${fulfillment.notes}\n${notes}` : notes;
+  }
+  await fulfillment.save();
+
+  // Update order status
+  try {
+    const updatedOrder = await Order.findByIdAndUpdate(
+      fulfillment.order,
+      {
+        $set: {
+          status: "delivered",
+          orderStatus: "delivered",
+          workflowStatus: "DELIVERED",
+          deliveredAt: new Date(),
+        },
+      },
+      { new: true },
+    );
+    if (updatedOrder) {
+      emitOrderStatusUpdate(
+        fulfillment.orderId,
+        {
+          workflowStatus: "DELIVERED",
+          status: "delivered",
+        },
+        updatedOrder.customer,
+      );
+    }
+  } catch (ordErr) {
+    logger.warn(`[WarehouseFulfillment] Error updating order status to delivered: ${ordErr.message}`);
+  }
 
   return fulfillment;
 }

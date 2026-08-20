@@ -11,17 +11,37 @@ export const warehouseMgmtApi = {
   async getWarehouses() {
     try {
       const response = await axiosInstance.get("/admin/warehouses/active");
-      const items = response.data?.result?.items || response.data?.result || [];
-      return { data: { success: true, result: items } };
+      const items =
+        response.data?.result?.items ||
+        (Array.isArray(response.data?.result) ? response.data.result : []);
+      const normalized = items.map((w) => ({
+        ...w,
+        id: String(w._id || w.id),
+        _id: String(w._id || w.id),
+        name: w.warehouseName || w.name || w.shopName || "Warehouse",
+        warehouseName: w.warehouseName || w.name || w.shopName || "Warehouse",
+      }));
+      return { data: { success: true, result: normalized } };
     } catch (err) {
       // Fallback to warehouse profile if logged in as warehouse role
       try {
         const profRes = await axiosInstance.get("/warehouse/profile");
         const profile = profRes.data?.result;
+        const normalized = profile
+          ? [
+              {
+                ...profile,
+                id: String(profile._id || profile.id),
+                _id: String(profile._id || profile.id),
+                name: profile.warehouseName || profile.name || profile.shopName || "Warehouse",
+                warehouseName: profile.warehouseName || profile.name || profile.shopName || "Warehouse",
+              },
+            ]
+          : [];
         return {
           data: {
             success: true,
-            result: profile ? [profile] : [],
+            result: normalized,
           },
         };
       } catch (fallbackErr) {
@@ -59,9 +79,21 @@ export const warehouseMgmtApi = {
   // ==========================================
   async getProducts() {
     try {
-      const response = await axiosInstance.get("/products");
-      const products = response.data?.result?.products || response.data?.result || [];
-      return { data: { success: true, result: products } };
+      const response = await axiosInstance.get("/products", {
+        params: { limit: 500, status: "all", approvalStatus: "all" },
+      });
+      const rawProducts =
+        response.data?.result?.items ||
+        response.data?.result?.products ||
+        (Array.isArray(response.data?.result) ? response.data.result : []);
+      const normalized = rawProducts.map((p) => ({
+        ...p,
+        id: String(p._id || p.id),
+        _id: String(p._id || p.id),
+        name: p.name || p.title || "Product",
+        sku: p.sku || "N/A",
+      }));
+      return { data: { success: true, result: normalized } };
     } catch (err) {
       return { data: { success: false, result: [], message: err.message } };
     }
@@ -138,6 +170,8 @@ export const warehouseMgmtApi = {
         productId: inwardData.productId,
         sku: inwardData.sku,
         quantity: Number(inwardData.quantity),
+        damagedQty: Number(inwardData.damagedQty) || 0,
+        defectiveQty: Number(inwardData.defectiveQty) || 0,
         reason: inwardData.reason || `Stock Inward via ${inwardData.source || "Manual"}`,
         reference: inwardData.reference,
         notes: inwardData.notes,
@@ -187,6 +221,49 @@ export const warehouseMgmtApi = {
       return response;
     } catch (err) {
       return { data: { success: false, message: err.response?.data?.message || err.message } };
+    }
+  },
+
+  async getAdjustments(warehouseId = "all", params = {}) {
+    try {
+      const queryParams = {
+        warehouseId: warehouseId !== "all" ? warehouseId : undefined,
+        ...params,
+      };
+      const response = await axiosInstance.get("/warehouse/inventory/transactions", {
+        params: queryParams,
+      });
+
+      const rawItems = response.data?.result?.items || [];
+      const normalized = rawItems
+        .filter(
+          (m) =>
+            m.type === "ADJUSTMENT_INCREASE" ||
+            m.type === "ADJUSTMENT_DECREASE" ||
+            m.type === "Adjustment" ||
+            String(m.type).toUpperCase().includes("ADJUST"),
+        )
+        .map((m) => ({
+          id: m._id,
+          _id: m._id,
+          date: m.createdAt,
+          productId: m.product?._id || m.product,
+          productName: m.product?.name || m.product?.title || "Product",
+          sku: m.sku || m.product?.sku || "N/A",
+          warehouseId: m.warehouse?._id || m.warehouse,
+          warehouseName: m.warehouse?.warehouseName || m.warehouse?.name || "Warehouse",
+          type: m.type === "ADJUSTMENT_INCREASE" ? "Increase" : "Decrease",
+          systemQty: m.beforeQty ?? 0,
+          physicalQty: m.afterQty ?? 0,
+          adjustmentQty: m.quantity,
+          reason: m.reason || "Manual Adjustment",
+          user: m.performedByModel || "Admin",
+          status: "Applied",
+        }));
+
+      return { data: { success: true, result: normalized } };
+    } catch (err) {
+      return { data: { success: false, result: [], message: err.message } };
     }
   },
 
@@ -314,14 +391,25 @@ export const warehouseMgmtApi = {
         fulfillmentStatus: f.status,
         hasShortPick: f.hasShortPick || false,
         assignedAt: f.assignedAt || f.createdAt,
+        readyAt: f.readyAt || null,
+        shippedAt: f.shippedAt || null,
+        awbCode: f.awbCode || "",
+        shiprocketOrderId: f.shiprocketOrderId || "",
+        courierName: f.courierName || (f.awbCode ? "Shiprocket" : ""),
+        trackingUrl: f.trackingUrl || (f.awbCode ? `https://shiprocket.co/tracking/${f.awbCode}` : ""),
         items: (f.items || []).map((it) => ({
           productId: it.product?._id || it.product,
-          name: it.name || it.product?.name || "Product",
-          sku: it.sku || "",
-          qty: it.requiredQty,
-          requiredQty: it.requiredQty,
+          name: it.name || it.product?.name || it.product?.title || "Product",
+          sku: it.sku || it.product?.sku || "",
+          qty: it.requiredQty || 1,
+          requiredQty: it.requiredQty || 1,
           pickedQty: it.pickedQty || 0,
           shortQty: it.shortQty || 0,
+          price: Number(
+            (it.price !== undefined && it.price !== null && !isNaN(Number(it.price)) && Number(it.price) > 0)
+              ? it.price
+              : (it.product?.salePrice || it.product?.price || (f.order?.pricing?.total ? Math.round(f.order.pricing.total / (f.items?.length || 1)) : 0))
+          ),
           status: it.status || "PENDING",
         })),
         notes: f.notes || "",
@@ -438,17 +526,19 @@ export const warehouseMgmtApi = {
     try {
       const queryParams = warehouseId !== "all" ? { warehouseId } : {};
 
-      const [invRes, fulRes, whRes, trfRes] = await Promise.allSettled([
+      const [invRes, fulRes, whRes, trfRes, trendRes] = await Promise.allSettled([
         axiosInstance.get("/warehouse/inventory/summary", { params: queryParams }),
         axiosInstance.get("/warehouse/fulfillments/stats", { params: queryParams }),
         axiosInstance.get("/admin/warehouses/active"),
         axiosInstance.get("/warehouse/transfers", { params: { ...queryParams, limit: 100 } }),
+        axiosInstance.get("/warehouse/inventory/analytics/trend", { params: queryParams }),
       ]);
 
       const invSummary = invRes.status === "fulfilled" ? invRes.value.data?.result || {} : {};
       const fulStats = fulRes.status === "fulfilled" ? fulRes.value.data?.result || {} : {};
       const whItems = whRes.status === "fulfilled" ? whRes.value.data?.result?.items || [] : [];
       const trfItems = trfRes.status === "fulfilled" ? trfRes.value.data?.result?.items || [] : [];
+      const trendData = trendRes.status === "fulfilled" ? trendRes.value.data?.result || [] : [];
 
       const pendingTransfers = trfItems.filter(
         (t) => t.status === "REQUESTED" || t.status === "IN_TRANSIT" || t.status === "APPROVED"
@@ -475,6 +565,7 @@ export const warehouseMgmtApi = {
               (fulStats.picking || 0) +
               (fulStats.packing || 0),
             fulfillmentBreakdown: fulStats,
+            trendData,
           },
         },
       };

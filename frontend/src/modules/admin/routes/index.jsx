@@ -129,10 +129,32 @@ const navItems = [
       { label: "Sub-Categories", path: "/admin/categories/sub" },
     ],
   },
-  { label: "Products", path: "/admin/products", icon: Box, color: "amber" },
-  { label: "Inventory", path: "/admin/inventory", icon: Box, color: "orange" },
   {
-    label: "Warehouses",
+    label: "Products",
+    icon: Box,
+    color: "amber",
+    children: [
+      { label: "All Products", path: "/admin/products" },
+      { label: "Add Product", path: "/admin/products/add" },
+    ],
+  },
+  {
+    label: "Orders",
+    icon: ClipboardList,
+    color: "fuchsia",
+    children: [
+      { label: "All Orders", path: "/admin/orders/all" },
+      { label: "New Orders", path: "/admin/orders/pending" },
+      { label: "Being Prepared", path: "/admin/orders/processed" },
+      { label: "On the Way", path: "/admin/orders/out-for-delivery" },
+      { label: "Delivered", path: "/admin/orders/delivered" },
+      { label: "Cancelled", path: "/admin/orders/cancelled" },
+      { label: "Returned", path: "/admin/orders/returned" },
+      { label: "Return Requests", path: "/admin/returns" },
+    ],
+  },
+  {
+    label: "Warehouses & Fulfillment",
     icon: Building2,
     color: "teal",
     children: [
@@ -140,9 +162,8 @@ const navItems = [
       { label: "All Warehouses", path: "/warehouse-mgmt/warehouses" },
       { label: "Inventory Levels", path: "/warehouse-mgmt/inventory" },
       { label: "Stock Inward", path: "/warehouse-mgmt/inward" },
-      { label: "Stock Outward", path: "/warehouse-mgmt/outward" },
+      { label: "Picking & Packing (Fulfillment)", path: "/warehouse-mgmt/fulfillment" },
       { label: "Warehouse Orders", path: "/warehouse-mgmt/orders" },
-      { label: "Picking & Packing", path: "/warehouse-mgmt/fulfillment" },
       { label: "Stock Transfers", path: "/warehouse-mgmt/transfers" },
       { label: "Damaged & Defective", path: "/warehouse-mgmt/damaged" },
       { label: "Returned Items", path: "/warehouse-mgmt/returns" },
@@ -153,6 +174,7 @@ const navItems = [
       { label: "Operational Reports", path: "/warehouse-mgmt/reports" },
     ],
   },
+  { label: "Inventory", path: "/admin/inventory", icon: Box, color: "orange" },
   {
     label: "Store Management",
     icon: Building2,
@@ -239,21 +261,7 @@ const navItems = [
   { label: "Employees", path: "/admin/employees", icon: UserCheck, color: "green" },
   { label: "Customers", path: "/admin/customers", icon: Users, color: "sky" },
   { label: "FAQs", path: "/admin/faqs", icon: HelpCircle, color: "pink" },
-  {
-    label: "Orders",
-    icon: ClipboardList,
-    color: "fuchsia",
-    children: [
-      { label: "All Orders", path: "/admin/orders/all" },
-      { label: "New Orders", path: "/admin/orders/pending" },
-      { label: "Being Prepared", path: "/admin/orders/processed" },
-      { label: "On the Way", path: "/admin/orders/out-for-delivery" },
-      { label: "Delivered", path: "/admin/orders/delivered" },
-      { label: "Cancelled", path: "/admin/orders/cancelled" },
-      { label: "Returned", path: "/admin/orders/returned" },
-      { label: "Return Requests", path: "/admin/returns" },
-    ],
-  },
+
   {
     label: "Fees & Charges",
     path: "/admin/billing",
@@ -304,6 +312,7 @@ const AdminRoutes = () => {
         <Route path="/categories/sub" element={<SubCategories />} />
         <Route path="/categories/hierarchy" element={<CategoryHierarchy />} />
         <Route path="/products" element={<ProductManagement />} />
+        <Route path="/products/add" element={<ProductManagement initialOpenAdd={true} />} />
         <Route path="/sellers/active" element={<ActiveSellers />} />
         <Route path="/sellers/active/:id" element={<SellerDetail />} />
         {/* Warehouse routes */}

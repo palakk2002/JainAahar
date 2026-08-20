@@ -33,6 +33,7 @@ import {
   computeStockReservationWindow,
   reserveStockForItems,
 } from "./stockService.js";
+import { assignWarehouseToOrder } from "./warehouseAssignmentService.js";
 import { isLowStockAlertsEnabled } from "./lowStockAlertService.js";
 import {
   checkIdempotency,
@@ -738,6 +739,21 @@ export async function placeOrderAtomic({
 
     if (idempotencyKey) {
       await storeIdempotencyResult(idempotencyKey, resultPayload, normalizedPayload);
+    }
+
+    // Auto-assign order to the best eligible warehouse and create WarehouseFulfillment
+    for (const order of orders) {
+      try {
+        await assignWarehouseToOrder({
+          orderId: order.orderId,
+          assignedBy: "system",
+        });
+      } catch (whAssignErr) {
+        logger.warn("[placeOrderAtomic] Auto warehouse assignment error:", {
+          orderId: order.orderId,
+          error: whAssignErr.message,
+        });
+      }
     }
 
     if (shouldStartSellerWorkflow) {

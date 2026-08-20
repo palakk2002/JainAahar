@@ -11,6 +11,9 @@ import {
   markReadyToShip,
   cancelFulfillment,
   getWarehouseFulfillmentStats,
+  createShiprocketShipmentForFulfillment,
+  markShipped,
+  markCompleted,
 } from "../services/warehouseFulfillmentService.js";
 import { resolveEffectiveWarehouseId } from "../services/warehouseInventoryService.js";
 
@@ -115,7 +118,7 @@ export const acceptFulfillmentHandler = async (req, res) => {
     return handleResponse(
       res,
       200,
-      "Fulfillment accepted by warehouse",
+      "Fulfillment accepted successfully",
       fulfillment,
     );
   } catch (error) {
@@ -155,14 +158,10 @@ export const startPickingHandler = async (req, res) => {
 export const updateItemPickHandler = async (req, res) => {
   try {
     const { id } = req.params;
-    const { productId, pickedQty, shortQty, shortReason } = req.body;
+    const { productId, pickedQty, shortQty = 0, shortReason = "" } = req.body;
 
     if (!productId) {
       return handleResponse(res, 400, "Product ID is required");
-    }
-
-    if (pickedQty == null) {
-      return handleResponse(res, 400, "Picked quantity is required");
     }
 
     const fulfillment = await updateItemPickStatus({
@@ -177,7 +176,7 @@ export const updateItemPickHandler = async (req, res) => {
     return handleResponse(
       res,
       200,
-      "Item pick status updated successfully",
+      "Item pick status updated",
       fulfillment,
     );
   } catch (error) {
@@ -253,6 +252,86 @@ export const markReadyToShipHandler = async (req, res) => {
       res,
       error.statusCode || 500,
       error.message || "Failed to mark fulfillment ready to ship",
+    );
+  }
+};
+
+/**
+ * POST /api/warehouse/fulfillments/:id/create-shipment
+ */
+export const createShipmentHandler = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const fulfillmentDoc = await getFulfillmentById(id, req.user);
+    const result = await createShiprocketShipmentForFulfillment(fulfillmentDoc);
+    return handleResponse(
+      res,
+      200,
+      "Shiprocket shipment created successfully",
+      result,
+    );
+  } catch (error) {
+    return handleResponse(
+      res,
+      error.statusCode || 500,
+      error.message || "Failed to create Shiprocket shipment",
+    );
+  }
+};
+
+/**
+ * POST /api/warehouse/fulfillments/:id/mark-shipped
+ */
+export const markShippedHandler = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { awbCode, courierName, trackingUrl, notes } = req.body;
+    const fulfillment = await markShipped({
+      id,
+      user: req.user,
+      awbCode,
+      courierName,
+      trackingUrl,
+      notes,
+    });
+    return handleResponse(
+      res,
+      200,
+      "Fulfillment marked as SHIPPED",
+      fulfillment,
+    );
+  } catch (error) {
+    return handleResponse(
+      res,
+      error.statusCode || 500,
+      error.message || "Failed to mark fulfillment shipped",
+    );
+  }
+};
+
+/**
+ * POST /api/warehouse/fulfillments/:id/mark-completed
+ */
+export const markCompletedHandler = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { notes } = req.body;
+    const fulfillment = await markCompleted({
+      id,
+      user: req.user,
+      notes,
+    });
+    return handleResponse(
+      res,
+      200,
+      "Fulfillment marked as COMPLETED (Delivered)",
+      fulfillment,
+    );
+  } catch (error) {
+    return handleResponse(
+      res,
+      error.statusCode || 500,
+      error.message || "Failed to complete fulfillment",
     );
   }
 };

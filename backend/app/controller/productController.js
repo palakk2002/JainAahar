@@ -85,6 +85,7 @@ import getPagination from "../utils/pagination.js";
 import {
   parseCustomerCoordinates,
   getNearbySellerIdsForCustomer,
+  getProductWarehouseAvailability,
 } from "../services/customerVisibilityService.js";
 import {
   enqueueProductIndex,
@@ -128,9 +129,16 @@ function buildProductListKey(queryParams) {
 }
 
 function isCustomerVisibilityRequest(req) {
+  // If explicitly requesting all products (management / warehouse / admin / catalog selection)
+  if (req.query?.scope === "all" || req.query?.status === "all" || req.query?.all === "true") {
+    return false;
+  }
   const role = String(req.user?.role || "").toLowerCase();
-  // Admin and seller should not be subject to location filtering
-  return !role || (role !== "admin" && role !== "seller" && role !== "delivery");
+  // Admin, seller, warehouse and delivery should not be subject to location filtering
+  if (role === "admin" || role === "seller" || role === "warehouse" || role === "delivery") {
+    return false;
+  }
+  return true;
 }
 
 function parseSellerIdFilters({ sellerId, sellerIds }) {
@@ -401,26 +409,23 @@ export const getProducts = async (req, res) => {
         }
         query.sellerId = { $in: finalSellerIds };
       } else {
-        // If no specific seller requested, include nearby sellers OR monthly kits
-        if (!finalSellerIds.length) {
-          query.isMonthlyKit = true;
+        // Include nearby sellers OR monthly kits OR admin-owned products (sellerId null/missing)
+        const visibilityConditions = [
+          { isMonthlyKit: true },
+          { sellerId: null },
+          { sellerId: { $exists: false } },
+        ];
+        if (finalSellerIds.length) {
+          visibilityConditions.unshift({ sellerId: { $in: finalSellerIds } });
+        }
+
+        if (query.$or) {
+          query.$and = query.$and || [];
+          query.$and.push({ $or: query.$or });
+          delete query.$or;
+          query.$and.push({ $or: visibilityConditions });
         } else {
-          if (query.$or) {
-            query.$and = query.$and || [];
-            query.$and.push({ $or: query.$or });
-            delete query.$or;
-            query.$and.push({
-              $or: [
-                { sellerId: { $in: finalSellerIds } },
-                { isMonthlyKit: true }
-              ]
-            });
-          } else {
-            query.$or = [
-              { sellerId: { $in: finalSellerIds } },
-              { isMonthlyKit: true }
-            ];
-          }
+          query.$or = visibilityConditions;
         }
       }
     }
@@ -516,22 +521,44 @@ export const getProducts = async (req, res) => {
 
       const nameMap = Object.fromEntries([...categoryEntries, ...sellerEntries]);
 
+      // Query warehouse stock availability in batch for all products in this page
+      const productIds = rawProducts.map((p) => p._id);
+      const availabilityMap = await getProductWarehouseAvailability(productIds);
+
       // Enrich products to match the shape previously returned by .populate()
-      const products = rawProducts.map((p) => ({
-        ...p,
-        headerId: p.headerId
-          ? { _id: p.headerId, name: nameMap[String(p.headerId)] ?? null }
-          : null,
-        categoryId: p.categoryId
-          ? { _id: p.categoryId, name: nameMap[String(p.categoryId)] ?? null }
-          : null,
-        subcategoryId: p.subcategoryId
-          ? { _id: p.subcategoryId, name: nameMap[String(p.subcategoryId)] ?? null }
-          : null,
-        sellerId: p.sellerId
-          ? { _id: p.sellerId, shopName: nameMap[String(p.sellerId)] ?? null }
-          : null,
-      }));
+      const products = rawProducts.map((p) => {
+        const pIdStr = String(p._id);
+        const availability = availabilityMap.get(pIdStr);
+        const effectiveStock = availability ? availability.availableStock : (p.stock ?? 0);
+        const stockStatus = availability
+          ? availability.stockStatus
+          : effectiveStock <= 0
+          ? "out_of_stock"
+          : effectiveStock <= (p.lowStockAlert || 5)
+          ? "low_stock"
+          : "in_stock";
+
+        return {
+          ...p,
+          stock: effectiveStock,
+          availableStock: effectiveStock,
+          stockStatus,
+          isAvailable: effectiveStock > 0,
+          isOutOfStock: effectiveStock <= 0,
+          headerId: p.headerId
+            ? { _id: p.headerId, name: nameMap[String(p.headerId)] ?? null }
+            : null,
+          categoryId: p.categoryId
+            ? { _id: p.categoryId, name: nameMap[String(p.categoryId)] ?? null }
+            : null,
+          subcategoryId: p.subcategoryId
+            ? { _id: p.subcategoryId, name: nameMap[String(p.subcategoryId)] ?? null }
+            : null,
+          sellerId: p.sellerId
+            ? { _id: p.sellerId, shopName: nameMap[String(p.sellerId)] ?? null }
+            : null,
+        };
+      });
 
       return {
         items: normalizeProductListModeration(products),
@@ -543,7 +570,7 @@ export const getProducts = async (req, res) => {
     };
 
     const role = String(req.user?.role || "").toLowerCase();
-    const shouldCache = !role || (role !== "admin" && role !== "seller");
+    const shouldCache = !role || (role !== "admin" && role !== "seller" && role !== "warehouse");
 
     const result = shouldCache
       ? await getOrSet(buildProductListKey(req.query), fetchFn, getTTL("productList"))
@@ -718,13 +745,19 @@ export const createProduct = async (req, res) => {
     stripRestrictedModerationFields(productData);
 
     if (role === "admin") {
+      // Single-vendor model: Admin is the sole seller.
+      // sellerId is optional — if provided (e.g. legacy store), use it; otherwise leave null.
       if (!productData.sellerId) {
         const storeId = await resolveAdminStore();
         if (storeId) {
           productData.sellerId = storeId;
-        } else {
-          return handleResponse(res, 400, "sellerId is required for admin-created products and no default store exists");
         }
+        // No error if no store — admin-owned products can have sellerId = null
+      }
+    } else if (role === "warehouse") {
+      // Warehouse-created products: set the warehouse ID for backward compatibility
+      if (!productData.sellerId) {
+        productData.sellerId = req.user.id;
       }
     } else {
       productData.sellerId = req.user.id;
@@ -1175,8 +1208,8 @@ export const getProductById = async (req, res) => {
     }
 
     if (enforceRadius) {
-      if (product.isMonthlyKit) {
-        // Bypass location check for monthly kits
+      if (product.isMonthlyKit || !product.sellerId) {
+        // Bypass location check for monthly kits and admin-owned catalog products (PAN India via Shiprocket)
       } else {
         let sellerIdForProduct = product?.sellerId?._id ? String(product.sellerId._id) : (product?.sellerId ? String(product.sellerId) : null);
         if (!sellerIdForProduct || sellerIdForProduct === "null") {
@@ -1188,13 +1221,29 @@ export const getProductById = async (req, res) => {
             sellerIdForProduct = String(rawProduct.warehouseId);
           }
         }
-        if (!nearbySellerSet || !nearbySellerSet.has(sellerIdForProduct)) {
+        if (sellerIdForProduct && nearbySellerSet && !nearbySellerSet.has(sellerIdForProduct)) {
           return handleResponse(res, 404, "Product not available in your area");
         }
       }
     }
 
+    // Enrich single product with warehouse stock availability
+    const singleAvailabilityMap = await getProductWarehouseAvailability([product._id]);
+    const singleAvail = singleAvailabilityMap.get(String(product._id));
+    const effectiveSingleStock = singleAvail ? singleAvail.availableStock : (product.stock ?? 0);
+
     const payload = normalizeProductDocumentModeration(product);
+    payload.stock = effectiveSingleStock;
+    payload.availableStock = effectiveSingleStock;
+    payload.stockStatus = singleAvail
+      ? singleAvail.stockStatus
+      : effectiveSingleStock <= 0
+      ? "out_of_stock"
+      : effectiveSingleStock <= (product.lowStockAlert || 5)
+      ? "low_stock"
+      : "in_stock";
+    payload.isAvailable = effectiveSingleStock > 0;
+    payload.isOutOfStock = effectiveSingleStock <= 0;
     
     if (req.user) {
         const userId = req.user.id;

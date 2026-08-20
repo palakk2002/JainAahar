@@ -42,14 +42,21 @@ export const DamagedDefective = () => {
         warehouseMgmtApi.getProducts(),
         warehouseMgmtApi.getWarehouses(),
       ]);
-      if (dmgRes.data.success) setItems(dmgRes.data.result);
-      if (prodRes.data.success) {
-        setProducts(prodRes.data.result);
-        if (prodRes.data.result.length > 0 && !formProductId) {
-          setFormProductId(prodRes.data.result[0].id);
+      if (dmgRes.data?.success) setItems(dmgRes.data.result || []);
+      if (prodRes.data?.success) {
+        const prodList = prodRes.data.result || [];
+        setProducts(prodList);
+        if (prodList.length > 0) {
+          setFormProductId((prev) => prev || String(prodList[0]._id || prodList[0].id));
         }
       }
-      if (whRes.data.success) setWarehouses(whRes.data.result);
+      if (whRes.data?.success) {
+        const whList = whRes.data.result || [];
+        setWarehouses(whList);
+        if (whList.length > 0) {
+          setFormWarehouseId((prev) => prev || String(whList[0]._id || whList[0].id));
+        }
+      }
     } catch (err) {
       toast.error("Failed to load damaged & defective records");
     } finally {
@@ -59,30 +66,39 @@ export const DamagedDefective = () => {
 
   const handleAddSubmit = async (e) => {
     e.preventDefault();
-    const selProd = products.find((p) => p.id === formProductId);
-    const selWh = warehouses.find((w) => w.id === formWarehouseId);
+    const selProd = products.find((p) => String(p._id || p.id) === String(formProductId));
+    const selWh = warehouses.find((w) => String(w._id || w.id) === String(formWarehouseId));
+
+    if (!selProd || !selWh) {
+      toast.error("Please select a valid warehouse and product");
+      return;
+    }
 
     try {
-      await warehouseMgmtApi.addDamagedItem({
-        warehouseId: formWarehouseId,
-        warehouseName: selWh?.name || formWarehouseId,
-        productId: formProductId,
-        productName: selProd?.name || "",
-        sku: selProd?.sku || "",
+      const payload = {
+        warehouseId: String(selWh._id || selWh.id),
+        warehouseName: selWh.warehouseName || selWh.name || "Warehouse",
+        productId: String(selProd._id || selProd.id),
+        productName: selProd.name || selProd.title || "Product",
+        sku: selProd.sku || "",
         type: formType,
         category: formCategory,
         quantity: Number(formQuantity),
         reason: formReason || `${formCategory} reported`,
         reportedBy: "Inspector",
-      });
+      };
 
-      toast.success(`Reported ${formQuantity} ${formType} items (Frontend simulation)`);
+      if (formType === "Defective") {
+        await warehouseMgmtApi.addDefectiveItem(payload);
+      } else {
+        await warehouseMgmtApi.addDamagedItem(payload);
+      }
+
+      toast.success(`Reported ${formQuantity} ${formType} items`);
       setShowAddModal(false);
-      setFormQuantity("");
-      setFormReason("");
       fetchData();
     } catch (err) {
-      toast.error("Failed to submit entry");
+      toast.error(err.response?.data?.message || "Failed to submit record");
     }
   };
 
@@ -220,7 +236,9 @@ export const DamagedDefective = () => {
                   required
                 >
                   {warehouses.map((w) => (
-                    <option key={w.id} value={w.id}>{w.name}</option>
+                    <option key={w._id || w.id} value={String(w._id || w.id)}>
+                      {w.warehouseName || w.name || w.shopName || "Warehouse"}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -258,7 +276,9 @@ export const DamagedDefective = () => {
                 required
               >
                 {products.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>
+                  <option key={p._id || p.id} value={String(p._id || p.id)}>
+                    {p.name || p.title} {p.sku ? `(${p.sku})` : ""}
+                  </option>
                 ))}
               </select>
             </div>

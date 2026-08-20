@@ -38,6 +38,7 @@ import {
   getOrderWithAccess,
   getSellerReturns as getSellerReturnsFromService,
 } from "../services/orderQueryService.js";
+import { emitOrderStatusUpdate } from "../services/orderSocketEmitter.js";
 import { orderMatchQueryFromRouteParam } from "../utils/orderLookup.js";
 import { createFinanceOrderSchema } from "../validation/financeValidation.js";
 import { placeOrderAtomic } from "../services/orderPlacementService.js";
@@ -477,6 +478,27 @@ export const updateOrderStatus = async (req, res) => {
     if (status) {
       order.status = status;
       order.orderStatus = status;
+
+      if (status === "confirmed") {
+        order.workflowStatus = WORKFLOW_STATUS.SELLER_ACCEPTED;
+        order.sellerPendingExpiresAt = undefined;
+        order.deliverySearchExpiresAt = undefined;
+      } else if (status === "packed") {
+        order.workflowStatus = WORKFLOW_STATUS.PICKUP_READY;
+        order.sellerPendingExpiresAt = undefined;
+        order.deliverySearchExpiresAt = undefined;
+      } else if (status === "out_for_delivery") {
+        order.workflowStatus = WORKFLOW_STATUS.OUT_FOR_DELIVERY;
+        order.sellerPendingExpiresAt = undefined;
+        order.deliverySearchExpiresAt = undefined;
+        if (!order.outForDeliveryAt) order.outForDeliveryAt = new Date();
+      } else if (status === "delivered") {
+        order.workflowStatus = WORKFLOW_STATUS.DELIVERED;
+        order.sellerPendingExpiresAt = undefined;
+        order.deliverySearchExpiresAt = undefined;
+      } else if (status === "cancelled") {
+        order.workflowStatus = WORKFLOW_STATUS.CANCELLED;
+      }
     }
     if (deliveryBoyId) order.deliveryBoy = deliveryBoyId;
 
@@ -546,6 +568,15 @@ export const updateOrderStatus = async (req, res) => {
     }
 
     await order.save();
+
+    emitOrderStatusUpdate(
+      canonicalOrderId,
+      {
+        workflowStatus: order.workflowStatus,
+        status: order.status,
+      },
+      order.customer,
+    );
 
     try {
       await invalidate(buildKey("orders", "customer", `${order.customer.toString()}:*`));

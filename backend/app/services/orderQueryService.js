@@ -452,6 +452,8 @@ export async function getOrderWithAccess(orderId, userId, role) {
     .populate("deliveryBoy", "name phone")
     .populate("returnDeliveryBoy", "name phone")
     .populate("seller", "shopName name address phone location")
+    .populate("warehouse", "name warehouseName code city address state pincode")
+    .populate("warehouseId", "name warehouseName code city address state pincode")
     .lean();
 
   if (!order) {

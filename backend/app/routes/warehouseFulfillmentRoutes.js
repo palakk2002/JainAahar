@@ -9,6 +9,9 @@ import {
   startPackingHandler,
   markPackedHandler,
   markReadyToShipHandler,
+  createShipmentHandler,
+  markShippedHandler,
+  markCompletedHandler,
   cancelFulfillmentHandler,
 } from "../controller/warehouseFulfillmentController.js";
 import { verifyToken, allowRoles } from "../middleware/authMiddleware.js";
@@ -29,6 +32,9 @@ router.post("/:id/update-item-pick", updateItemPickHandler);
 router.post("/:id/start-packing", startPackingHandler);
 router.post("/:id/packed", markPackedHandler);
 router.post("/:id/ready-to-ship", markReadyToShipHandler);
+router.post("/:id/create-shipment", createShipmentHandler);
+router.post("/:id/mark-shipped", markShippedHandler);
+router.post("/:id/mark-completed", markCompletedHandler);
 router.post("/:id/cancel", cancelFulfillmentHandler);
 
 export default router;

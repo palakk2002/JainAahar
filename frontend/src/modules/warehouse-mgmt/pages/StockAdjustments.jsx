@@ -18,7 +18,7 @@ export const StockAdjustments = () => {
   const [showModal, setShowModal] = useState(false);
 
   // Form State
-  const [formWarehouseId, setFormWarehouseId] = useState("wh-indore");
+  const [formWarehouseId, setFormWarehouseId] = useState("");
   const [formProductId, setFormProductId] = useState("");
   const [systemQty, setSystemQty] = useState(100);
   const [physicalQty, setPhysicalQty] = useState(97);
@@ -37,14 +37,21 @@ export const StockAdjustments = () => {
         warehouseMgmtApi.getProducts(),
         warehouseMgmtApi.getWarehouses(),
       ]);
-      if (adjRes.data.success) setAdjustments(adjRes.data.result);
-      if (prodRes.data.success) {
-        setProducts(prodRes.data.result);
-        if (prodRes.data.result.length > 0 && !formProductId) {
-          setFormProductId(prodRes.data.result[0].id);
+      if (adjRes.data?.success) setAdjustments(adjRes.data.result || []);
+      if (prodRes.data?.success) {
+        const prodList = prodRes.data.result || [];
+        setProducts(prodList);
+        if (prodList.length > 0) {
+          setFormProductId((prev) => prev || String(prodList[0]._id || prodList[0].id));
         }
       }
-      if (whRes.data.success) setWarehouses(whRes.data.result);
+      if (whRes.data?.success) {
+        const whList = whRes.data.result || [];
+        setWarehouses(whList);
+        if (whList.length > 0) {
+          setFormWarehouseId((prev) => prev || String(whList[0]._id || whList[0].id));
+        }
+      }
     } catch (err) {
       toast.error("Failed to load adjustments");
     } finally {
@@ -54,20 +61,26 @@ export const StockAdjustments = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const selProd = products.find((p) => p.id === formProductId);
-    const selWh = warehouses.find((w) => w.id === formWarehouseId);
+    const selProd = products.find((p) => String(p._id || p.id) === String(formProductId));
+    const selWh = warehouses.find((w) => String(w._id || w.id) === String(formWarehouseId));
+    if (!selProd || !selWh) {
+      toast.error("Please select a valid warehouse and product");
+      return;
+    }
     const diff = Number(physicalQty) - Number(systemQty);
 
     try {
       await warehouseMgmtApi.createAdjustment({
-        warehouseId: formWarehouseId,
-        warehouseName: selWh?.name || formWarehouseId,
-        productId: formProductId,
-        productName: selProd?.name || "",
-        sku: selProd?.sku || "",
+        warehouseId: String(selWh._id || selWh.id),
+        warehouseName: selWh.warehouseName || selWh.name || "Warehouse",
+        productId: String(selProd._id || selProd.id),
+        productName: selProd.name || selProd.title || "Product",
+        sku: selProd.sku || "",
         systemQty: Number(systemQty),
         physicalQty: Number(physicalQty),
         adjustmentQty: diff,
+        quantity: Math.abs(diff),
+        adjustmentType: diff >= 0 ? "INCREASE" : "DECREASE",
         reason,
         notes,
       });
@@ -76,7 +89,7 @@ export const StockAdjustments = () => {
       setShowModal(false);
       fetchData();
     } catch (err) {
-      toast.error("Failed to submit adjustment");
+      toast.error(err.response?.data?.message || "Failed to submit adjustment");
     }
   };
 
@@ -171,7 +184,9 @@ export const StockAdjustments = () => {
                   required
                 >
                   {warehouses.map((w) => (
-                    <option key={w.id} value={w.id}>{w.name}</option>
+                    <option key={w._id || w.id} value={String(w._id || w.id)}>
+                      {w.warehouseName || w.name || w.shopName || "Warehouse"}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -185,7 +200,9 @@ export const StockAdjustments = () => {
                   required
                 >
                   {products.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>
+                    <option key={p._id || p.id} value={String(p._id || p.id)}>
+                      {p.name || p.title} {p.sku ? `(${p.sku})` : ""}
+                    </option>
                   ))}
                 </select>
               </div>

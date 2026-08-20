@@ -329,10 +329,11 @@ export async function assignWarehouseToOrder({
   // Prepare fulfillment items
   const fulfillmentItems = (order.items || []).map((item) => ({
     product: item.product || item.productId || item._id,
-    name: item.name || "",
+    name: item.name || item.product?.name || "",
     sku: item.sku || item.variantSku || "",
     image: item.image || "",
-    requiredQty: Number(item.quantity || 1),
+    price: Number(item.price || item.salePrice || item.product?.price || item.product?.salePrice || 0),
+    requiredQty: Number(item.quantity || item.qty || 1),
     pickedQty: 0,
     status: "PENDING",
   }));

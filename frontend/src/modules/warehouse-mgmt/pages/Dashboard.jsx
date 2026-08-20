@@ -84,7 +84,7 @@ export const WarehouseDashboard = () => {
     );
   }
 
-  // Mock chart data
+  // Mock or live chart data
   const pieData = [
     { name: "Available Stock", value: stats?.availableStock || 0, color: "#10b981" },
     { name: "Reserved Stock", value: stats?.reservedStock || 0, color: "#0284c7" },
@@ -92,15 +92,17 @@ export const WarehouseDashboard = () => {
     { name: "Defective Stock", value: stats?.defectiveStock || 0, color: "#ef4444" },
   ];
 
-  const trendData = [
-    { day: "Mon", inward: 400, outward: 240 },
-    { day: "Tue", inward: 300, outward: 139 },
-    { day: "Wed", inward: 550, outward: 480 },
-    { day: "Thu", inward: 280, outward: 390 },
-    { day: "Fri", inward: 490, outward: 430 },
-    { day: "Sat", inward: 600, outward: 510 },
-    { day: "Sun", inward: 350, outward: 290 },
-  ];
+  const trendData = stats?.trendData && stats.trendData.length > 0
+    ? stats.trendData
+    : [
+        { day: "Mon", inward: 0, outward: 0 },
+        { day: "Tue", inward: 0, outward: 0 },
+        { day: "Wed", inward: 0, outward: 0 },
+        { day: "Thu", inward: 0, outward: 0 },
+        { day: "Fri", inward: 0, outward: 0 },
+        { day: "Sat", inward: 0, outward: 0 },
+        { day: "Sun", inward: 0, outward: 0 },
+      ];
 
   const warehouseOrdersData = [
     { name: "Indore WH", pending: 28, completed: 142 },

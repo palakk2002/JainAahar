@@ -232,7 +232,9 @@ export const Orders = () => {
                         </td>
                         <td className="p-2.5 text-center font-bold text-slate-900">{item.qty}</td>
                         <td className="p-2.5 text-center font-bold text-emerald-600">{item.pickedQty}</td>
-                        <td className="p-2.5 text-right font-bold text-slate-900">₹{item.price * item.qty}</td>
+                        <td className="p-2.5 text-right font-bold text-slate-900">
+                          ₹{(Number(item.price || 0) * Number(item.qty || 1)).toLocaleString()}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
