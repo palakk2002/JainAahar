@@ -77,25 +77,37 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp = true, fullHeigh
     }, [token, user]);
 
     // Route-based visibility logic
-    const path = location.pathname.replace(/\/$/, '') || '/';
+    const path = (location.pathname || '').toLowerCase().replace(/\/+$/, '') || '/';
 
-    const hideHeaderRoutes = ['/', '/categories', '/orders', '/transactions', '/profile', '/profile/edit', '/wishlist', '/addresses', '/wallet', '/support', '/privacy', '/about', '/terms', '/checkout', '/search', '/chat', '/notifications'];
+    const isPrivacy = path === '/privacy' || path.startsWith('/privacy');
+    const isSupport = path === '/support' || path.startsWith('/support');
+    const isTerms = path === '/terms' || path.startsWith('/terms');
+    const isAbout = path === '/about' || path.startsWith('/about');
     const isCheckout = path === '/checkout' || path.startsWith('/checkout');
     const isSearch = path === '/search' || path.startsWith('/search');
     const isChat = path === '/chat' || path.startsWith('/chat');
     const isProduct = path.startsWith('/product');
     const isPaymentStatus = path.startsWith('/payment-status');
 
+    const hideHeaderRoutes = [
+        '/', '/categories', '/orders', '/transactions', '/profile',
+        '/profile/edit', '/wishlist', '/addresses', '/wallet',
+        '/support', '/privacy', '/privacy-policy', '/about', '/terms',
+        '/checkout', '/search', '/chat', '/notifications'
+    ];
+
+    const isHeaderHidden = hideHeaderRoutes.includes(path) || isPrivacy || isSupport || isTerms || isAbout || path.startsWith('/category') || path.startsWith('/orders');
+
     const hideBottomNav = isCheckout || isSearch || isChat || isProduct || isPaymentStatus;
 
     // If props are passed, use them. Otherwise, use route-based logic.
-    const showHeader = showHeaderProp !== undefined ? showHeaderProp : (!hideHeaderRoutes.includes(path) && !path.startsWith('/category') && !path.startsWith('/orders'));
+    const showHeader = showHeaderProp !== undefined ? showHeaderProp : !isHeaderHidden;
     const showBottomNav = showBottomNavProp !== undefined ? showBottomNavProp : !hideBottomNav;
     const showCart = showCartProp !== undefined ? showCartProp : (!isCheckout && !isSearch && !isChat && !path.startsWith('/orders'));
 
     // Condition to hide the MobileFooterMessage ("India's last minute app") on specific pages
-    const hideFooterMessageRoutes = ['/profile', '/profile/edit'];
-    const showFooterMessage = showBottomNav && !hideFooterMessageRoutes.includes(path) && !path.startsWith('/category');
+    const hideFooterMessageRoutes = ['/profile', '/profile/edit', '/privacy', '/privacy-policy', '/support'];
+    const showFooterMessage = showBottomNav && !hideFooterMessageRoutes.includes(path) && !path.startsWith('/category') && !isPrivacy && !isSupport;
 
     // Hide elements on mobile only when product detail is open
     // On desktop, we want to keep the header visible even if the modal is open

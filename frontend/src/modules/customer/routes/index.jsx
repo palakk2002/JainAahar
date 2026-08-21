@@ -19,6 +19,7 @@ import AboutPage from '../pages/AboutPage';
 import EditProfilePage from '../pages/EditProfilePage';
 import OrderDetailPage from '../pages/OrderDetailPage';
 import ProductDetailPage from '../pages/ProductDetailPage';
+import KitDetailPage from '../pages/KitDetailPage';
 import CheckoutPage from '../pages/CheckoutPage';
 import PaymentStatusPage from '../pages/PaymentStatusPage';
 import ScrollToTop from '../components/shared/ScrollToTop';
@@ -46,6 +47,8 @@ const CustomerRoutes = () => {
                                 <Route path="kit/:id" element={<KitDetailPage />} />
                                 <Route path="terms" element={<TermsPage />} />
                                 <Route path="privacy" element={<PrivacyPage />} />
+                                <Route path="privacy-policy" element={<PrivacyPage />} />
+                                <Route path="support" element={<SupportPage />} />
                                 <Route path="about" element={<AboutPage />} />
                                 <Route path="offers" element={<OffersPage />} />
 
@@ -56,7 +59,6 @@ const CustomerRoutes = () => {
                                 <Route path="transactions" element={<ProtectedRoute><OrderTransactionsPage /></ProtectedRoute>} />
                                 <Route path="addresses" element={<ProtectedRoute><AddressesPage /></ProtectedRoute>} />
                                 <Route path="settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-                                <Route path="support" element={<ProtectedRoute><SupportPage /></ProtectedRoute>} />
                                 <Route path="chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
                                 <Route path="checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
                                 <Route path="payment-status" element={<ProtectedRoute><PaymentStatusPage /></ProtectedRoute>} />

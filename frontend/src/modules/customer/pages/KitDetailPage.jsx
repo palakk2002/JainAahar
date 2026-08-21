@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { customerApi } from '../../services/customerApi';
-import { useCart } from '../../context/CartContext';
+import { customerApi } from '../services/customerApi';
+import { useCart } from '../context/CartContext';
 import { toast } from 'sonner';
 import { ChevronLeft, Package, Check, Sparkles } from 'lucide-react';
 

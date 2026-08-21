@@ -13,6 +13,19 @@ const Header = () => {
     const { count: wishlistCount } = useWishlist();
     const { cartCount } = useCart();
     const location = useLocation();
+    const currentPath = (location.pathname || '').toLowerCase();
+    const isHiddenPage =
+        currentPath.includes('privacy') ||
+        currentPath.includes('support') ||
+        currentPath.includes('terms') ||
+        currentPath.includes('about') ||
+        currentPath.includes('profile') ||
+        currentPath.startsWith('/checkout');
+
+    if (isHiddenPage) {
+        return null;
+    }
+
     const isCheckoutPage = location.pathname === '/checkout';
     const [isLocationOpen, setIsLocationOpen] = useState(false);
     const { currentLocation, refreshLocation } = useAppLocation();

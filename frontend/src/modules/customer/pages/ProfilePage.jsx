@@ -1,13 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
     User, MapPin, Package, CreditCard, Wallet, ChevronRight,
     LogOut, ShieldCheck, Heart, HelpCircle, Info, Edit2, ChevronLeft, Bell, ShoppingCart,
-    ClipboardCheck, Ticket, LifeBuoy, MapPinned, CalendarCheck, BadgePercent, Globe
+    ClipboardCheck, Ticket, LifeBuoy, MapPinned, CalendarCheck, BadgePercent, Globe,
+    Trash2, AlertTriangle
 } from 'lucide-react';
 import { useAuth } from '@core/context/AuthContext';
 import { useSettings } from '@core/context/SettingsContext';
 import { useTranslation } from '@core/context/LanguageContext';
+import { useToast } from '@shared/components/ui/Toast';
+import { customerApi } from '../services/customerApi';
 import CartPage from './CartPage';
 import { cn } from '@/lib/utils';
 
@@ -15,11 +18,14 @@ const ProfilePage = () => {
     const navigate = useNavigate();
     const { user, logout } = useAuth();
     const { settings } = useSettings();
+    const { showToast } = useToast();
     const { t, language, setLanguage, languages } = useTranslation();
     const appName = settings?.appName || 'App';
-    const [showLogoutModal, setShowLogoutModal] = React.useState(false);
-    const [isCartOpen, setIsCartOpen] = React.useState(false);
-    const [isLangExpanded, setIsLangExpanded] = React.useState(false);
+    const [showLogoutModal, setShowLogoutModal] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [deleteLoading, setDeleteLoading] = useState(false);
+    const [isCartOpen, setIsCartOpen] = useState(false);
+    const [isLangExpanded, setIsLangExpanded] = useState(false);
 
     const formatIndiaPhone = (value) => {
         const raw = String(value || '').trim();
@@ -27,6 +33,22 @@ const ProfilePage = () => {
         if (raw.startsWith('+91')) return raw.replace(/^\+91[\s-]*/, '');
         if (raw.startsWith('91') && raw.length >= 12) return raw.replace(/^91[\s-]*/, '');
         return raw;
+    };
+
+    const handleDeleteAccount = async () => {
+        try {
+            setDeleteLoading(true);
+            const res = await customerApi.deleteAccount();
+            showToast(res?.data?.message || "Account deleted successfully", "success");
+            setShowDeleteModal(false);
+            logout();
+            navigate('/login');
+        } catch (error) {
+            console.error("Delete account error:", error);
+            showToast(error.response?.data?.message || "Failed to delete account", "error");
+        } finally {
+            setDeleteLoading(false);
+        }
     };
 
     return (
@@ -248,14 +270,28 @@ const ProfilePage = () => {
                     </div>
                 </div>
 
-                {/* Logout Button */}
-                <button
-                    onClick={() => setShowLogoutModal(true)}
-                    className="w-full py-3.5 rounded-2xl border border-slate-200 text-slate-700 font-bold bg-white hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 mt-2 shadow-2xs"
-                >
-                    <LogOut size={18} className="text-slate-600" />
-                    {t('signOut')}
-                </button>
+                {/* Account Action Buttons */}
+                <div className="space-y-2 mt-3">
+                    {/* Logout Button */}
+                    <button
+                        type="button"
+                        onClick={() => setShowLogoutModal(true)}
+                        className="w-full py-3.5 rounded-2xl border border-slate-200 text-slate-700 font-bold bg-white hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 shadow-2xs cursor-pointer"
+                    >
+                        <LogOut size={18} className="text-slate-600" />
+                        {t('signOut')}
+                    </button>
+
+                    {/* Delete Account Button */}
+                    <button
+                        type="button"
+                        onClick={() => setShowDeleteModal(true)}
+                        className="w-full py-3 rounded-2xl border border-red-100 text-red-600 font-bold bg-red-50/60 hover:bg-red-100/70 transition-colors flex items-center justify-center gap-2 text-xs shadow-2xs cursor-pointer"
+                    >
+                        <Trash2 size={15} className="text-red-500" />
+                        Delete Account
+                    </button>
+                </div>
 
                 <div className="text-center pb-8 mt-4">
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Version 2.4.0 • {appName}</p>
@@ -277,12 +313,14 @@ const ProfilePage = () => {
                     </p>
                     <div className="flex gap-3">
                         <button
+                            type="button"
                             onClick={() => setShowLogoutModal(false)}
                             className="flex-1 py-3.5 rounded-2xl bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 transition-colors"
                         >
                             {t('cancel')}
                         </button>
                         <button
+                            type="button"
                             onClick={() => {
                                 setShowLogoutModal(false);
                                 logout();
@@ -290,6 +328,43 @@ const ProfilePage = () => {
                             className="flex-1 py-3.5 rounded-2xl bg-red-500 text-white font-bold hover:bg-red-600 transition-colors shadow-lg shadow-red-500/30"
                         >
                             {t('yesSignOut')}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* Delete Account Confirmation Modal */}
+        {showDeleteModal && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl relative border border-slate-100">
+                    <div className="w-14 h-14 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mb-4 mx-auto shadow-inner">
+                        <AlertTriangle size={28} />
+                    </div>
+                    <h3 className="text-xl font-black text-slate-900 text-center mb-2">Delete Account?</h3>
+                    <p className="text-xs font-medium text-slate-500 text-center mb-6 leading-relaxed">
+                        Are you sure you want to permanently delete your account? All your personal profile information, addresses, active cart, and preferences will be permanently removed.
+                    </p>
+                    <div className="flex gap-3">
+                        <button
+                            type="button"
+                            disabled={deleteLoading}
+                            onClick={() => setShowDeleteModal(false)}
+                            className="flex-1 py-3.5 rounded-2xl bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 transition-colors disabled:opacity-50"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            disabled={deleteLoading}
+                            onClick={handleDeleteAccount}
+                            className="flex-1 py-3.5 rounded-2xl bg-red-600 text-white font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-600/30 flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                            {deleteLoading ? (
+                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                                "Delete"
+                            )}
                         </button>
                     </div>
                 </div>
