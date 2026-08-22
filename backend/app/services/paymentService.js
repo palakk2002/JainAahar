@@ -490,11 +490,19 @@ export async function createPaymentOrderForOrderRef({
     if (existingForKey) {
       return {
         payment: existingForKey,
-        redirectUrl: existingForKey.rawGatewayResponse?.redirectUrl,
+        provider: existingForKey.gatewayName,
+        redirectUrl: existingForKey.rawGatewayResponse?.redirectUrl || null,
+        merchantOrderId: existingForKey.gatewayOrderId,
+        razorpayOrderId: existingForKey.rawGatewayResponse?.razorpayOrderId || null,
+        amount: existingForKey.amount,
+        currency: existingForKey.currency,
+        keyId: existingForKey.rawGatewayResponse?.keyId || null,
         duplicate: true,
       };
     }
   }
+
+  const provider = getActivePaymentProvider();
 
   const existingOpenPayment = await Payment.findOne({
     ...paymentScopeQuery,
@@ -503,10 +511,20 @@ export async function createPaymentOrderForOrderRef({
     },
   }).sort({ createdAt: -1 });
 
-  if (existingOpenPayment && existingOpenPayment.rawGatewayResponse?.redirectUrl) {
+  if (
+    existingOpenPayment &&
+    (existingOpenPayment.rawGatewayResponse?.redirectUrl ||
+      existingOpenPayment.rawGatewayResponse?.razorpayOrderId)
+  ) {
     return {
       payment: existingOpenPayment,
-      redirectUrl: existingOpenPayment.rawGatewayResponse.redirectUrl,
+      provider: existingOpenPayment.gatewayName,
+      redirectUrl: existingOpenPayment.rawGatewayResponse.redirectUrl || null,
+      merchantOrderId: existingOpenPayment.gatewayOrderId,
+      razorpayOrderId: existingOpenPayment.rawGatewayResponse.razorpayOrderId || null,
+      amount: existingOpenPayment.amount,
+      currency: existingOpenPayment.currency,
+      keyId: existingOpenPayment.rawGatewayResponse.keyId || provider.keyId || null,
       duplicate: true,
     };
   }
@@ -519,7 +537,6 @@ export async function createPaymentOrderForOrderRef({
     attemptCount,
   );
 
-  const provider = getActivePaymentProvider();
   const redirectUrl = `${process.env.FRONTEND_URL}/payment-status?merchantOrderId=${merchantOrderId}`;
 
   const initResult = await provider.initiatePayment({
@@ -543,9 +560,11 @@ export async function createPaymentOrderForOrderRef({
     idempotencyKey: idempotencyKey || undefined,
     correlationId,
     rawGatewayResponse: {
-      redirectUrl: initResult.redirectUrl,
+      redirectUrl: initResult.redirectUrl || null,
       merchantOrderId: merchantOrderId,
       amount: amountPaise,
+      razorpayOrderId: initResult.razorpayOrderId || null,
+      keyId: initResult.keyId || null,
     },
     statusHistory: [
       {
@@ -566,10 +585,105 @@ export async function createPaymentOrderForOrderRef({
     gatewayOrderId: payment.gatewayOrderId,
     amount: payment.amount,
     redirectUrl: initResult.redirectUrl,
+    razorpayOrderId: initResult.razorpayOrderId,
     provider: provider.providerName,
   });
 
-  return { payment, redirectUrl: initResult.redirectUrl, duplicate: false };
+  return {
+    payment,
+    provider: provider.providerName,
+    redirectUrl: initResult.redirectUrl || null,
+    merchantOrderId: merchantOrderId,
+    razorpayOrderId: initResult.razorpayOrderId || null,
+    amount: amountPaise,
+    currency,
+    keyId: initResult.keyId || null,
+    duplicate: false,
+  };
+}
+
+export async function verifyRazorpayPaymentStatus({
+  merchantOrderId,
+  razorpay_order_id,
+  razorpay_payment_id,
+  razorpay_signature,
+  userId,
+  correlationId = null,
+}) {
+  const query = merchantOrderId
+    ? { gatewayOrderId: merchantOrderId }
+    : { "rawGatewayResponse.razorpayOrderId": razorpay_order_id };
+
+  const payment = await Payment.findOne(query);
+  if (!payment) {
+    const err = new Error("Payment attempt not found");
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (userId && String(payment.customer) !== String(userId)) {
+    const err = new Error("Not authorized to verify this payment");
+    err.statusCode = 403;
+    throw err;
+  }
+
+  // Idempotency: If already captured/paid, return successfully
+  if (payment.status === PAYMENT_STATUS.CAPTURED) {
+    return { payment, status: PAYMENT_STATUS.CAPTURED, duplicate: true };
+  }
+
+  const provider = getActivePaymentProvider();
+
+  if (typeof provider.verifySignature === "function") {
+    const isValid = provider.verifySignature({
+      razorpayOrderId: razorpay_order_id || payment.rawGatewayResponse?.razorpayOrderId,
+      razorpayPaymentId: razorpay_payment_id,
+      razorpaySignature: razorpay_signature,
+    });
+
+    if (!isValid) {
+      await transitionPaymentState(payment, {
+        nextStatus: PAYMENT_STATUS.FAILED,
+        source: PAYMENT_EVENT_SOURCE.CLIENT_VERIFY,
+        reason: "Razorpay signature verification failed",
+        gatewayPaymentId: razorpay_payment_id,
+      });
+
+      await handleOrderSideEffectsFromPaymentStatus(payment, PAYMENT_STATUS.FAILED, "Invalid Signature");
+      const err = new Error("Invalid payment signature");
+      err.statusCode = 400;
+      throw err;
+    }
+  }
+
+  await transitionPaymentState(payment, {
+    nextStatus: PAYMENT_STATUS.CAPTURED,
+    source: PAYMENT_EVENT_SOURCE.CLIENT_VERIFY,
+    reason: "Razorpay payment verified via signature",
+    gatewayPaymentId: razorpay_payment_id,
+  });
+
+  payment.gatewaySignature = razorpay_signature;
+  payment.correlationId = correlationId || payment.correlationId;
+  await payment.save();
+
+  await handleOrderSideEffectsFromPaymentStatus(
+    payment,
+    PAYMENT_STATUS.CAPTURED,
+    "Payment Verified",
+  );
+
+  logger.info("razorpay_payment_verified", {
+    correlationId,
+    merchantOrderId: payment.gatewayOrderId,
+    razorpayPaymentId: razorpay_payment_id,
+    status: PAYMENT_STATUS.CAPTURED,
+  });
+
+  return {
+    payment,
+    status: PAYMENT_STATUS.CAPTURED,
+  };
 }
 
 export async function verifyPhonePePaymentStatus({

@@ -13,6 +13,9 @@ REGISTRY.set("noop", noopDeliveryProvider);
 REGISTRY.set("internal", internalDeliveryProvider);
 REGISTRY.set("mock", mockDeliveryProvider);
 REGISTRY.set("shiprocket", shiprocketProvider);
+REGISTRY.set("courier", shiprocketProvider);
+REGISTRY.set("shipment", shiprocketProvider);
+REGISTRY.set("tracking", shiprocketProvider);
 REGISTRY.set("porter", porterProvider);
 
 /**
