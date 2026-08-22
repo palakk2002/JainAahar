@@ -22,13 +22,20 @@ export const shiprocketProvider = {
 
     const pickupLocation = process.env.SHIPROCKET_PICKUP_LOCATION || pickup?.name || "Primary Warehouse";
 
+    const rawAddress = (drop?.address || "").trim();
+    // Shiprocket API strict validation requires at least 1 digit (e.g. 101, 12, B-1) or explicit No.
+    const hasDigit = /\d+/.test(rawAddress);
+    const billingAddress = (rawAddress && rawAddress !== "Address")
+      ? (hasDigit ? rawAddress : `Plot No. 1, ${rawAddress}`)
+      : "Plot No. 1, Main Street";
+
     const payload = {
       order_id: orderId,
       order_date: new Date().toISOString().slice(0, 19).replace("T", " "),
       pickup_location: pickupLocation,
       billing_customer_name: drop?.name || "Customer",
       billing_last_name: "",
-      billing_address: drop?.address || "Address",
+      billing_address: billingAddress,
       billing_city: drop?.city || "City",
       billing_pincode: drop?.pincode || "560001",
       billing_state: drop?.state || "State",

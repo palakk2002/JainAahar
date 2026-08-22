@@ -29,6 +29,7 @@ import {
   X,
 } from "lucide-react";
 import { customerApi } from "../services/customerApi";
+import loadRazorpayScript from "../../../shared/utils/loadRazorpayScript";
 import { toast } from "sonner";
 import { subscribeToOrderLocation, subscribeToOrderTrail, subscribeToOrderRoute } from "@/core/services/trackingClient";
 import {
@@ -733,17 +734,87 @@ const OrderDetailPage = () => {
       const response = await customerApi.createPaymentOrder({
         orderRef: paymentRef,
       });
-      if (response.data.success && response.data.result?.redirectUrl) {
-        window.location.href = response.data.result.redirectUrl;
-      } else {
-        toast.error(response.data.message || "Failed to initiate payment");
+
+      if (!response.data?.success) {
+        toast.error(response.data?.message || "Failed to initiate payment");
+        return;
       }
+
+      const paymentData = response.data.result || {};
+
+      // Scenario A: PhonePe Redirect Flow
+      if (paymentData.redirectUrl) {
+        window.location.href = paymentData.redirectUrl;
+        return;
+      }
+
+      // Scenario B: Razorpay Modal Flow
+      const keyId =
+        paymentData.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID;
+      const razorpayOrderId = paymentData.razorpayOrderId;
+
+      if (razorpayOrderId && keyId) {
+        const loaded = await loadRazorpayScript();
+        if (!loaded) {
+          toast.error("Unable to load Razorpay payment SDK. Please check your internet connection.");
+          return;
+        }
+
+        const options = {
+          key: keyId,
+          amount: paymentData.amount,
+          currency: paymentData.currency || "INR",
+          name: "JainAhar",
+          description: `Payment for Order #${order.orderId}`,
+          order_id: razorpayOrderId,
+          prefill: {
+            name: order.address?.name || "",
+            contact: order.address?.phone || "",
+          },
+          theme: {
+            color: "#e11d48",
+          },
+          modal: {
+            ondismiss: function () {
+              toast.info("Payment window closed. You can retry payment anytime.");
+            },
+          },
+          handler: async function (resp) {
+            try {
+              await customerApi.verifyRazorpayPayment({
+                merchantOrderId: paymentData.merchantOrderId || paymentRef,
+                razorpay_order_id: resp.razorpay_order_id,
+                razorpay_payment_id: resp.razorpay_payment_id,
+                razorpay_signature: resp.razorpay_signature,
+              });
+
+              toast.success("Payment successful!");
+              window.location.reload();
+            } catch (verifyError) {
+              toast.error(
+                verifyError.response?.data?.message ||
+                  verifyError.message ||
+                  "Payment verification failed. Please try again."
+              );
+            }
+          },
+        };
+
+        const rzp = new window.Razorpay(options);
+        rzp.on("payment.failed", function (resp) {
+          toast.error(resp.error?.description || "Payment failed. Please try again.");
+        });
+        rzp.open();
+        return;
+      }
+
+      toast.error("Invalid payment response received from server");
     } catch (err) {
       console.error("[OrderDetailPage] Retry payment error:", err);
       toast.error(
         err?.response?.data?.message ||
-        err?.message ||
-        "Unable to start payment. Please try again later.",
+          err?.message ||
+          "Unable to start payment. Please try again later."
       );
     }
   };

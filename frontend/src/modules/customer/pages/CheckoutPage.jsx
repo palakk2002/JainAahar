@@ -6,6 +6,7 @@ import { useCart } from "../context/CartContext";
 import { useAuth } from "../../../core/context/AuthContext";
 import { useWishlist } from "../context/WishlistContext";
 import { customerApi } from "../services/customerApi";
+import loadRazorpayScript from "../../../shared/utils/loadRazorpayScript";
 import { useLocation as useAppLocation } from "../context/LocationContext";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
 import {
@@ -769,15 +770,106 @@ const CheckoutPage = () => {
               orderRef: paymentRef,
               orderId: mainOrderId,
             });
-            if (paymentRes.data.success && paymentRes.data.result?.redirectUrl) {
-              clearCart();
-              window.location.href = paymentRes.data.result.redirectUrl;
-              return;
-            } else {
+
+            if (!paymentRes.data?.success) {
               throw new Error(
-                paymentRes.data.message || "Failed to initiate payment gateway"
+                paymentRes.data?.message || "Failed to initiate payment gateway"
               );
             }
+
+            const paymentData = paymentRes.data.result || {};
+
+            // Scenario A: PhonePe / Redirect-based Gateway
+            if (paymentData.redirectUrl) {
+              clearCart();
+              window.location.href = paymentData.redirectUrl;
+              return;
+            }
+
+            // Scenario B: Razorpay / Modal Checkout Flow
+            const keyId =
+              paymentData.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID;
+            const razorpayOrderId = paymentData.razorpayOrderId;
+
+            if (razorpayOrderId && keyId) {
+              const loaded = await loadRazorpayScript();
+              if (!loaded) {
+                throw new Error(
+                  "Unable to load Razorpay payment SDK. Please check your internet connection."
+                );
+              }
+
+              const options = {
+                key: keyId,
+                amount: paymentData.amount,
+                currency: paymentData.currency || "INR",
+                name: "JainAhar",
+                description: `Payment for Order #${mainOrderId}`,
+                order_id: razorpayOrderId,
+                prefill: {
+                  name: user?.name || selectedAddress?.name || "",
+                  email: user?.email || "",
+                  contact: user?.phone || selectedAddress?.phone || "",
+                },
+                theme: {
+                  color: "#e11d48",
+                },
+                modal: {
+                  ondismiss: function () {
+                    setIsPlacingOrder(false);
+                    showToast(
+                      "Payment popup closed. You can complete payment anytime from Order Details.",
+                      "warning"
+                    );
+                    clearCart();
+                    navigate(`/orders/${mainOrderId}`);
+                  },
+                },
+                handler: async function (response) {
+                  try {
+                    await customerApi.verifyRazorpayPayment({
+                      merchantOrderId: paymentData.merchantOrderId || paymentRef,
+                      razorpay_order_id: response.razorpay_order_id,
+                      razorpay_payment_id: response.razorpay_payment_id,
+                      razorpay_signature: response.razorpay_signature,
+                    });
+
+                    clearCart();
+                    showToast("Payment successful!", "success");
+                    navigate(
+                      `/payment-status?merchantOrderId=${
+                        paymentData.merchantOrderId || paymentRef
+                      }`
+                    );
+                  } catch (verifyError) {
+                    setIsPlacingOrder(false);
+                    showToast(
+                      verifyError.response?.data?.message ||
+                        verifyError.message ||
+                        "Payment verification failed. Please check order details.",
+                      "error"
+                    );
+                    clearCart();
+                    navigate(`/orders/${mainOrderId}`);
+                  }
+                },
+              };
+
+              const rzp = new window.Razorpay(options);
+              rzp.on("payment.failed", function (response) {
+                setIsPlacingOrder(false);
+                showToast(
+                  response.error?.description || "Payment failed. Please try again.",
+                  "error"
+                );
+                clearCart();
+                navigate(`/orders/${mainOrderId}`);
+              });
+              rzp.open();
+              return;
+            }
+
+            throw new Error("Invalid payment gateway response received");
           } catch (payError) {
             setIsPlacingOrder(false);
             showToast(
