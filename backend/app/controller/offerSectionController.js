@@ -10,30 +10,13 @@ import { getApprovedOrLegacyFilter } from "../services/productModerationService.
 export const getPublicOfferSections = async (req, res) => {
   try {
     const coords = parseCustomerCoordinates(req.query || {});
-    if (!coords.valid) {
-      return handleResponse(
-        res,
-        400,
-        "lat and lng are required for customer offer visibility",
-      );
-    }
-
-    // Round coordinates to 3 decimals for cache bucket
-    const cacheKey = buildKey(
-      "offersections",
-      "public",
-      `${coords.lat.toFixed(3)}:${coords.lng.toFixed(3)}`,
-    );
+    const cacheKey = coords.valid
+      ? buildKey("offersections", "public", `${coords.lat.toFixed(3)}:${coords.lng.toFixed(3)}`)
+      : buildKey("offersections", "public", "all");
 
     const filteredSections = await getOrSet(
       cacheKey,
       async () => {
-        const nearbySellerIds = await getNearbySellerIdsForCustomer(
-          coords.lat,
-          coords.lng,
-        );
-        const nearbySellerSet = new Set(nearbySellerIds.map(String));
-
         const sections = await OfferSection.find({ status: "active" })
           .sort({ order: 1, createdAt: 1 })
           .populate("categoryIds", "name slug image")
@@ -49,27 +32,11 @@ export const getPublicOfferSections = async (req, res) => {
           })
           .lean();
 
-        return sections.map((section) => {
-          const sellerIds = Array.isArray(section.sellerIds)
-            ? section.sellerIds.filter((seller) => {
-                const sid = String(seller?._id || seller || "");
-                return sid && nearbySellerSet.has(sid);
-              })
-            : [];
-
-          const productIds = Array.isArray(section.productIds)
-            ? section.productIds.filter((product) => {
-                const sid = String(product?.sellerId?._id || product?.sellerId || "");
-                return sid && nearbySellerSet.has(sid);
-              })
-            : [];
-
-          return {
-            ...section,
-            sellerIds,
-            productIds,
-          };
-        });
+        return sections.map((section) => ({
+          ...section,
+          sellerIds: Array.isArray(section.sellerIds) ? section.sellerIds : [],
+          productIds: Array.isArray(section.productIds) ? section.productIds : [],
+        }));
       },
       getTTL("homepage"),
     );

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Search, ChevronRight } from 'lucide-react';
 import { customerApi } from '../services/customerApi';
-import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
+import { DEFAULT_CATEGORY_IMAGE, getRealCategoryFallback, THUMBNAIL_TRANSFORM, CATEGORY_TRANSFORM } from '@/core/utils/imageUtils';
+import SafeImage from '@/shared/components/SafeImage';
 import { useSettings } from '@core/context/SettingsContext';
 
 const CategoriesPage = () => {
@@ -24,7 +25,7 @@ const CategoriesPage = () => {
                         flatCats.push({
                             id: cat._id,
                             name: cat.name,
-                            image: cat.image || "https://cdn.grofers.com/cdn-cgi/image/f=auto,fit=scale-down,q=70,metadata=none,w=270/layout-engine/2022-11/Slice-1_9.png",
+                            image: cat.image || getRealCategoryFallback(cat.name),
                             productCount: cat.productCount || 0,
                             subcategories: cat.children || []
                         });
@@ -47,7 +48,7 @@ const CategoriesPage = () => {
                 const formattedCats = cats.map(cat => ({
                     id: cat._id,
                     name: cat.name,
-                    image: cat.image || "https://cdn.grofers.com/cdn-cgi/image/f=auto,fit=scale-down,q=70,metadata=none,w=270/layout-engine/2022-11/Slice-1_9.png",
+                    image: cat.image || getRealCategoryFallback(cat.name),
                     productCount: cat.productCount || 0,
                 }));
                 setCategories(formattedCats);
@@ -58,6 +59,7 @@ const CategoriesPage = () => {
             setIsLoading(false);
         }
     };
+
 
     useEffect(() => {
         fetchCategories();
@@ -140,12 +142,14 @@ const CategoriesPage = () => {
                                         to={`/category/${category.id}`}
                                         className="flex items-center justify-between"
                                     >
-                                        <div className="flex items-center gap-4">
+                                         <div className="flex items-center gap-4">
                                             <div className="w-20 h-20 flex items-center justify-center flex-shrink-0">
-                                                <img
-                                                    src={applyCloudinaryTransform(category.image)}
+                                                <SafeImage
+                                                    src={category.image}
+                                                    fallbackSrc={DEFAULT_CATEGORY_IMAGE}
+                                                    transformParams={CATEGORY_TRANSFORM}
                                                     alt={category.name}
-                                                    loading="lazy"
+                                                    loading="eager"
                                                     className="w-full h-full object-contain"
                                                 />
                                             </div>
@@ -172,9 +176,12 @@ const CategoriesPage = () => {
                                                         className="flex flex-col items-center gap-1 group"
                                                     >
                                                         <div className="w-14 h-14 rounded-full bg-slate-100 overflow-hidden flex items-center justify-center shadow-sm border border-slate-200/50 group-hover:border-primary/50 group-hover:shadow-md transition-all">
-                                                            <img 
-                                                                src={applyCloudinaryTransform(sub.image || "https://cdn-icons-png.flaticon.com/128/2321/2321801.png")} 
+                                                            <SafeImage 
+                                                                src={sub.image}
+                                                                fallbackSrc={getRealCategoryFallback(sub.name)} 
+                                                                transformParams={THUMBNAIL_TRANSFORM}
                                                                 alt={sub.name} 
+                                                                loading="eager"
                                                                 className="w-full h-full object-cover" 
                                                             />
                                                         </div>

@@ -17,6 +17,8 @@ import VerifiedIcon from "@mui/icons-material/Verified";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { isMobileOrWebView } from "@/core/utils/deviceUtils";
 import { customerApi } from "../services/customerApi";
+import { DEFAULT_CATEGORY_IMAGE, DEFAULT_PRODUCT_IMAGE, getRealCategoryFallback } from "@/core/utils/imageUtils";
+import SafeImage from "@/shared/components/SafeImage";
 import { toast } from "sonner";
 import ProductCard from "../components/shared/ProductCard";
 import MainLocationHeader from "../components/shared/MainLocationHeader";
@@ -313,6 +315,10 @@ const Home = () => {
     }
   }, [products.length, isLoading]);
 
+  /**
+   * @param {any} data
+   * @param {{ cacheKey?: string; persist?: boolean }} [options]
+   */
   const applyHomePageData = (data, { cacheKey, persist = true } = {}) => {
     if (!data) return;
     setCategoryMap(data.categoryMap || {});
@@ -359,11 +365,15 @@ const Home = () => {
         productParams.lat = currentLocation.latitude;
         productParams.lng = currentLocation.longitude;
       }
+      const sectionParams = hasValidLocation
+        ? { lat: currentLocation.latitude, lng: currentLocation.longitude }
+        : {};
+
       const [catRes, prodRes, expRes, sectionsRes] = await Promise.all([
         customerApi.getCategories(),
-        hasValidLocation ? customerApi.getProducts(productParams) : Promise.resolve({ data: { success: true, result: { items: [] } } }),
+        customerApi.getProducts(productParams),
         customerApi.getExperienceSections({ pageType: "home" }).catch(() => null),
-        hasValidLocation ? customerApi.getOfferSections({ lat: currentLocation.latitude, lng: currentLocation.longitude }).catch(() => ({ data: {} })) : Promise.resolve({ data: { results: [] } }),
+        customerApi.getOfferSections(sectionParams).catch(() => ({ data: {} })),
       ]);
       const nextHomeData = {
         categories: [ALL_CATEGORY],
@@ -395,12 +405,12 @@ const Home = () => {
         const mergedAllCategory = allHeaderFromAdmin ? { ...ALL_CATEGORY, headerColor: allHeaderFromAdmin.headerColor || ALL_CATEGORY.headerColor, headerFontColor: allHeaderFromAdmin.headerFontColor || ALL_CATEGORY.headerFontColor, headerIconColor: allHeaderFromAdmin.headerIconColor || ALL_CATEGORY.headerIconColor, icon: allHeaderFromAdmin.icon || ALL_CATEGORY.icon } : ALL_CATEGORY;
         nextHomeData.categories = [mergedAllCategory, ...formattedHeaders.filter((h) => !((h.slug?.toLowerCase() === "all") || (h.name?.toLowerCase() === "all")))];
         nextHomeData.activeCategory = mergedAllCategory;
-        nextHomeData.quickCategories = dbCats.filter((cat) => cat.type === "category").map((cat) => ({ id: cat._id, name: cat.name, image: cat.image || "https://cdn-icons-png.flaticon.com/128/2321/2321831.png" }));
+        nextHomeData.quickCategories = dbCats.filter((cat) => cat.type === "category").map((cat) => ({ id: cat._id, name: cat.name, image: cat.image || getRealCategoryFallback(cat.name) }));
       }
       if (prodRes.data.success) {
         const rawResult = prodRes.data.result;
         const dbProds = Array.isArray(prodRes.data.results) ? prodRes.data.results : Array.isArray(rawResult?.items) ? rawResult.items : Array.isArray(rawResult) ? rawResult : [];
-        nextHomeData.products = dbProds.map((p) => ({ ...p, id: p._id, image: p.mainImage || p.image || "https://images.unsplash.com/photo-1550989460-0adf9ea622e2?auto=format&fit=crop&q=80&w=400&h=400", price: p.salePrice || p.price, originalPrice: p.price, weight: p.weight || "1 unit", deliveryTime: "8-15 mins" }));
+        nextHomeData.products = dbProds.map((p) => ({ ...p, id: p._id, image: p.mainImage || p.image || DEFAULT_PRODUCT_IMAGE, price: p.salePrice || p.price, originalPrice: p.price, weight: p.weight || "1 unit", deliveryTime: "8-15 mins" }));
       }
       if (expRes?.data?.success) nextHomeData.experienceSections = Array.isArray(expRes.data.result || expRes.data.results) ? (expRes.data.result || expRes.data.results) : [];
       const sectionsList = sectionsRes?.data?.results || sectionsRes?.data?.result || sectionsRes?.data;
@@ -580,8 +590,9 @@ const Home = () => {
                       className="flex flex-col items-center gap-1.5 cursor-pointer group"
                     >
                       <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center p-1.5 shadow-sm border border-slate-100 group-hover:border-primary/50 group-hover:shadow-md transition-all">
-                        <img
-                          src={sub.image || "https://cdn-icons-png.flaticon.com/128/2321/2321801.png"}
+                        <SafeImage
+                          src={sub.image}
+                          fallbackSrc={getRealCategoryFallback(sub.name)}
                           alt={sub.name}
                           className="w-full h-full object-contain group-hover:scale-110 transition-transform"
                         />

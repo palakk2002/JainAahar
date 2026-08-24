@@ -6,7 +6,7 @@ import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useToast } from '@shared/components/ui/Toast';
 import { cn } from '@/lib/utils';
-import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
+import { applyCloudinaryTransform, DEFAULT_CATEGORY_IMAGE, DEFAULT_PRODUCT_IMAGE, getRealCategoryFallback } from '@/core/utils/imageUtils';
 
 import ProductCard from '../components/shared/ProductCard';
 import ProductDetailSheet from '../components/shared/ProductDetailSheet';
@@ -28,7 +28,7 @@ const CategoryProductsPage = () => {
     const { isOpen: isProductDetailOpen } = useProductDetail();
     const [selectedSubCategory, setSelectedSubCategory] = useState(initialSubcategoryId);
     const [category, setCategory] = useState(null);
-    const [subCategories, setSubCategories] = useState([{ id: 'all', name: 'All', icon: 'https://cdn-icons-png.flaticon.com/128/2321/2321831.png' }]);
+    const [subCategories, setSubCategories] = useState([{ id: 'all', name: 'All', icon: DEFAULT_CATEGORY_IMAGE }]);
     const [products, setProducts] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [noServiceData, setNoServiceData] = useState(null);
@@ -47,15 +47,15 @@ const CategoryProductsPage = () => {
                 Number.isFinite(currentLocation?.latitude) &&
                 Number.isFinite(currentLocation?.longitude);
 
+            const prodParams = { categoryId: catId };
+            if (hasValidLocation) {
+                prodParams.lat = currentLocation.latitude;
+                prodParams.lng = currentLocation.longitude;
+            }
+
             // Fetch products and categories in parallel instead of sequentially
             const [prodRes, catRes] = await Promise.all([
-                hasValidLocation
-                    ? customerApi.getProducts({
-                        categoryId: catId,
-                        lat: currentLocation.latitude,
-                        lng: currentLocation.longitude,
-                    })
-                    : Promise.resolve({ data: { success: true, result: { items: [] } } }),
+                customerApi.getProducts(prodParams),
                 customerApi.getCategories({ tree: true }),
             ]);
 
@@ -75,7 +75,7 @@ const CategoryProductsPage = () => {
                     image:
                       p.mainImage ||
                       p.image ||
-                      "https://images.unsplash.com/photo-1550989460-0adf9ea622e2?auto=format&fit=crop&q=80&w=400&h=400",
+                      DEFAULT_PRODUCT_IMAGE,
                     price: p.salePrice || p.price,
                     originalPrice: p.price,
                     weight: p.weight || "1 unit",
@@ -102,9 +102,9 @@ const CategoryProductsPage = () => {
                     const subs = (currentCat.children || []).map(s => ({
                         id: s._id,
                         name: s.name,
-                        icon: s.image || 'https://cdn-icons-png.flaticon.com/128/2321/2321801.png'
+                        icon: s.image || getRealCategoryFallback(s.name)
                     }));
-                    setSubCategories([{ id: 'all', name: 'All', icon: 'https://cdn-icons-png.flaticon.com/128/2321/2321831.png' }, ...subs]);
+                    setSubCategories([{ id: 'all', name: 'All', icon: getRealCategoryFallback(currentCat.name) }, ...subs]);
                 }
             }
         } catch (error) {
@@ -157,17 +157,17 @@ const CategoryProductsPage = () => {
                                 <div className="w-64 h-64" />
                             )}
                         </div>
-                        <h3 className="text-3xl font-[1000] text-slate-800 tracking-tighter mb-4 uppercase">
-                            Service <span className="text-primary">Unavailable</span>
+                        <h3 className="text-2xl font-[1000] text-slate-800 tracking-tight mb-3">
+                            No Products Found
                         </h3>
-                        <p className="text-slate-500 font-bold text-sm max-w-[280px] mb-8 leading-relaxed">
-                            {settings?.appName || 'Our service'} is not available in your area yet. We're expanding fast!
+                        <p className="text-slate-500 font-medium text-sm max-w-[280px] mb-8 leading-relaxed">
+                            We are adding more products to this category soon. Please check back later!
                         </p>
                         <button 
-                            onClick={fetchData}
+                            onClick={() => navigate('/')}
                             className="px-10 py-4 bg-slate-900 text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-slate-800 active:scale-95 transition-all shadow-xl shadow-black/10"
                         >
-                            Try Refreshing
+                            Explore Home
                         </button>
                     </div>
             ) : (

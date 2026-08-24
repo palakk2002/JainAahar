@@ -18,7 +18,10 @@ function CheckoutCartSummary({
   onUpdateQuantity,
   onRemoveFromCart,
   onMoveToWishlist,
+  showAll = false,
+  onToggleShowAll,
 }) {
+
   return (
     <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 space-y-4">
       {cart.map((item) => (

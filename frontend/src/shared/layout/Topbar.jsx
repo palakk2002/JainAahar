@@ -95,7 +95,7 @@ const Topbar = ({ onMenuClick }) => {
 
         // Degraded fallback: 60s poll. The socket is the primary
         // path, this just covers offline-recovery / dropped connections.
-        const FALLBACK_POLL_MS = 60_000;
+        const FALLBACK_POLL_MS = 60000;
         const poll = setInterval(() => {
             if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
                 return;

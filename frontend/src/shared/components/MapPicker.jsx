@@ -10,6 +10,7 @@ import Modal from "./ui/Modal";
 import Button from "./ui/Button";
 import Input from "./ui/Input";
 
+/** @type {import("@react-google-maps/api").Libraries} */
 const libraries = ["places"];
 const mapContainerStyle = {
   width: "100%",

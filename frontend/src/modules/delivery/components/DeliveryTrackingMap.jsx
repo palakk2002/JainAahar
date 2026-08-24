@@ -10,6 +10,7 @@ import {
   saveDeliveryPartnerLocation,
 } from "../utils/deliveryLastLocation";
 
+/** @type {import("@react-google-maps/api").Libraries} */
 const libraries = ["geometry"];
 const ROUTE_REFRESH_THRESHOLD_M = 150;
 const ROUTE_REFRESH_INTERVAL_MS = 10 * 60 * 1000;

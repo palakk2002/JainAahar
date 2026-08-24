@@ -70,14 +70,6 @@ async function computeDistanceKmForSeller({ sellerId, addressLocation, session =
     Number(sellerLng),
   );
   const distanceKm = Number((distanceInMeters / 1000).toFixed(3));
-  
-  const radius = Number(seller.serviceRadius || 5);
-  if (distanceKm > radius) {
-    const err = new Error(`${seller.shopName || "Store"} does not deliver to your current location (Distance: ${distanceKm}km, Service Radius: ${radius}km)`);
-    err.statusCode = 400;
-    throw err;
-  }
-
   return distanceKm;
 }
 

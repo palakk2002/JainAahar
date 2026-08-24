@@ -1,16 +1,18 @@
 import React from 'react';
 import { ArrowRight } from 'lucide-react';
+import { getRealCategoryFallback } from '@/core/utils/imageUtils';
+import SafeImage from '@/shared/components/SafeImage';
 
 const categories = [
     { id: 1, name: 'Fruits', image: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?q=80&w=200&auto=format&fit=crop', color: 'bg-red-50' },
-    { id: 2, name: 'Vegetables', image: 'https://images.unsplash.com/photo-1566385101042-1a0aa0c1268c?q=80&w=200&auto=format&fit=crop', color: 'bg-brand-50' },
-    { id: 3, name: 'Dairy', image: 'https://images.unsplash.com/photo-1628088062854-d1870b4553da?q=80&w=200&auto=format&fit=crop', color: 'bg-brand-50' },
-    { id: 4, name: 'Meat', image: 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?q=80&w=200&auto=format&fit=crop', color: 'bg-orange-50' },
-    { id: 5, name: 'Bakery', image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?q=80&w=200&auto=format&fit=crop', color: 'bg-yellow-50' },
+    { id: 2, name: 'Vegetables', image: '/category_vegetables.jpg', color: 'bg-brand-50' },
+    { id: 3, name: 'Dairy', image: '/category_dairy_fruits.jpg', color: 'bg-brand-50' },
+    { id: 4, name: 'Meat', image: '/980d4749-fb1a-4876-a65d-9a03cf1a2d1.png', color: 'bg-orange-50' },
+    { id: 5, name: 'Bakery', image: '/category_dairy_fruits.jpg', color: 'bg-yellow-50' },
     { id: 6, name: 'Drinks', image: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?q=80&w=200&auto=format&fit=crop', color: 'bg-purple-50' },
     { id: 7, name: 'Snacks', image: 'https://images.unsplash.com/photo-1621939514649-28b12e81658b?q=80&w=200&auto=format&fit=crop', color: 'bg-pink-50' },
-    { id: 8, name: 'Personal Care', image: 'https://images.unsplash.com/photo-1556228578-8d84f5ae1d41?q=80&w=200&auto=format&fit=crop', color: 'bg-teal-50' },
-    { id: 9, name: 'Baby Care', image: 'https://images.unsplash.com/photo-1519689680058-324335c77eba?q=80&w=200&auto=format&fit=crop', color: 'bg-brand-50' },
+    { id: 8, name: 'Personal Care', image: '/980d4749-fb1a-4876-a65d-9a03cf1a2d1c.png', color: 'bg-teal-50' },
+    { id: 9, name: 'Baby Care', image: '/980d4749-fb1a-4876-a65d-9a03cf1a2d1c.png', color: 'bg-brand-50' },
     { id: 10, name: 'Pet Food', image: 'https://images.unsplash.com/photo-1589924691195-41432c84c161?q=80&w=200&auto=format&fit=crop', color: 'bg-amber-50' },
 ];
 
@@ -33,8 +35,9 @@ const Categories = () => {
                             className="flex flex-col items-center gap-4 min-w-[140px] snap-start group cursor-pointer"
                         >
                             <div className={`h-36 w-36 rounded-full ${category.color} p-4 flex items-center justify-center shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl border border-slate-100`}>
-                                <img
+                                <SafeImage
                                     src={category.image}
+                                    fallbackSrc={getRealCategoryFallback(category.name)}
                                     alt={category.name}
                                     className="w-full h-full object-contain drop-shadow-sm mix-blend-multiply"
                                 />

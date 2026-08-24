@@ -11,8 +11,12 @@ import ProductCard from "../../../components/shared/ProductCard";
  *   onGetCartItem – (productId) => cartItem | undefined
  */
 function CheckoutRecommendedProducts({
-  products,
+  products = [],
+  cart = [],
+  onAddToCart,
+  onGetCartItem,
 }) {
+
   if (!products || products.length === 0) return null;
 
   return (

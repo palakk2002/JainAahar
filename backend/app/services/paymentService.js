@@ -506,6 +506,7 @@ export async function createPaymentOrderForOrderRef({
 
   const existingOpenPayment = await Payment.findOne({
     ...paymentScopeQuery,
+    gatewayName: provider.providerName,
     status: {
       $in: [PAYMENT_STATUS.CREATED, PAYMENT_STATUS.PENDING],
     },
@@ -513,21 +514,22 @@ export async function createPaymentOrderForOrderRef({
 
   if (
     existingOpenPayment &&
-    (existingOpenPayment.rawGatewayResponse?.redirectUrl ||
-      existingOpenPayment.rawGatewayResponse?.razorpayOrderId)
+    ((provider.providerName === "PHONEPE" && existingOpenPayment.rawGatewayResponse?.redirectUrl) ||
+      (provider.providerName === "RAZORPAY" && existingOpenPayment.rawGatewayResponse?.razorpayOrderId))
   ) {
     return {
       payment: existingOpenPayment,
       provider: existingOpenPayment.gatewayName,
-      redirectUrl: existingOpenPayment.rawGatewayResponse.redirectUrl || null,
+      redirectUrl: existingOpenPayment.rawGatewayResponse?.redirectUrl || null,
       merchantOrderId: existingOpenPayment.gatewayOrderId,
-      razorpayOrderId: existingOpenPayment.rawGatewayResponse.razorpayOrderId || null,
+      razorpayOrderId: existingOpenPayment.rawGatewayResponse?.razorpayOrderId || null,
       amount: existingOpenPayment.amount,
       currency: existingOpenPayment.currency,
-      keyId: existingOpenPayment.rawGatewayResponse.keyId || provider.keyId || null,
+      keyId: existingOpenPayment.rawGatewayResponse?.keyId || provider.keyId || null,
       duplicate: true,
     };
   }
+
 
   const amountPaise = getPayableAmountPaise(target);
   const currency = String(primaryOrder?.paymentBreakdown?.currency || "INR").toUpperCase();
@@ -818,11 +820,27 @@ export async function processPhonePeWebhook({
   };
 }
 
-// Placeholder for Razorpay compatibility if needed by other services
 export async function verifyClientPaymentCallback(data) {
-    return verifyPhonePePaymentStatus({
-        merchantOrderId: data.gatewayOrderId || data.merchantOrderId,
-        userId: data.userId,
-        correlationId: data.correlationId
+  const provider = getActivePaymentProvider();
+  if (
+    provider.providerName === PAYMENT_GATEWAY.RAZORPAY ||
+    data.razorpay_order_id ||
+    data.razorpay_signature
+  ) {
+    return verifyRazorpayPaymentStatus({
+      merchantOrderId: data.gatewayOrderId || data.merchantOrderId,
+      razorpay_order_id: data.razorpay_order_id,
+      razorpay_payment_id: data.gatewayPaymentId || data.razorpay_payment_id || data.transactionId,
+      razorpay_signature: data.razorpay_signature,
+      userId: data.userId,
+      correlationId: data.correlationId,
     });
+  }
+
+  return verifyPhonePePaymentStatus({
+    merchantOrderId: data.gatewayOrderId || data.merchantOrderId,
+    userId: data.userId,
+    correlationId: data.correlationId,
+  });
 }
+

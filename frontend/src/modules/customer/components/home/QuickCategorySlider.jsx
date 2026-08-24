@@ -2,7 +2,8 @@ import React, { useRef } from "react";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { QUICK_CATEGORY_PALETTES } from "../../constants/homeConstants";
-import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
+import { DEFAULT_CATEGORY_IMAGE } from "@/core/utils/imageUtils";
+import SafeImage from "@/shared/components/SafeImage";
 // @ts-ignore
 import QuickCategoriesBg from "@/assets/Catagorysection_bg.png";
 
@@ -41,10 +42,12 @@ const QuickCategorySlider = ({ categories, onCategoryClick }) => {
                 {/* White Card Box Container */}
                 <div
                   className="w-[84px] h-[84px] md:w-[100px] md:h-[100px] bg-white border border-slate-100 rounded-2xl overflow-hidden flex items-center justify-center shadow-2xs transition-all duration-300 group-hover/item:-translate-y-1 group-hover/item:shadow-sm">
-                  <img
-                    src={applyCloudinaryTransform(cat.image, "f_auto,q_auto,w_120")}
+                  <SafeImage
+                    src={cat.image}
+                    fallbackSrc={DEFAULT_CATEGORY_IMAGE}
+                    transformParams="f_auto,q_auto,w_120"
                     alt={cat.name}
-                    loading="lazy"
+                    loading="eager"
                     className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-300"
                   />
                 </div>

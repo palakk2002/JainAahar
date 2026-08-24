@@ -8,10 +8,20 @@ const LottieTransitionOverlay = ({ isVisible, isNetworkLoading, onComplete }) =>
 
     React.useEffect(() => {
         if (lottieRef.current) {
-            // Adjust the speed as necessary, 1.5 means 1.5x speed
-            lottieRef.current.setSpeed(1.5);
+            // Fast 3.5x speed for snappy page transitions
+            lottieRef.current.setSpeed(3.5);
         }
     }, [isVisible]);
+
+    // Auto-dismiss after 350ms for page transitions (not network loading)
+    React.useEffect(() => {
+        if (isVisible && !isNetworkLoading) {
+            const timer = setTimeout(() => {
+                onComplete?.();
+            }, 350);
+            return () => clearTimeout(timer);
+        }
+    }, [isVisible, isNetworkLoading, onComplete]);
 
     return (
         <AnimatePresence>
@@ -19,15 +29,15 @@ const LottieTransitionOverlay = ({ isVisible, isNetworkLoading, onComplete }) =>
                 <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    exit={{ opacity: 0, transition: { duration: 0.3 } }}
+                    exit={{ opacity: 0, transition: { duration: 0.15 } }}
                     className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-white"
                     style={{ pointerEvents: 'auto' }}
                 >
                     <motion.div
-                        initial={{ scale: 0.8, opacity: 0 }}
+                        initial={{ scale: 0.9, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0.8, opacity: 0 }}
-                        transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                        exit={{ scale: 0.9, opacity: 0 }}
+                        transition={{ type: "spring", stiffness: 400, damping: 30 }}
                         className="w-64 h-64 md:w-80 md:h-80 flex flex-col items-center justify-center"
                     >
                         <Lottie 

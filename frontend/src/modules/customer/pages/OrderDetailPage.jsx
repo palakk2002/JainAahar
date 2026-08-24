@@ -755,24 +755,31 @@ const OrderDetailPage = () => {
 
       if (razorpayOrderId && keyId) {
         const loaded = await loadRazorpayScript();
-        if (!loaded) {
+        const RazorpayClass =
+          /** @type {any} */ (window).Razorpay ||
+          /** @type {any} */ (window)["Razorpay"];
+        if (!loaded || !RazorpayClass) {
           toast.error("Unable to load Razorpay payment SDK. Please check your internet connection.");
           return;
         }
+
+        const rawContact = String(order.address?.phone || "").replace(/\D/g, "");
+        const formattedContact =
+          rawContact.length >= 10 ? rawContact.slice(-10) : rawContact;
 
         const options = {
           key: keyId,
           amount: paymentData.amount,
           currency: paymentData.currency || "INR",
-          name: "JainAhar",
+          name: "Jain Aahar",
           description: `Payment for Order #${order.orderId}`,
           order_id: razorpayOrderId,
           prefill: {
             name: order.address?.name || "",
-            contact: order.address?.phone || "",
+            contact: formattedContact,
           },
           theme: {
-            color: "#e11d48",
+            color: "#ea580c",
           },
           modal: {
             ondismiss: function () {
@@ -800,13 +807,15 @@ const OrderDetailPage = () => {
           },
         };
 
-        const rzp = new window.Razorpay(options);
+        const rzp = new RazorpayClass(options);
         rzp.on("payment.failed", function (resp) {
           toast.error(resp.error?.description || "Payment failed. Please try again.");
         });
         rzp.open();
         return;
       }
+
+
 
       toast.error("Invalid payment response received from server");
     } catch (err) {

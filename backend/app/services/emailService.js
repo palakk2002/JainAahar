@@ -125,6 +125,56 @@ export async function sendSellerVerificationOtpEmail({
   };
 }
 
+export async function sendCustomerOtpEmail({
+  email,
+  otp,
+  expiresInMinutes = 5,
+  flow = "login",
+}) {
+  if (!useRealEmailOTP()) {
+    logger.info("Customer email OTP generated in mock mode", {
+      email,
+      otp,
+      flow,
+      mode: "mock",
+    });
+    console.log(`\n==========================================`);
+    console.log(`[CUSTOMER EMAIL OTP] To: ${email} | OTP: ${otp} | Flow: ${flow}`);
+    console.log(`==========================================\n`);
+    return {
+      delivered: false,
+      mode: "mock",
+    };
+  }
+
+  const transporter = getTransporter();
+  await transporter.sendMail({
+    from: getMailFrom(),
+    to: email,
+    subject: `Your Jain Aahar Verification Code: ${otp}`,
+    text: `Your verification code for Jain Aahar is ${otp}. This code expires in ${expiresInMinutes} minutes.`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <h2 style="color: #f97316; margin: 0; font-size: 24px;">Jain Aahar</h2>
+          <p style="color: #64748b; font-size: 14px; margin-top: 4px;">Account Verification</p>
+        </div>
+        <div style="background-color: #fff7ed; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 20px; border: 1px solid #ffedd5;">
+          <p style="color: #475569; font-size: 14px; margin-top: 0; margin-bottom: 12px;">Your 4-Digit Verification Code:</p>
+          <p style="font-size: 34px; font-weight: 800; color: #ea580c; letter-spacing: 8px; margin: 12px 0;">${otp}</p>
+          <p style="color: #94a3b8; font-size: 12px; margin-bottom: 0;">This code is valid for ${expiresInMinutes} minutes.</p>
+        </div>
+        <p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 0;">If you did not request this code, please ignore this email.</p>
+      </div>
+    `,
+  });
+
+  return {
+    delivered: true,
+    mode: "real",
+  };
+}
+
 export function __resetEmailTransportForTests() {
   cachedTransporter = null;
 }

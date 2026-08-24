@@ -3,6 +3,7 @@ import ProviderTokenStore from "../../../../models/providerTokenStore.js";
 import { ProviderError } from "../../IDeliveryProvider.js";
 import { getRedisClient, isRedisEnabled } from "../../../../config/redis.js";
 import logger from "../../../../services/logger.js";
+// Reloaded env credentials
 
 const BASE_URL = process.env.SHIPROCKET_BASE_URL || "https://apiv2.shiprocket.in/v1/external";
 
@@ -42,7 +43,8 @@ class ShiprocketClient {
       return await this.refreshToken();
     } catch (err) {
       logger.error({ domain: "delivery", provider: "shiprocket", error: err.message }, "Error retrieving Shiprocket token");
-      throw new ProviderError("TOKEN_ERROR", "Failed to retrieve access token", err);
+      if (err instanceof ProviderError) throw err;
+      throw new ProviderError("TOKEN_ERROR", err.message || "Failed to retrieve access token", err);
     }
   }
 
@@ -53,10 +55,10 @@ class ShiprocketClient {
     const email = process.env.SHIPROCKET_EMAIL;
     const password = process.env.SHIPROCKET_PASSWORD;
 
-    if (!email || !password) {
+    if (!email || !password || email === "your_shiprocket_email@example.com" || password === "your_shiprocket_password") {
       throw new ProviderError(
         "CONFIG_MISSING",
-        "SHIPROCKET_EMAIL or SHIPROCKET_PASSWORD environment variables are missing"
+        "Shiprocket credentials missing in backend/.env. Please set SHIPROCKET_EMAIL and SHIPROCKET_PASSWORD."
       );
     }
 
@@ -84,6 +86,7 @@ class ShiprocketClient {
       logger.info({ domain: "delivery", provider: "shiprocket" }, "Shiprocket authentication token refreshed successfully");
       return token;
     } catch (err) {
+      if (err instanceof ProviderError) throw err;
       const message = err.response?.data?.message || err.message;
       logger.error({ domain: "delivery", provider: "shiprocket", error: message }, "Shiprocket auth failed");
       throw new ProviderError("AUTH_FAILED", `Shiprocket login failed: ${message}`, err);

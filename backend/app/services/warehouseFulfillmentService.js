@@ -249,10 +249,19 @@ export async function updateItemPickStatus({
 }) {
   const fulfillment = await getAuthorizedFulfillmentDoc(id, user);
 
-  if (fulfillment.status !== FULFILLMENT_STATUS.PICKING) {
-    const error = new Error("Item pick status can only be updated while fulfillment is in PICKING status");
+  if (
+    fulfillment.status !== FULFILLMENT_STATUS.PICKING &&
+    fulfillment.status !== FULFILLMENT_STATUS.ACCEPTED &&
+    fulfillment.status !== FULFILLMENT_STATUS.ASSIGNED
+  ) {
+    const error = new Error("Item pick status can only be updated while fulfillment is in PICKING, ACCEPTED or ASSIGNED status");
     error.statusCode = 400;
     throw error;
+  }
+
+  if (fulfillment.status !== FULFILLMENT_STATUS.PICKING) {
+    fulfillment.status = FULFILLMENT_STATUS.PICKING;
+    fulfillment.pickingStartedAt = new Date();
   }
 
   const targetItem = fulfillment.items.find(

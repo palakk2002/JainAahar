@@ -12,6 +12,8 @@ import { PAYMENT_STATUS, PAYMENT_GATEWAY } from "../../../constants/payment.js";
 import { PaymentProviderPort } from "../ports/paymentProviderPort.js";
 
 let _razorpayClient = null;
+let _cachedKeyId = null;
+let _cachedKeySecret = null;
 
 function getRazorpayCredentials() {
   const keyId = String(process.env.RAZORPAY_KEY_ID || "").trim();
@@ -26,14 +28,19 @@ function getRazorpayCredentials() {
 }
 
 function getRazorpayClient() {
-  if (_razorpayClient) return _razorpayClient;
   const { keyId, keySecret } = getRazorpayCredentials();
+  if (_razorpayClient && _cachedKeyId === keyId && _cachedKeySecret === keySecret) {
+    return _razorpayClient;
+  }
   _razorpayClient = new Razorpay({
     key_id: keyId,
     key_secret: keySecret,
   });
+  _cachedKeyId = keyId;
+  _cachedKeySecret = keySecret;
   return _razorpayClient;
 }
+
 
 export class RazorpayAdapter extends PaymentProviderPort {
   get providerName() {
@@ -90,10 +97,14 @@ export class RazorpayAdapter extends PaymentProviderPort {
       .update(body)
       .digest("hex");
 
-    return crypto.timingSafeEqual(
-      Buffer.from(expectedSignature, "utf8"),
-      Buffer.from(razorpaySignature, "utf8"),
-    );
+    const expectedBuf = Buffer.from(expectedSignature, "utf8");
+    const actualBuf = Buffer.from(String(razorpaySignature).trim(), "utf8");
+
+    if (expectedBuf.length !== actualBuf.length) {
+      return false;
+    }
+
+    return crypto.timingSafeEqual(expectedBuf, actualBuf);
   }
 
   /**
@@ -145,11 +156,16 @@ export class RazorpayAdapter extends PaymentProviderPort {
       .update(rawString)
       .digest("hex");
 
-    return crypto.timingSafeEqual(
-      Buffer.from(expectedSignature, "utf8"),
-      Buffer.from(signature, "utf8"),
-    );
+    const expectedBuf = Buffer.from(expectedSignature, "utf8");
+    const actualBuf = Buffer.from(String(signature).trim(), "utf8");
+
+    if (expectedBuf.length !== actualBuf.length) {
+      return false;
+    }
+
+    return crypto.timingSafeEqual(expectedBuf, actualBuf);
   }
+
 
   /**
    * Decode raw webhook payload into standardized format.

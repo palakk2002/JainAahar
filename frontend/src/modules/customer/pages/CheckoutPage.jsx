@@ -147,25 +147,46 @@ const CheckoutPage = () => {
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const postOrderNavigateRef = useRef(null);
   const previewDebounceRef = useRef(null);
-  const [currentAddress, setCurrentAddress] = useState({
-    id: "",
-    type: "Home",
-    name: "Harshvardhan Panchal",
-    address: "81 Pipliyahana Road, Near 214",
-    landmark: "",
-    city: "Indore - 452018",
-    phone: "6268423925",
-    location: /** @type {{ lat: number, lng: number } | undefined} */ (undefined),
-  });
+/**
+ * @typedef {Object} AddressInfo
+ * @property {string} [id]
+ * @property {string} [type]
+ * @property {string} [name]
+ * @property {string} [address]
+ * @property {string} [landmark]
+ * @property {string} [city]
+ * @property {string} [phone]
+ * @property {{ lat: number, lng: number } | null} [location]
+ * @property {string | null} [placeId]
+ * @property {string | null} [formattedAddress]
+ */
+
+  const [currentAddress, setCurrentAddress] = useState(
+    /** @type {AddressInfo} */ ({
+      id: "",
+      type: "Home",
+      name: "Harshvardhan Panchal",
+      address: "81 Pipliyahana Road, Near 214",
+      landmark: "",
+      city: "Indore - 452018",
+      phone: "6268423925",
+      location: null,
+      placeId: null,
+      formattedAddress: null,
+    })
+  );
   const [isEditAddressOpen, setIsEditAddressOpen] = useState(false);
-  const [editAddressForm, setEditAddressForm] = useState({
-    type: "Home",
-    name: "Harshvardhan Panchal",
-    address: "81 Pipliyahana Road, Near 214",
-    landmark: "",
-    city: "Indore - 452018",
-    phone: "6268423925",
-  });
+  const [editAddressForm, setEditAddressForm] = useState(
+    /** @type {AddressInfo} */ ({
+      id: "",
+      type: "Home",
+      name: "Harshvardhan Panchal",
+      address: "81 Pipliyahana Road, Near 214",
+      landmark: "",
+      city: "Indore - 452018",
+      phone: "6268423925",
+    })
+  );
   const [showRecipientForm, setShowRecipientForm] = useState(false);
   const [recipientData, setRecipientData] = useState({
     completeAddress: "",
@@ -393,6 +414,7 @@ const CheckoutPage = () => {
       }
 
       setCurrentAddress({
+        id: addr.id || addr._id || "",
         type: addr.label,
         name: user?.name || currentAddress.name,
         address: rawText,
@@ -402,6 +424,7 @@ const CheckoutPage = () => {
         ...(pid ? { placeId: pid } : {}),
         ...(resolvedLoc ? { location: resolvedLoc } : {}),
       });
+
 
       if (resolvedLoc) {
         updateLocation(
@@ -479,11 +502,13 @@ const CheckoutPage = () => {
     }
 
     setCurrentAddress({
+      id: editAddressForm.id || currentAddress.id || "",
       ...editAddressForm,
       ...(location ? { location } : {}),
       ...(placeId ? { placeId } : {}),
       ...(formattedAddress ? { formattedAddress } : {}),
     });
+
     setIsEditAddressOpen(false);
     showToast("Delivery address updated", "success");
   };
@@ -793,26 +818,35 @@ const CheckoutPage = () => {
 
             if (razorpayOrderId && keyId) {
               const loaded = await loadRazorpayScript();
-              if (!loaded) {
+              const RazorpayClass =
+                /** @type {any} */ (window).Razorpay ||
+                /** @type {any} */ (window)["Razorpay"];
+              if (!loaded || !RazorpayClass) {
                 throw new Error(
                   "Unable to load Razorpay payment SDK. Please check your internet connection."
                 );
               }
 
+              const rawContact = String(
+                user?.phone || displayPhone || currentAddress?.phone || ""
+              ).replace(/\D/g, "");
+              const formattedContact =
+                rawContact.length >= 10 ? rawContact.slice(-10) : rawContact;
+
               const options = {
                 key: keyId,
                 amount: paymentData.amount,
                 currency: paymentData.currency || "INR",
-                name: "JainAhar",
+                name: "Jain Aahar",
                 description: `Payment for Order #${mainOrderId}`,
                 order_id: razorpayOrderId,
                 prefill: {
-                  name: user?.name || selectedAddress?.name || "",
+                  name: user?.name || displayName || currentAddress?.name || "",
                   email: user?.email || "",
-                  contact: user?.phone || selectedAddress?.phone || "",
+                  contact: formattedContact,
                 },
                 theme: {
-                  color: "#e11d48",
+                  color: "#ea580c",
                 },
                 modal: {
                   ondismiss: function () {
@@ -855,7 +889,7 @@ const CheckoutPage = () => {
                 },
               };
 
-              const rzp = new window.Razorpay(options);
+              const rzp = new RazorpayClass(options);
               rzp.on("payment.failed", function (response) {
                 setIsPlacingOrder(false);
                 showToast(
@@ -868,6 +902,8 @@ const CheckoutPage = () => {
               rzp.open();
               return;
             }
+
+
 
             throw new Error("Invalid payment gateway response received");
           } catch (payError) {
@@ -1131,7 +1167,9 @@ const CheckoutPage = () => {
               onToggleWallet={() => setUseWallet((v) => !v)}
               walletBalance={user?.walletBalance || 0}
               walletAmountToUse={walletAmountToUse}
+              finalAmountToPay={finalAmountToPay}
             />
+
 
             {/* Desktop Slide to Pay */}
             <div className="hidden lg:block">

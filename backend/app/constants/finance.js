@@ -77,6 +77,7 @@ export const LEDGER_TRANSACTION_TYPE = {
   // the `LedgerEntry` collection were both bypassed, leaving every
   // wallet-using customer in permanent drift between the two ledgers.
   WALLET_PAYMENT: "WALLET_PAYMENT",
+  WALLET_TOPUP: "WALLET_TOPUP",
 };
 
 export const PAYOUT_TYPE = {

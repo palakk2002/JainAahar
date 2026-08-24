@@ -32,79 +32,29 @@ function buildNearbySellersKey(lat, lng) {
   return buildKey("sellers", "nearby", `${rLat}:${rLng}`);
 }
 
-export async function getNearbySellerIdsForCustomer(lat, lng) {
+export async function getNearbySellerIdsForCustomer(lat = null, lng = null) {
   const fetchFn = async () => {
     const [sellers, warehouses] = await Promise.all([
-      Seller.find({
-        isActive: true,
-        location: {
-          $near: {
-            $geometry: {
-              type: "Point",
-              coordinates: [lng, lat],
-            },
-            $maxDistance: MAX_SELLER_SEARCH_DISTANCE_M,
-          },
-        },
-      })
-        .select("_id location serviceRadius")
-        .lean(),
-      Warehouse.find({
-        isActive: true,
-        location: {
-          $near: {
-            $geometry: {
-              type: "Point",
-              coordinates: [lng, lat],
-            },
-            $maxDistance: MAX_SELLER_SEARCH_DISTANCE_M,
-          },
-        },
-      })
-        .select("_id location serviceRadius")
-        .lean()
+      Seller.find({ isActive: true }).select("_id").lean(),
+      Warehouse.find({ isActive: true }).select("_id").lean(),
     ]);
 
-    const allEntities = [...sellers, ...warehouses];
-
-    return allEntities
-      .filter((entity) => {
-        const coords = entity?.location?.coordinates;
-        if (!Array.isArray(coords) || coords.length < 2) return false;
-        const [entityLng, entityLat] = coords;
-        if (!Number.isFinite(entityLat) || !Number.isFinite(entityLng)) {
-          return false;
-        }
-        const distanceKm = calculateDistance(lat, lng, entityLat, entityLng);
-        return distanceKm <= (entity.serviceRadius || 50);
-      })
-      .map((entity) => String(entity._id));
+    return [...sellers, ...warehouses].map((entity) => String(entity._id));
   };
 
-  return getOrSet(buildNearbySellersKey(lat, lng), fetchFn, getTTL("nearbySellers"));
+  const key = lat != null && lng != null ? buildNearbySellersKey(lat, lng) : "sellers:all:active";
+  return getOrSet(key, fetchFn, getTTL("nearbySellers"));
 }
 
 /**
- * Returns serviceable active warehouses for a given customer coordinate.
- * If no coordinates provided, returns all active warehouses (for PAN-India delivery via Shiprocket).
+ * Returns serviceable active warehouses for customer.
+ * PAN-India delivery supported across all active, verified warehouses.
  */
 export async function getServiceableWarehouseIdsForCustomer(lat = null, lng = null) {
-  if (lat == null || lng == null) {
-    const allActive = await Warehouse.find({ isActive: true, isVerified: true })
-      .select("_id")
-      .lean();
-    return allActive.map((w) => String(w._id));
-  }
-
-  const coords = parseCustomerCoordinates({ lat, lng });
-  if (!coords.valid) {
-    const allActive = await Warehouse.find({ isActive: true, isVerified: true })
-      .select("_id")
-      .lean();
-    return allActive.map((w) => String(w._id));
-  }
-
-  return getNearbySellerIdsForCustomer(coords.lat, coords.lng);
+  const allActive = await Warehouse.find({ isActive: true, isVerified: true })
+    .select("_id")
+    .lean();
+  return allActive.map((w) => String(w._id));
 }
 
 /**

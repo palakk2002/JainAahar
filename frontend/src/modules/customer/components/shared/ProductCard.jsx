@@ -6,7 +6,8 @@ import { useWishlist } from "../../context/WishlistContext";
 import { useCart } from "../../context/CartContext";
 import { useToast } from "@shared/components/ui/Toast";
 import { useCartAnimation } from "../../context/CartAnimationContext";
-import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
+import { DEFAULT_PRODUCT_IMAGE } from "@/core/utils/imageUtils";
+import SafeImage from "@/shared/components/SafeImage";
 import { motion, AnimatePresence } from "framer-motion";
 import { useProductDetail } from "../../context/ProductDetailContext";
 import ParticleBurst from "./ParticleBurst";
@@ -232,9 +233,10 @@ function ProductCardComponent({
           )}
 
           {/* Product Image */}
-          <img
+          <SafeImage
             ref={imageRef}
-            src={applyCloudinaryTransform(product.mainImage || product.image)}
+            src={product.mainImage || product.image}
+            fallbackSrc={DEFAULT_PRODUCT_IMAGE}
             alt={product.name}
             loading="lazy"
             className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-500"

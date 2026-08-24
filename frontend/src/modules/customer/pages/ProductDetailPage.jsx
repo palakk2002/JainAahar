@@ -172,13 +172,11 @@ const ProductDetailPage = () => {
                         <div className="w-64 h-64" />
                     )}
                 </div>
-                <h3 className="text-3xl font-[1000] text-slate-800 tracking-tighter mb-4 uppercase">
-                    Item <span className="text-primary">Unavailable</span>
+                <h3 className="text-2xl font-[1000] text-slate-800 tracking-tight mb-3">
+                    Product Unavailable
                 </h3>
-                <p className="text-slate-500 font-bold text-sm max-w-[280px] mb-8 leading-relaxed">
-                    {error === "Product not available in your area" 
-                        ? "This item is not available at your current location yet." 
-                        : "We couldn't load this product details. Try again later!"}
+                <p className="text-slate-500 font-medium text-sm max-w-[280px] mb-8 leading-relaxed">
+                    This product is currently unavailable or could not be found. Please browse our other items!
                 </p>
                 <div className="flex flex-col gap-3 w-full max-w-xs">
                     <button 

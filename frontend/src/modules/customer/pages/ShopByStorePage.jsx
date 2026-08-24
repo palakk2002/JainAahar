@@ -7,7 +7,7 @@ import {
   getSideImageByKey,
   getBackgroundColorByValue,
 } from "@/shared/constants/offerSectionOptions";
-import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
+import { applyCloudinaryTransform, DEFAULT_PRODUCT_IMAGE } from "@/core/utils/imageUtils";
 
 const mapProduct = (p) => ({
   id: p._id,
@@ -16,7 +16,7 @@ const mapProduct = (p) => ({
   image:
     p.mainImage ||
     p.image ||
-    "https://images.unsplash.com/photo-1550989460-0adf9ea622e2?auto=format&fit=crop&q=80&w=400&h=400",
+    DEFAULT_PRODUCT_IMAGE,
   price: p.salePrice ?? p.price,
   originalPrice: p.price,
   weight: p.weight || "1 unit",
@@ -34,20 +34,14 @@ const ShopByStorePage = () => {
       const hasValidLocation =
         Number.isFinite(currentLocation?.latitude) &&
         Number.isFinite(currentLocation?.longitude);
-      if (!hasValidLocation) {
-        setIsLoading(false);
-        setSections([]);
-        setActiveStoreId(null);
-        return;
-      }
+      const params = hasValidLocation
+        ? { lat: currentLocation.latitude, lng: currentLocation.longitude }
+        : {};
 
       setIsLoading(true);
       try {
         const res = await customerApi
-          .getOfferSections({
-            lat: currentLocation.latitude,
-            lng: currentLocation.longitude,
-          })
+          .getOfferSections(params)
           .catch(() => ({ data: {} }));
         const list =
           res.data?.results || res.data?.result || res.data || [];

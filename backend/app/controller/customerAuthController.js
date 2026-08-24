@@ -4,6 +4,8 @@ import Wishlist from "../models/wishlist.js";
 import Transaction from "../models/transaction.js";
 import jwt from "jsonwebtoken";
 import handleResponse from "../utils/helper.js";
+import { creditWallet } from "../services/finance/walletService.js";
+import { OWNER_TYPE, LEDGER_TRANSACTION_TYPE } from "../constants/finance.js";
 import {
     issueCustomerOtp,
     sanitizeCustomer,
@@ -33,12 +35,13 @@ export const signupCustomer = async (req, res) => {
         await issueCustomerOtp({
             name: payload.name,
             rawPhone: payload.phone,
+            email: payload.email,
             flow: "signup",
             referralCode: payload.referralCode,
             ipAddress: req.ip,
         });
 
-        return handleResponse(res, 200, "If the number is eligible, OTP has been sent");
+        return handleResponse(res, 200, "OTP has been sent successfully");
     } catch (error) {
         return handleResponse(res, error.statusCode || 500, error.message);
     }
@@ -53,11 +56,12 @@ export const loginCustomer = async (req, res) => {
 
         await issueCustomerOtp({
             rawPhone: payload.phone,
+            email: payload.email,
             flow: "login",
             ipAddress: req.ip,
         });
 
-        return handleResponse(res, 200, "If the number is eligible, OTP has been sent");
+        return handleResponse(res, 200, "OTP has been sent successfully");
     } catch (error) {
         return handleResponse(res, error.statusCode || 500, error.message);
     }
@@ -71,6 +75,7 @@ export const verifyCustomerOTP = async (req, res) => {
         const payload = validateSchema(verifyOtpSchema, req.body || {});
         const customer = await verifyCustomerOtpCode({
             rawPhone: payload.phone,
+            email: payload.email,
             otp: payload.otp,
             ipAddress: req.ip,
         });
@@ -172,15 +177,23 @@ export const getCustomerTransactions = async (req, res) => {
             Transaction.countDocuments({ user: customerId, userModel: "User" }),
         ]);
 
-        const items = transactions.map((t) => ({
-            _id: t._id,
-            type: t.type === "Refund" ? "credit" : "debit",
-            title: t.type === "Refund" ? "Refund" : t.type,
-            amount: Math.abs(t.amount),
-            date: t.createdAt,
-            reference: t.reference,
-            orderId: t.order?.orderId,
-        }));
+        const items = transactions.map((t) => {
+            const isCredit = t.type === "Refund" || t.type === "Wallet Topup" || t.type === "Wallet Refund" || t.type === "Incentive" || t.type === "Bonus" || (t.amount || 0) > 0;
+            let displayTitle = t.type;
+            if (t.type === "Wallet Topup") displayTitle = "Money Added";
+            else if (t.type === "Refund" || t.type === "Wallet Refund") displayTitle = "Refund Credited";
+            else if (t.type === "Wallet Payment" || t.type === "Order Payment") displayTitle = "Order Payment";
+
+            return {
+                _id: t._id,
+                type: isCredit ? "credit" : "debit",
+                title: displayTitle,
+                amount: Math.abs(t.amount || 0),
+                date: t.createdAt || t.date,
+                reference: t.reference,
+                orderId: t.order?.orderId,
+            };
+        });
 
         return handleResponse(res, 200, "Transactions fetched", {
             items,
@@ -190,5 +203,59 @@ export const getCustomerTransactions = async (req, res) => {
         });
     } catch (error) {
         return handleResponse(res, 500, error.message);
+    }
+};
+
+/* ===============================
+   ADD WALLET MONEY (TOPUP)
+================================ */
+export const addCustomerWalletMoney = async (req, res) => {
+    try {
+        const customerId = req.user.id;
+        const { amount } = req.body || {};
+        const parsedAmount = Number(amount);
+
+        if (!parsedAmount || isNaN(parsedAmount) || parsedAmount <= 0) {
+            return handleResponse(res, 400, "Please enter a valid amount greater than ₹0");
+        }
+
+        if (parsedAmount > 50000) {
+            return handleResponse(res, 400, "Maximum limit per wallet topup is ₹50,000");
+        }
+
+        // 1. Credit canonical wallet (automatically syncs User.walletBalance)
+        const creditResult = await creditWallet({
+            ownerType: OWNER_TYPE.CUSTOMER,
+            ownerId: customerId,
+            bucket: "available",
+            amount: parsedAmount,
+            ledgerType: LEDGER_TRANSACTION_TYPE.WALLET_TOPUP,
+            ledgerDescription: `Added ₹${parsedAmount} to wallet`,
+            metadata: { source: "customer_add_money", timestamp: new Date() },
+        });
+
+        // 2. Dual-write legacy Transaction row for frontend transaction listing
+        const reference = `W-TOPUP-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+        await Transaction.create({
+            user: customerId,
+            userModel: "User",
+            type: "Wallet Topup",
+            amount: parsedAmount,
+            status: "Settled",
+            reference,
+            date: new Date(),
+            meta: { source: "online_topup" },
+        });
+
+        const updatedBalance = creditResult?.after ?? 0;
+
+        return handleResponse(res, 200, `₹${parsedAmount} added to wallet successfully!`, {
+            walletBalance: updatedBalance,
+            amount: parsedAmount,
+            transactionId: reference,
+        });
+    } catch (error) {
+        console.error("Error adding wallet money:", error);
+        return handleResponse(res, 500, error.message || "Failed to add money to wallet");
     }
 };

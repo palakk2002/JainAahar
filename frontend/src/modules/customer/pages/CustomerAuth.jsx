@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@core/context/AuthContext';
 import { useSettings } from '@core/context/SettingsContext';
 import { useTranslation } from '@core/context/LanguageContext';
-import { ChevronLeft, Globe, ChevronDown } from 'lucide-react';
+import { ChevronLeft, Globe, ChevronDown, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { customerApi } from '../services/customerApi';
 
@@ -21,7 +21,7 @@ const CustomerAuth = () => {
     const navigate = useNavigate();
 
     const [formData, setFormData] = useState({
-        phone: '',
+        email: '',
         otp: '',
         name: '',
         referralCode: new URLSearchParams(window.location.search).get('ref') || ''
@@ -47,8 +47,10 @@ const CustomerAuth = () => {
 
     const handleSendOtp = async (e) => {
         e?.preventDefault();
-        if (formData.phone.length !== 10) {
-            toast.error(t('enterValidPhone'));
+        const emailTrimmed = formData.email.trim();
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailTrimmed || !emailRegex.test(emailTrimmed)) {
+            toast.error('Please enter a valid email address');
             return;
         }
         if (!isLogin && !formData.name.trim()) {
@@ -59,17 +61,17 @@ const CustomerAuth = () => {
         setIsLoading(true);
         try {
             if (isLogin) {
-                await customerApi.sendLoginOtp({ phone: formData.phone });
+                await customerApi.sendLoginOtp({ email: emailTrimmed });
             } else {
                 await customerApi.sendSignupOtp({ 
-                    name: formData.name, 
-                    phone: formData.phone,
+                    name: formData.name.trim(), 
+                    email: emailTrimmed,
                     referralCode: formData.referralCode
                 });
             }
             setShowOtp(true);
             setTimer(30);
-            toast.success(t('otpSent'));
+            toast.success('OTP sent to your email!');
         } catch (error) {
             const apiMessage = error?.response?.data?.message || 'Failed to send OTP';
             toast.error(apiMessage);
@@ -86,7 +88,7 @@ const CustomerAuth = () => {
         }
         setIsLoading(true);
         try {
-            const response = await customerApi.verifyOtp({ phone: formData.phone, otp: formData.otp });
+            const response = await customerApi.verifyOtp({ email: formData.email.trim(), otp: formData.otp });
             const { token, customer } = response.data.result;
             login({ ...customer, token, role: 'customer' });
             toast.success(t('loggedInSuccess'));
@@ -105,8 +107,8 @@ const CustomerAuth = () => {
                 {/* Logo */}
                 <div className="flex flex-col items-center justify-center mb-6">
                     <img 
-                        src="/bg%20remove%20logo%20.png" 
-                        alt="Logo" 
+                        src="/jainaaharlogo-removebg-preview.png" 
+                        alt="Jain Aahar Logo" 
                         className="h-28 w-auto object-contain" 
                     />
                 </div>
@@ -181,7 +183,7 @@ const CustomerAuth = () => {
                                 {t('loginSignup')}
                             </h2>
                             <p className="mt-1 text-sm text-gray-500">
-                                {isLogin ? t('enterMobile') : t('createAccount')}
+                                {isLogin ? "Enter your email address to continue" : t('createAccount')}
                             </p>
                         </div>
 
@@ -213,28 +215,24 @@ const CustomerAuth = () => {
                             )}
 
                             <div className="relative flex items-center border border-gray-200 rounded-xl overflow-hidden focus-within:border-[#f97316] focus-within:ring-1 focus-within:ring-[#f97316] transition-all bg-white">
-                                <div className="pl-4 pr-3 py-3.5 font-bold text-gray-600 border-r border-gray-200 bg-gray-50">
-                                    +91
+                                <div className="pl-4 pr-3 py-3.5 text-gray-400 border-r border-gray-200 bg-gray-50 flex items-center justify-center">
+                                    <Mail size={18} />
                                 </div>
                                 <input
                                     required
-                                    type="tel"
-                                    inputMode="numeric"
-                                    pattern="[0-9]*"
-                                    autoComplete="tel"
-                                    name="phone"
-                                    value={formData.phone}
-                                    maxLength={10}
-                                    placeholder={isLogin ? "9671310143" : t('mobileNumber')}
+                                    type="email"
+                                    name="email"
+                                    value={formData.email}
+                                    placeholder="Enter your email address"
                                     className="w-full px-4 py-3.5 text-sm font-semibold text-gray-800 outline-none bg-transparent"
-                                    onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '') })}
+                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                 />
                             </div>
 
                             <button
                                 type="submit"
                                 disabled={isLoading}
-                                className="w-full mt-2 text-white bg-[#f97316] hover:bg-orange-600 py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center gap-3 transition-all"
+                                className="w-full mt-2 text-white bg-[#f97316] hover:bg-orange-600 py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center gap-3 transition-all cursor-pointer"
                             >
                                 {isLoading ? t('pleaseWait') : t('continue')}
                             </button>
@@ -264,7 +262,7 @@ const CustomerAuth = () => {
                                 </h2>
                             </div>
                             <p className="mt-1 text-sm text-gray-500 ml-8">
-                                {t('sentTo')} +91 {formData.phone}
+                                Sent to {formData.email}
                             </p>
                         </div>
 
@@ -303,7 +301,7 @@ const CustomerAuth = () => {
                                 <button
                                     type="submit"
                                     disabled={isLoading}
-                                    className="w-full text-white bg-[#f97316] hover:bg-orange-600 py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center transition-all"
+                                    className="w-full text-white bg-[#f97316] hover:bg-orange-600 py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center transition-all cursor-pointer"
                                 >
                                     {isLoading ? t('verifying') : t('verifyProceed')}
                                 </button>

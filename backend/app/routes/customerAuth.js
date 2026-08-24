@@ -7,6 +7,7 @@ import {
     updateCustomerProfile,
     deleteCustomerAccount,
     getCustomerTransactions,
+    addCustomerWalletMoney,
 } from "../controller/customerAuthController.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import {
@@ -32,5 +33,6 @@ router.delete("/account", verifyToken, deleteCustomerAccount);
 
 // Wallet
 router.get("/transactions", verifyToken, getCustomerTransactions);
+router.post("/wallet/add-money", verifyToken, addCustomerWalletMoney);
 
 export default router;

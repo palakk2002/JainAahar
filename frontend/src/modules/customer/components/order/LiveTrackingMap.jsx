@@ -16,6 +16,7 @@ import customerPin from "@/assets/customer-pin.png";
 import deliveryIcon from "@/assets/deliveryIcon.png";
 import storePin from "@/assets/store-pin.png";
 
+/** @type {import("@react-google-maps/api").Libraries} */
 const libraries = ["geometry"];
 
 const containerStyle = {
@@ -48,7 +49,24 @@ function hasValidLatLng(location) {
   );
 }
 
-const LiveTrackingMap = memo(({
+/**
+ * @typedef {Object} LiveTrackingMapProps
+ * @property {any} [status]
+ * @property {string} [eta]
+ * @property {string} [riderName]
+ * @property {string} [riderPhone]
+ * @property {any} [riderLocation]
+ * @property {any} [sellerLocation]
+ * @property {any} [destinationLocation]
+ * @property {string} [routePhase]
+ * @property {any} [routePolyline]
+ * @property {((params?: { riderLocation?: any, destinationLocation?: any }) => void) | Function} [onOpenInMaps]
+ */
+
+/**
+ * @param {LiveTrackingMapProps} props
+ */
+function LiveTrackingMapComponent({
   status = "out for delivery",
   eta = "8 mins",
   riderName = "Ramesh Kumar",
@@ -59,7 +77,7 @@ const LiveTrackingMap = memo(({
   routePhase = "pickup",
   routePolyline,
   onOpenInMaps,
-}) => {
+}) {
   const mapRef = useRef(null);
   const [mapInstance, setMapInstance] = useState(null);
   const isSearching = SEARCHING_STATUSES.includes(status?.toLowerCase());
@@ -498,7 +516,9 @@ const LiveTrackingMap = memo(({
       )}
     </div>
   );
-}, (prevProps, nextProps) => {
+}
+
+const LiveTrackingMap = memo(LiveTrackingMapComponent, (prevProps, nextProps) => {
   // Custom comparison function for memo
   // Only re-render if these props actually change
   return (

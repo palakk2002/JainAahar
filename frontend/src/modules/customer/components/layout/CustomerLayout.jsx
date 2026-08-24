@@ -13,7 +13,7 @@ import { onReturnPickupOtp, onReturnDropOtp } from '@core/services/orderSocket';
 import { toast } from 'sonner';
 import { ShieldCheck, Package } from 'lucide-react';
 
-const CustomerLayout = ({ children, showHeader: showHeaderProp = true, fullHeight = false, showCart: showCartProp = true, showBottomNav: showBottomNavProp = true }) => {
+const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = false, showCart: showCartProp, showBottomNav: showBottomNavProp }) => {
     const location = useLocation();
     const { isOpen: isProductDetailOpen } = useProductDetail();
     const { user, token } = useAuth();
@@ -89,19 +89,25 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp = true, fullHeigh
     const isProduct = path.startsWith('/product');
     const isPaymentStatus = path.startsWith('/payment-status');
 
-    const hideHeaderRoutes = [
+    // Desktop header visibility
+    const hideHeaderDesktopRoutes = [
+        '/', '/checkout', '/chat', '/support', '/privacy', '/privacy-policy', '/about', '/terms'
+    ];
+    const isHeaderHiddenDesktop = hideHeaderDesktopRoutes.includes(path) || isPrivacy || isSupport || isTerms || isAbout || isCheckout || isChat;
+    const showHeaderDesktop = showHeaderProp !== undefined ? showHeaderProp : !isHeaderHiddenDesktop;
+
+    // Mobile header visibility: Hide layout Header on mobile when page has its own mobile header
+    const hideHeaderMobileRoutes = [
         '/', '/categories', '/orders', '/transactions', '/profile',
         '/profile/edit', '/wishlist', '/addresses', '/wallet',
         '/support', '/privacy', '/privacy-policy', '/about', '/terms',
         '/checkout', '/search', '/chat', '/notifications'
     ];
-
-    const isHeaderHidden = hideHeaderRoutes.includes(path) || isPrivacy || isSupport || isTerms || isAbout || path.startsWith('/category') || path.startsWith('/orders');
+    const isHeaderHiddenMobile = hideHeaderMobileRoutes.includes(path) || isPrivacy || isSupport || isTerms || isAbout || path.startsWith('/category') || path.startsWith('/orders') || path.startsWith('/product') || path.startsWith('/kit');
+    const showHeaderMobile = showHeaderProp !== undefined ? showHeaderProp : !isHeaderHiddenMobile;
 
     const hideBottomNav = isCheckout || isSearch || isChat || isProduct || isPaymentStatus;
 
-    // If props are passed, use them. Otherwise, use route-based logic.
-    const showHeader = showHeaderProp !== undefined ? showHeaderProp : !isHeaderHidden;
     const showBottomNav = showBottomNavProp !== undefined ? showBottomNavProp : !hideBottomNav;
     const showCart = showCartProp !== undefined ? showCartProp : (!isCheckout && !isSearch && !isChat && !path.startsWith('/orders'));
 
@@ -110,28 +116,25 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp = true, fullHeigh
     const showFooterMessage = showBottomNav && !hideFooterMessageRoutes.includes(path) && !path.startsWith('/category') && !isPrivacy && !isSupport;
 
     // Hide elements on mobile only when product detail is open
-    // On desktop, we want to keep the header visible even if the modal is open
-    const finalShowHeaderMobile = showHeader && !isProductDetailOpen;
+    const finalShowHeaderMobile = showHeaderMobile && !isProductDetailOpen;
     const finalShowBottomNavMobile = showBottomNav && !isProductDetailOpen;
     const finalShowFooterMessageMobile = showFooterMessage && !isProductDetailOpen;
 
     return (
         <div className="min-h-screen bg-white flex flex-col font-sans">
-            {/* Header logic: Always show on desktop if showHeader is true. On mobile, hide if product detail is open. */}
-            {showHeader && (
-                <>
-                    <div className="hidden md:block">
-                        <Header />
-                    </div>
-                    {finalShowHeaderMobile && (
-                        <div className="block md:hidden">
-                            <Header />
-                        </div>
-                    )}
-                </>
+            {/* Header logic: Always show on desktop if showHeaderDesktop is true. On mobile, show only when page doesn't have native header. */}
+            {showHeaderDesktop && (
+                <div className="hidden md:block">
+                    <Header />
+                </div>
+            )}
+            {finalShowHeaderMobile && (
+                <div className="block md:hidden">
+                    <Header />
+                </div>
             )}
 
-            <main className={cn("flex-1 md:pb-0", !showHeader && "pt-0", !fullHeight && "pb-16")}>
+            <main className={cn("flex-1 md:pb-0", !showHeaderDesktop && "pt-0", !fullHeight && "pb-16")}>
                 {children}
             </main>
 

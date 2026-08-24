@@ -376,58 +376,8 @@ export const getProducts = async (req, res) => {
     if (finalSubcategoryId && finalSubcategoryId !== "all") query.subcategoryId = finalSubcategoryId;
 
     const requestedSellerIds = parseSellerIdFilters({ sellerId, sellerIds });
-    const coords = parseCustomerCoordinates({ lat, lng });
-    const shouldApplyLocationFilter = enforceRadius || coords.valid;
-    if (enforceRadius && !coords.valid) {
-      return handleResponse(
-        res,
-        400,
-        "lat and lng are required for customer product visibility",
-      );
-    }
-    if (shouldApplyLocationFilter) {
-      const nearbySellerIds = await getNearbySellerIdsForCustomer(
-        coords.lat,
-        coords.lng,
-      );
-
-      const nearbySet = new Set(nearbySellerIds.map(String));
-      const finalSellerIds = requestedSellerIds.length
-        ? requestedSellerIds.filter((id) => nearbySet.has(String(id)))
-        : nearbySellerIds;
-
-      if (requestedSellerIds.length > 0) {
-        // If specific sellers were requested but none are nearby, return empty
-        if (!finalSellerIds.length) {
-          return handleResponse(res, 200, "No products available in your area", {
-            items: [],
-            page: 1,
-            limit: 24,
-            total: 0,
-            totalPages: 1,
-          });
-        }
-        query.sellerId = { $in: finalSellerIds };
-      } else {
-        // Include nearby sellers OR monthly kits OR admin-owned products (sellerId null/missing)
-        const visibilityConditions = [
-          { isMonthlyKit: true },
-          { sellerId: null },
-          { sellerId: { $exists: false } },
-        ];
-        if (finalSellerIds.length) {
-          visibilityConditions.unshift({ sellerId: { $in: finalSellerIds } });
-        }
-
-        if (query.$or) {
-          query.$and = query.$and || [];
-          query.$and.push({ $or: query.$or });
-          delete query.$or;
-          query.$and.push({ $or: visibilityConditions });
-        } else {
-          query.$or = visibilityConditions;
-        }
-      }
+    if (requestedSellerIds.length > 0) {
+      query.sellerId = { $in: requestedSellerIds };
     }
 
     if (categoryIds && typeof categoryIds === "string") {
@@ -1163,23 +1113,6 @@ export const getProductById = async (req, res) => {
     const { id } = req.params;
     const enforceRadius = isCustomerVisibilityRequest(req);
 
-    let nearbySellerSet = null;
-    const coords = parseCustomerCoordinates(req.query || {});
-    if (enforceRadius) {
-      if (!coords.valid) {
-        return handleResponse(
-          res,
-          400,
-          "lat and lng are required for customer product visibility",
-        );
-      }
-      const nearbySellerIds = await getNearbySellerIdsForCustomer(
-        coords.lat,
-        coords.lng,
-      );
-      nearbySellerSet = new Set(nearbySellerIds.map(String));
-    }
-
     const cacheKey = buildKey("catalog", "product", id);
     const product = await getOrSet(
       cacheKey,
@@ -1204,26 +1137,6 @@ export const getProductById = async (req, res) => {
       const approvalState = resolveProductApprovalStatus(product);
       if (product.status !== "active" || approvalState !== PRODUCT_APPROVAL_STATUS.APPROVED) {
         return handleResponse(res, 404, "Product not found");
-      }
-    }
-
-    if (enforceRadius) {
-      if (product.isMonthlyKit || !product.sellerId) {
-        // Bypass location check for monthly kits and admin-owned catalog products (PAN India via Shiprocket)
-      } else {
-        let sellerIdForProduct = product?.sellerId?._id ? String(product.sellerId._id) : (product?.sellerId ? String(product.sellerId) : null);
-        if (!sellerIdForProduct || sellerIdForProduct === "null") {
-          // If it was null because populate failed for a warehouse, query raw product directly to get the real sellerId/warehouseId
-          const rawProduct = await Product.findById(id).select("sellerId warehouseId").lean();
-          if (rawProduct && rawProduct.sellerId) {
-            sellerIdForProduct = String(rawProduct.sellerId);
-          } else if (rawProduct && rawProduct.warehouseId) {
-            sellerIdForProduct = String(rawProduct.warehouseId);
-          }
-        }
-        if (sellerIdForProduct && nearbySellerSet && !nearbySellerSet.has(sellerIdForProduct)) {
-          return handleResponse(res, 404, "Product not available in your area");
-        }
       }
     }
 
