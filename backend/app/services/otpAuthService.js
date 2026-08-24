@@ -82,7 +82,7 @@ async function dispatchCustomerOtpSms({ phone, otp }) {
 
 
 const TEST_PHONE_PATTERNS = ["9111966732", "6268423925", "8982292201", "7771983084"];
-const TEST_EMAIL_PATTERNS = ["palakpatel0342@gmail.com"];
+const TEST_EMAIL_PATTERNS = ["palakpatel0342@gmail.com", "palakk2103@gmail.com"];
 
 export function isTestPhone(phone) {
   const digits = String(phone || "").replace(/\D/g, "");
