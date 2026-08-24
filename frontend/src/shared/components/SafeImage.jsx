@@ -4,9 +4,14 @@ import { applyCloudinaryTransform, getRealCategoryFallback, DEFAULT_CATEGORY_IMA
 /**
  * SafeImage Component
  * Robust image rendering with Cloudinary optimization and real photo fallback handling.
- * @type {React.ForwardRefExoticComponent<React.ImgHTMLAttributes<HTMLImageElement> & { fallbackSrc?: string; transformParams?: string }>}
+ * @type {React.ForwardRefExoticComponent<any>}
  */
-const SafeImage = React.forwardRef(({
+const SafeImage = React.forwardRef(
+  /**
+   * @param {any} props
+   * @param {any} ref
+   */
+  ({
     src,
     fallbackSrc,
     transformParams,
@@ -14,7 +19,7 @@ const SafeImage = React.forwardRef(({
     className = '',
     onError,
     ...props
-}, ref) => {
+  }, ref) => {
     const effectiveFallback = fallbackSrc || getRealCategoryFallback(alt) || DEFAULT_CATEGORY_IMAGE;
 
     const [imgSrc, setImgSrc] = useState(() => {
