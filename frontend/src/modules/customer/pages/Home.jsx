@@ -404,8 +404,9 @@ const Home = () => {
         const allHeaderFromAdmin = formattedHeaders.find((h) => (h.slug?.toLowerCase() === "all") || (h.name?.toLowerCase() === "all"));
         const mergedAllCategory = allHeaderFromAdmin ? { ...ALL_CATEGORY, headerColor: allHeaderFromAdmin.headerColor || ALL_CATEGORY.headerColor, headerFontColor: allHeaderFromAdmin.headerFontColor || ALL_CATEGORY.headerFontColor, headerIconColor: allHeaderFromAdmin.headerIconColor || ALL_CATEGORY.headerIconColor, icon: allHeaderFromAdmin.icon || ALL_CATEGORY.icon } : ALL_CATEGORY;
         nextHomeData.categories = [mergedAllCategory, ...formattedHeaders.filter((h) => !((h.slug?.toLowerCase() === "all") || (h.name?.toLowerCase() === "all")))];
-        nextHomeData.activeCategory = mergedAllCategory;
-        nextHomeData.quickCategories = dbCats.filter((cat) => cat.type === "category").map((cat) => ({ id: cat._id, name: cat.name, image: cat.image || getRealCategoryFallback(cat.name) }));
+        const rawQuickCats = dbCats.filter((cat) => cat.type === "category").map((cat) => ({ id: cat._id, name: cat.name, image: cat.image || getRealCategoryFallback(cat.name) }));
+        const cutoffIndex = rawQuickCats.findIndex(cat => String(cat.name || '').trim().toLowerCase() === 'baby accessories');
+        nextHomeData.quickCategories = cutoffIndex !== -1 ? rawQuickCats.slice(0, cutoffIndex + 1) : rawQuickCats;
       }
       if (prodRes.data.success) {
         const rawResult = prodRes.data.result;
@@ -490,8 +491,13 @@ const Home = () => {
   const productsById = useMemo(() => { const map = {}; displayProducts.forEach((p) => { map[p._id || p.id] = p; }); return map; }, [displayProducts]);
   const effectiveQuickCategories = useMemo(() => {
     const ids = heroConfig.categoryIds || [];
-    if (ids.length > 0) { const resolved = ids.map((id) => displayCategoryMap[id]).filter(Boolean).map((c) => ({ id: c._id, name: c.name, image: c.image || "https://cdn-icons-png.flaticon.com/128/2321/2321831.png" })); if (resolved.length > 0) return resolved; }
-    return displayQuickCategories;
+    let list = displayQuickCategories;
+    if (ids.length > 0) {
+      const resolved = ids.map((id) => displayCategoryMap[id]).filter(Boolean).map((c) => ({ id: c._id, name: c.name, image: c.image || "https://cdn-icons-png.flaticon.com/128/2321/2321831.png" }));
+      if (resolved.length > 0) list = resolved;
+    }
+    const cutoffIndex = list.findIndex(cat => String(cat.name || '').trim().toLowerCase() === 'baby accessories');
+    return cutoffIndex !== -1 ? list.slice(0, cutoffIndex + 1) : list;
   }, [heroConfig.categoryIds, displayCategoryMap, displayQuickCategories]);
 
   useEffect(() => {
