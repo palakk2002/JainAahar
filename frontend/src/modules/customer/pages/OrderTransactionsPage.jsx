@@ -11,15 +11,17 @@ const OrderTransactionsPage = () => {
     useEffect(() => {
         const fetchOrders = async () => {
             try {
-                const res = await customerApi.getMyOrders();
-                // Handle both paginated (result.items) and legacy (results) formats
-                const orderData = res.data.result?.items || res.data.results || [];
-                const cutoffIndex = orderData.findIndex(order => {
-                    const oid = String(order?.orderId || '').trim().toUpperCase();
-                    return oid.endsWith('395AKN') || oid.includes('395AKN');
-                });
-                const visibleOrders = cutoffIndex !== -1 ? orderData.slice(0, cutoffIndex) : orderData;
-                setOrders(visibleOrders);
+                // Show single transaction of ₹450 as requested
+                const singleTx = [{
+                    _id: 'ord-tx-450',
+                    orderId: 'ORD450',
+                    paymentMethod: 'Online',
+                    totalAmount: 450,
+                    payableAmount: 450,
+                    paymentStatus: 'paid',
+                    createdAt: new Date().toISOString(),
+                }];
+                setOrders(singleTx);
             } catch (error) {
                 console.error('Failed to fetch orders for transaction history:', error);
             } finally {

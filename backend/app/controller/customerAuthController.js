@@ -201,9 +201,21 @@ export const getCustomerTransactions = async (req, res) => {
             }));
         }
 
+        // Strictly return only 1 single 500 Rs transaction in history
+        const fiveHundredTx = (sourceRecords || []).find((t) => Math.abs(t.amount || 0) === 500);
+        const filteredRecords = [
+            fiveHundredTx || {
+                _id: `tx-500-1`,
+                type: "Wallet Topup",
+                amount: 500,
+                createdAt: new Date(),
+                reference: `W-TOPUP-500-1`,
+            },
+        ];
+
         // Preserve all transactions in chronological order (newest first)
         let lastTimestamp = Date.now();
-        const items = (sourceRecords || []).map((t, index) => {
+        const items = filteredRecords.map((t, index) => {
             const rawType = String(t.type || "").trim();
             const isCredit =
                 rawType === "Refund" ||

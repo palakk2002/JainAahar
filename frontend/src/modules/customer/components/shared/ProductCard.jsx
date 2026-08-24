@@ -225,12 +225,16 @@ function ProductCardComponent({
 
         {/* Top Image Section */}
         <div className={cn("relative w-full overflow-hidden flex items-center justify-center p-0.5", layout === "list" ? "w-[90px] h-[90px] shrink-0" : "aspect-square")}>
-          {/* Discount Badge (Top-Left Orange Speech Bubble) */}
-          {discountText && (
-            <div className="absolute top-0 left-0 z-10 bg-[#FF8200] text-white font-black text-[9.5px] px-2.5 py-1 rounded-[10px_10px_10px_0px] shadow-3xs tracking-tight leading-none select-none">
+          {/* Top Badge: Out of Stock takes priority on top, otherwise Discount */}
+          {isOutOfStock ? (
+            <div className="absolute top-0 left-0 z-10 bg-slate-900/90 backdrop-blur-xs text-white font-black text-[8px] sm:text-[8.5px] px-1.5 py-0.5 rounded-[6px_6px_6px_0px] shadow-xs tracking-tight uppercase select-none max-w-[calc(100%-36px)] truncate">
+              Out of stock
+            </div>
+          ) : discountText ? (
+            <div className="absolute top-0 left-0 z-10 bg-[#FF8200] text-white font-black text-[8.5px] sm:text-[9px] px-1.5 py-0.5 rounded-[6px_6px_6px_0px] shadow-3xs tracking-tight leading-none select-none max-w-[calc(100%-36px)] truncate">
               {discountText}
             </div>
-          )}
+          ) : null}
 
           {/* Product Image */}
           <SafeImage
@@ -239,7 +243,7 @@ function ProductCardComponent({
             fallbackSrc={DEFAULT_PRODUCT_IMAGE}
             alt={product.name}
             loading="lazy"
-            className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-500"
+            className={cn("w-full h-full object-contain mix-blend-multiply transition-transform duration-500", !isOutOfStock && "group-hover:scale-105", isOutOfStock && "opacity-75 grayscale-[25%]")}
           />
         </div>
 
@@ -263,7 +267,7 @@ function ProductCardComponent({
           </div>
 
           {/* Bottom Price Row & Plus/Quantity Selector */}
-          <div className="flex items-center justify-between gap-1.5 mt-1.5 pt-0.5">
+          <div className="flex items-end justify-between gap-1.5 mt-auto pt-1.5 min-h-[30px]">
             <div className="flex flex-col min-w-0 flex-1 text-left justify-center">
               <span className="font-black text-slate-900 text-sm sm:text-[15px] tracking-tight leading-none">
                 ₹{product.price}
@@ -275,44 +279,39 @@ function ProductCardComponent({
               )}
             </div>
 
-            {/* Orange Plus/Check Toggle Button */}
-            <div className="shrink-0">
-              {isOutOfStock ? (
-                <span
-                  className="px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-slate-400 font-bold text-[10px] uppercase tracking-wider select-none"
-                  title="Currently Out of Stock"
-                >
-                  Out of stock
-                </span>
-              ) : quantity > 0 ? (
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    removeFromCart(productId, variantKey);
-                  }}
-                  className="w-7.5 h-7.5 rounded-full bg-[#FF8200] hover:bg-red-550 text-white flex items-center justify-center font-extrabold text-base shadow-2xs hover:scale-105 active:scale-90 transition-all group/btn"
-                  title="Remove from Cart"
-                >
-                  <div className="relative w-4 h-4 flex items-center justify-center">
-                    <span className="absolute transition-all duration-200 opacity-100 scale-100 group-hover/btn:opacity-0 group-hover/btn:scale-75">
-                      <Check size={15} strokeWidth={3.5} />
-                    </span>
-                    <span className="absolute transition-all duration-200 opacity-0 scale-75 group-hover/btn:opacity-100 group-hover/btn:scale-100">
-                      <Minus size={15} strokeWidth={3.5} />
-                    </span>
-                  </div>
-                </button>
-              ) : (
-                <button
-                  onClick={handleAddToCart}
-                  className="w-7.5 h-7.5 rounded-full bg-[#FF8200] hover:bg-[#FF8200]/95 text-white flex items-center justify-center font-extrabold text-base shadow-2xs hover:scale-105 active:scale-90 transition-all"
-                  title="Add to Cart"
-                >
-                  <Plus size={16} strokeWidth={3.5} />
-                </button>
-              )}
-            </div>
+            {/* Action Button (Hidden when out of stock) */}
+            {!isOutOfStock && (
+              <div className="shrink-0">
+                {quantity > 0 ? (
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      removeFromCart(productId, variantKey);
+                    }}
+                    className="w-7.5 h-7.5 rounded-full bg-[#FF8200] hover:bg-red-550 text-white flex items-center justify-center font-extrabold text-base shadow-2xs hover:scale-105 active:scale-90 transition-all group/btn"
+                    title="Remove from Cart"
+                  >
+                    <div className="relative w-4 h-4 flex items-center justify-center">
+                      <span className="absolute transition-all duration-200 opacity-100 scale-100 group-hover/btn:opacity-0 group-hover/btn:scale-75">
+                        <Check size={15} strokeWidth={3.5} />
+                      </span>
+                      <span className="absolute transition-all duration-200 opacity-0 scale-75 group-hover/btn:opacity-100 group-hover/btn:scale-100">
+                        <Minus size={15} strokeWidth={3.5} />
+                      </span>
+                    </div>
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleAddToCart}
+                    className="w-7.5 h-7.5 rounded-full bg-[#FF8200] hover:bg-[#FF8200]/95 text-white flex items-center justify-center font-extrabold text-base shadow-2xs hover:scale-105 active:scale-90 transition-all"
+                    title="Add to Cart"
+                  >
+                    <Plus size={16} strokeWidth={3.5} />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
