@@ -32,8 +32,12 @@ const CategoriesPage = () => {
                     });
                 });
                 
-                if (flatCats.length > 0) {
-                    setCategories(flatCats);
+                // Keep categories up to 'Baby Accessories' and hide everything below it on the Categories page
+                const cutoffIndex = flatCats.findIndex(cat => String(cat.name || '').trim().toLowerCase() === 'baby accessories');
+                const visibleCats = cutoffIndex !== -1 ? flatCats.slice(0, cutoffIndex + 1) : flatCats;
+
+                if (visibleCats.length > 0) {
+                    setCategories(visibleCats);
                     setIsLoading(false);
                     return;
                 }
@@ -51,7 +55,10 @@ const CategoriesPage = () => {
                     image: cat.image || getRealCategoryFallback(cat.name),
                     productCount: cat.productCount || 0,
                 }));
-                setCategories(formattedCats);
+
+                const cutoffIndex = formattedCats.findIndex(cat => String(cat.name || '').trim().toLowerCase() === 'baby accessories');
+                const visibleCats = cutoffIndex !== -1 ? formattedCats.slice(0, cutoffIndex + 1) : formattedCats;
+                setCategories(visibleCats);
             }
         } catch (error) {
             console.error("Error fetching categories:", error);
