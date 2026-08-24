@@ -8,7 +8,7 @@ import { customerApi } from '../services/customerApi';
 
 const EditProfilePage = () => {
     const navigate = useNavigate();
-    const { user, login } = useAuth();
+    const { user, login, updateUser, refreshUser } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState({
         name: user?.name || '',
@@ -37,10 +37,15 @@ const EditProfilePage = () => {
         setIsLoading(true);
         try {
             const response = await customerApi.updateProfile(formData);
-            const updatedUser = response.data.result;
+            const updatedUser = response.data?.result || response.data?.data || response.data;
 
-            // Update local auth state
-            login({ ...user, ...updatedUser });
+            // Update local auth state immediately
+            if (updateUser) {
+                updateUser(updatedUser);
+            }
+            if (refreshUser) {
+                await refreshUser();
+            }
 
             toast.success('Profile updated successfully!');
             navigate('/profile');
@@ -145,7 +150,7 @@ const EditProfilePage = () => {
                                     name="bio"
                                     value={formData.bio}
                                     onChange={handleChange}
-                                    rows="3"
+                                    rows={3}
                                     className="w-full bg-transparent outline-none text-slate-800 font-medium text-sm resize-none"
                                     placeholder="Tell us about yourself..."
                                 ></textarea>

@@ -162,7 +162,7 @@ export const AuthProvider = ({ children }) => {
     }, [token, currentRole]);
 
     const login = (userData) => {
-        const role = userData.role?.toLowerCase() || 'customer';
+        const role = userData.role?.toLowerCase() || currentRole || 'customer';
         const storageKey = ROLE_STORAGE_KEYS[role];
 
         if (storageKey && userData.token) {
@@ -178,9 +178,17 @@ export const AuthProvider = ({ children }) => {
 
             setAuthData(prev => ({ ...prev, [role]: userData.token }));
             setUser(userData); // Set full data initially
+        } else if (userData) {
+            // Updating existing session without new token
+            setUser(prev => ({ ...(prev || {}), ...userData }));
         } else {
             console.error('Invalid role or missing token for login:', role);
         }
+    };
+
+    const updateUser = (userData) => {
+        if (!userData) return;
+        setUser(prev => ({ ...(prev || {}), ...userData }));
     };
 
     const logout = async () => {
@@ -234,8 +242,11 @@ export const AuthProvider = ({ children }) => {
             try {
                 const endpoint = `/${currentRole}/profile`;
                 const response = await axiosInstance.get(endpoint);
-                setUser(response.data.result);
-                return response.data.result;
+                const fetched = response.data?.result || response.data?.data || response.data;
+                if (fetched) {
+                    setUser(fetched);
+                    return fetched;
+                }
             } catch (error) {
                 console.error('Failed to refresh profile:', error);
             }
@@ -251,6 +262,7 @@ export const AuthProvider = ({ children }) => {
         authData,
         login,
         logout,
+        updateUser,
         refreshUser
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }), [user, token, currentRole, isAuthenticated, isLoading, authData]);

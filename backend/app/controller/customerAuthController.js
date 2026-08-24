@@ -116,16 +116,18 @@ export const getCustomerProfile = async (req, res) => {
 ================================ */
 export const updateCustomerProfile = async (req, res) => {
     try {
-        const { name, email, addresses } = req.body;
+        const { name, email, phone, bio, addresses } = req.body;
 
         const customer = await Customer.findById(req.user.id);
         if (!customer) {
             return handleResponse(res, 404, "Customer not found");
         }
 
-        if (name) customer.name = name;
-        if (email) customer.email = email;
-        if (addresses) customer.addresses = addresses;
+        if (name !== undefined) customer.name = name;
+        if (email !== undefined) customer.email = email;
+        if (phone !== undefined) customer.phone = phone;
+        if (bio !== undefined) customer.bio = bio;
+        if (addresses !== undefined) customer.addresses = addresses;
 
         await customer.save();
 
@@ -201,17 +203,38 @@ export const getCustomerTransactions = async (req, res) => {
             }));
         }
 
-        // Strictly return only 1 single 500 Rs transaction in history
-        const fiveHundredTx = (sourceRecords || []).find((t) => Math.abs(t.amount || 0) === 500);
-        const filteredRecords = [
-            fiveHundredTx || {
-                _id: `tx-500-1`,
+        // Ensure 1x 100 Rs + 2x 500 Rs transactions are returned in history as requested
+        const filteredRecords = [];
+        
+        // 1x 100 Rs transaction
+        const hundredTx = (sourceRecords || []).find((t) => Math.abs(t.amount || 0) === 100);
+        filteredRecords.push(hundredTx || {
+            _id: `tx-100-1`,
+            type: "Wallet Topup",
+            amount: 100,
+            createdAt: new Date(),
+            reference: `W-TOPUP-100-1`,
+        });
+
+        // 2x 500 Rs transactions
+        const fiveHundredTxs = (sourceRecords || []).filter((t) => Math.abs(t.amount || 0) === 500);
+        let c500 = 0;
+        for (const t of fiveHundredTxs) {
+            if (c500 < 2) {
+                filteredRecords.push(t);
+                c500++;
+            }
+        }
+        while (c500 < 2) {
+            c500++;
+            filteredRecords.push({
+                _id: `tx-500-${c500}`,
                 type: "Wallet Topup",
                 amount: 500,
-                createdAt: new Date(),
-                reference: `W-TOPUP-500-1`,
-            },
-        ];
+                createdAt: new Date(Date.now() - c500 * 15 * 60 * 1000),
+                reference: `W-TOPUP-500-${c500}`,
+            });
+        }
 
         // Preserve all transactions in chronological order (newest first)
         let lastTimestamp = Date.now();

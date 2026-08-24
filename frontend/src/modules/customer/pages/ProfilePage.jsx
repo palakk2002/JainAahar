@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 
 const ProfilePage = () => {
     const navigate = useNavigate();
-    const { user, logout } = useAuth();
+    const { user, logout, refreshUser } = useAuth();
     const { settings } = useSettings();
     const { showToast } = useToast();
     const { t, language, setLanguage, languages } = useTranslation();
@@ -26,6 +26,12 @@ const ProfilePage = () => {
     const [deleteLoading, setDeleteLoading] = useState(false);
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [isLangExpanded, setIsLangExpanded] = useState(false);
+
+    React.useEffect(() => {
+        if (refreshUser) {
+            refreshUser();
+        }
+    }, []);
 
     const formatIndiaPhone = (value) => {
         const raw = String(value || '').trim();
