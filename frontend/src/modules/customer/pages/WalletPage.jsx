@@ -18,55 +18,55 @@ const formatDate = (d) => {
 
 const PRESET_AMOUNTS = [100, 200, 500, 1000, 2000, 5000];
 
+let cachedWalletData = null;
+
 const WalletPage = () => {
     const navigate = useNavigate();
     const { showToast } = useToast();
-    const [balance, setBalance] = useState(0);
-    const [transactions, setTransactions] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [balance, setBalance] = useState(() => cachedWalletData?.balance ?? 0);
+    const [transactions, setTransactions] = useState(() => cachedWalletData?.transactions ?? []);
+    const [loading, setLoading] = useState(() => !cachedWalletData);
 
     // Modal state for Add Money
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [addAmount, setAddAmount] = useState('500');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const fetchData = async () => {
-        setLoading(true);
+    const fetchData = async (showLoadingState = false) => {
+        if (showLoadingState || !cachedWalletData) {
+            setLoading(true);
+        }
         try {
-            const [profileRes, txRes, ordersRes] = await Promise.all([
+            const [profileRes, txRes] = await Promise.all([
                 customerApi.getProfile().catch(() => null),
                 customerApi.getWalletTransactions().catch(() => null),
-                customerApi.getMyOrders().catch(() => null),
             ]);
 
             const profile = profileRes?.data?.result ?? profileRes?.data?.data ?? profileRes?.data;
-            setBalance(profile?.walletBalance ?? 0);
+            const currentBal = profile?.walletBalance ?? 0;
+            setBalance(currentBal);
 
-            // Check if server returned wallet transactions
-            const txItems = txRes?.data?.data?.items ?? txRes?.data?.items ?? [];
-            if (Array.isArray(txItems) && txItems.length > 0) {
-                setTransactions(txItems);
-            } else {
-                // Fallback to orders purchased using wallet
-                const rawOrders = ordersRes?.data?.results ?? ordersRes?.data?.result ?? [];
-                const orders = Array.isArray(rawOrders) ? rawOrders : [];
-                const walletOrders = orders.filter(
-                    (o) => (o.payment?.method || '').toLowerCase() === 'wallet'
-                );
-                const items = walletOrders.map((o) => ({
-                    _id: o._id,
-                    type: 'debit',
-                    title: 'Order Payment',
-                    amount: o.pricing?.total ?? o.payableAmount ?? 0,
-                    date: o.createdAt,
-                    orderId: o.orderId,
-                }));
-                setTransactions(items);
-            }
+            // Check if server returned wallet transactions (handleResponse wraps in result.items)
+            const txResult = txRes?.data?.result ?? txRes?.data?.data ?? txRes?.data;
+            const txItems = Array.isArray(txResult?.items)
+                ? txResult.items
+                : Array.isArray(txResult)
+                ? txResult
+                : (Array.isArray(txRes?.data?.items) ? txRes.data.items : []);
+
+            const finalTxList = Array.isArray(txItems) ? txItems : [];
+            setTransactions(finalTxList);
+
+            cachedWalletData = {
+                balance: currentBal,
+                transactions: finalTxList,
+            };
         } catch (err) {
             console.error('Wallet fetch error:', err);
-            setBalance(0);
-            setTransactions([]);
+            if (!cachedWalletData) {
+                setBalance(0);
+                setTransactions([]);
+            }
         } finally {
             setLoading(false);
         }
@@ -93,13 +93,13 @@ const WalletPage = () => {
             const res = await customerApi.addWalletMoney({ amount: numericAmount });
             const responseData = res.data;
             if (responseData?.success || responseData?.status === 200 || responseData?.statusCode === 200) {
-                const newBal = responseData.data?.walletBalance ?? responseData.walletBalance ?? (balance + numericAmount);
+                const newBal = responseData?.result?.walletBalance ?? responseData?.data?.walletBalance ?? responseData?.walletBalance ?? (balance + numericAmount);
                 setBalance(newBal);
                 showToast(`₹${numericAmount.toLocaleString('en-IN')} added to your wallet!`, "success");
                 setIsAddModalOpen(false);
                 setAddAmount('500');
-                // Refresh transactions list
-                fetchData();
+                // Refresh transactions list freshly
+                await fetchData();
             } else {
                 showToast(responseData?.message || "Failed to add money to wallet", "error");
             }

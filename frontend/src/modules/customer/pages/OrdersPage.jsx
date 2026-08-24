@@ -22,7 +22,14 @@ const OrdersPage = () => {
                     payload?.result?.items ||
                     payload?.results ||
                     [];
-                setOrders(Array.isArray(items) ? items : []);
+                
+                // Hide Order #395AKN and all order history below it
+                const cutoffIndex = items.findIndex(order => {
+                    const oid = String(order?.orderId || '').trim().toUpperCase();
+                    return oid.endsWith('395AKN') || oid.includes('395AKN');
+                });
+                const visibleOrders = cutoffIndex !== -1 ? items.slice(0, cutoffIndex) : items;
+                setOrders(Array.isArray(visibleOrders) ? visibleOrders : []);
             } catch (error) {
                 console.error("Failed to fetch orders:", error);
                 const apiMessage = error?.response?.data?.message;

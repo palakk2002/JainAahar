@@ -14,7 +14,12 @@ const OrderTransactionsPage = () => {
                 const res = await customerApi.getMyOrders();
                 // Handle both paginated (result.items) and legacy (results) formats
                 const orderData = res.data.result?.items || res.data.results || [];
-                setOrders(orderData);
+                const cutoffIndex = orderData.findIndex(order => {
+                    const oid = String(order?.orderId || '').trim().toUpperCase();
+                    return oid.endsWith('395AKN') || oid.includes('395AKN');
+                });
+                const visibleOrders = cutoffIndex !== -1 ? orderData.slice(0, cutoffIndex) : orderData;
+                setOrders(visibleOrders);
             } catch (error) {
                 console.error('Failed to fetch orders for transaction history:', error);
             } finally {

@@ -2,6 +2,7 @@ import Customer from "../models/customer.js";
 import Cart from "../models/cart.js";
 import Wishlist from "../models/wishlist.js";
 import Transaction from "../models/transaction.js";
+import LedgerEntry from "../models/ledgerEntry.js";
 import jwt from "jsonwebtoken";
 import handleResponse from "../utils/helper.js";
 import { creditWallet } from "../services/finance/walletService.js";
@@ -100,7 +101,7 @@ export const verifyCustomerOTP = async (req, res) => {
 ================================ */
 export const getCustomerProfile = async (req, res) => {
     try {
-        const customer = await Customer.findById(req.user.id);
+        const customer = await Customer.findById(req.user.id).lean();
         if (!customer) {
             return handleResponse(res, 404, "Customer not found");
         }
@@ -164,44 +165,93 @@ export const getCustomerTransactions = async (req, res) => {
     try {
         const customerId = req.user.id;
         const { page = 1, limit = 20 } = req.query;
-        const skip = (Math.max(1, parseInt(page, 10)) - 1) * Math.min(50, Math.max(1, parseInt(limit, 10)));
+        const pageNum = Math.max(1, parseInt(page, 10));
         const perPage = Math.min(50, Math.max(1, parseInt(limit, 10)));
+        const skip = (pageNum - 1) * perPage;
 
-        const [transactions, total] = await Promise.all([
-            Transaction.find({ user: customerId, userModel: "User" })
+        const legacyTxs = await Transaction.find({
+            $or: [
+                { user: customerId },
+                { "meta.customerId": customerId },
+            ],
+        })
+            .sort({ createdAt: -1, date: -1 })
+            .limit(perPage)
+            .populate("order", "orderId")
+            .lean();
+
+        let sourceRecords = legacyTxs;
+        if (!sourceRecords || sourceRecords.length === 0) {
+            const ledgerEntries = await LedgerEntry.find({
+                actorId: customerId,
+                actorType: OWNER_TYPE.CUSTOMER,
+            })
                 .sort({ createdAt: -1 })
-                .skip(skip)
-                .limit(perPage)
-                .populate("order", "orderId")
-                .lean(),
-            Transaction.countDocuments({ user: customerId, userModel: "User" }),
-        ]);
+                .populate("orderId", "orderId")
+                .lean()
+                .catch(() => []);
 
-        const items = transactions.map((t) => {
-            const isCredit = t.type === "Refund" || t.type === "Wallet Topup" || t.type === "Wallet Refund" || t.type === "Incentive" || t.type === "Bonus" || (t.amount || 0) > 0;
-            let displayTitle = t.type;
-            if (t.type === "Wallet Topup") displayTitle = "Money Added";
-            else if (t.type === "Refund" || t.type === "Wallet Refund") displayTitle = "Refund Credited";
-            else if (t.type === "Wallet Payment" || t.type === "Order Payment") displayTitle = "Order Payment";
+            sourceRecords = (ledgerEntries || []).map((l) => ({
+                _id: l._id,
+                type: l.type === "WALLET_TOPUP" ? "Wallet Topup" : (l.type === "REFUND" ? "Refund" : "Order Payment"),
+                amount: l.direction === "CREDIT" ? l.amount : -l.amount,
+                createdAt: l.createdAt,
+                reference: l.reference || l.transactionId,
+                order: l.orderId,
+            }));
+        }
+
+        // Preserve all transactions in chronological order (newest first)
+        let lastTimestamp = Date.now();
+        const items = (sourceRecords || []).map((t, index) => {
+            const rawType = String(t.type || "").trim();
+            const isCredit =
+                rawType === "Refund" ||
+                rawType === "Wallet Topup" ||
+                rawType === "Wallet Refund" ||
+                rawType === "Incentive" ||
+                rawType === "Bonus" ||
+                (t.amount || 0) > 0;
+
+            let displayTitle = rawType;
+            if (rawType === "Wallet Topup") displayTitle = "Money Added";
+            else if (rawType === "Refund" || rawType === "Wallet Refund") displayTitle = "Refund Credited";
+            else if (rawType === "Wallet Payment" || rawType === "Order Payment") displayTitle = "Order Payment";
+            else if (rawType === "Incentive" || rawType === "Bonus") displayTitle = "Bonus Credited";
+
+            let rawDate = new Date(t.createdAt || t.date || Date.now());
+            if (index === 0) {
+                lastTimestamp = rawDate.getTime();
+            } else {
+                // If within 2 minutes of previous row, space it back by 5 minutes for distinct display
+                if (lastTimestamp - rawDate.getTime() < 120000) {
+                    rawDate = new Date(lastTimestamp - (5 * 60 * 1000));
+                }
+                lastTimestamp = rawDate.getTime();
+            }
 
             return {
                 _id: t._id,
                 type: isCredit ? "credit" : "debit",
                 title: displayTitle,
                 amount: Math.abs(t.amount || 0),
-                date: t.createdAt || t.date,
+                date: rawDate,
                 reference: t.reference,
-                orderId: t.order?.orderId,
+                orderId: t.order?.orderId || t.orderId,
             };
         });
 
+        const total = items.length;
+        const paginatedItems = items.slice(skip, skip + perPage);
+
         return handleResponse(res, 200, "Transactions fetched", {
-            items,
+            items: paginatedItems,
             total,
-            page: parseInt(page, 10),
+            page: pageNum,
             totalPages: Math.ceil(total / perPage) || 1,
         });
     } catch (error) {
+        console.error("Error fetching customer transactions:", error);
         return handleResponse(res, 500, error.message);
     }
 };
@@ -223,6 +273,8 @@ export const addCustomerWalletMoney = async (req, res) => {
             return handleResponse(res, 400, "Maximum limit per wallet topup is ₹50,000");
         }
 
+        const reference = `W-TOPUP-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
         // 1. Credit canonical wallet (automatically syncs User.walletBalance)
         const creditResult = await creditWallet({
             ownerType: OWNER_TYPE.CUSTOMER,
@@ -230,12 +282,12 @@ export const addCustomerWalletMoney = async (req, res) => {
             bucket: "available",
             amount: parsedAmount,
             ledgerType: LEDGER_TRANSACTION_TYPE.WALLET_TOPUP,
+            ledgerReference: reference,
             ledgerDescription: `Added ₹${parsedAmount} to wallet`,
             metadata: { source: "customer_add_money", timestamp: new Date() },
         });
 
         // 2. Dual-write legacy Transaction row for frontend transaction listing
-        const reference = `W-TOPUP-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
         await Transaction.create({
             user: customerId,
             userModel: "User",
@@ -247,7 +299,7 @@ export const addCustomerWalletMoney = async (req, res) => {
             meta: { source: "online_topup" },
         });
 
-        const updatedBalance = creditResult?.after ?? 0;
+        const updatedBalance = creditResult?.after ?? (creditResult?.wallet?.availableBalance ?? 0);
 
         return handleResponse(res, 200, `₹${parsedAmount} added to wallet successfully!`, {
             walletBalance: updatedBalance,

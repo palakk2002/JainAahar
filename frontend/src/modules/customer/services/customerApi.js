@@ -12,8 +12,8 @@ export const customerApi = {
     invalidateCache("/customer/profile");
     return axiosInstance.delete("/customer/profile");
   },
-  getWalletTransactions: (params) =>
-    getWithDedupe("/customer/transactions", params),
+  getWalletTransactions: (params, options = {}) =>
+    getWithDedupe("/customer/transactions", params, { ttl: 2000, ...options }),
   addWalletMoney: (data) => {
     invalidateCache("/customer/profile");
     invalidateCache("/customer/transactions");
