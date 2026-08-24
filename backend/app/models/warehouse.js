@@ -200,6 +200,7 @@ warehouseSchema.pre("save", async function (next) {
 });
 
 // Compare password
+warehouseSchema.methods = warehouseSchema.methods || {};
 warehouseSchema.methods.comparePassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };

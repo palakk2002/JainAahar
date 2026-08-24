@@ -73,7 +73,7 @@ const CustomerAuth = () => {
             setTimer(30);
             toast.success('OTP sent to your email!');
         } catch (error) {
-            const apiMessage = error?.response?.data?.message || 'Failed to send OTP';
+            const apiMessage = error?.response?.data?.message || error?.message || 'Failed to send OTP';
             toast.error(apiMessage);
         } finally {
             setIsLoading(false);
@@ -94,8 +94,8 @@ const CustomerAuth = () => {
             toast.success(t('loggedInSuccess'));
             navigate('/');
         } catch (error) {
-            const apiMessage = error?.response?.data?.message;
-            toast.error(apiMessage || t('invalidOtp'));
+            const apiMessage = error?.response?.data?.message || error?.message || t('invalidOtp');
+            toast.error(apiMessage);
         } finally {
             setIsLoading(false);
         }

@@ -33,15 +33,12 @@ const userSchema = new mongoose.Schema(
         email: {
             type: String,
             lowercase: true,
-            unique: true,
-            sparse: true, // phone login users ke liye
+            trim: true,
         },
 
         phone: {
             type: String,
             required: false,
-            sparse: true,
-            unique: true,
             trim: true,
         },
 
@@ -141,9 +138,37 @@ const userSchema = new mongoose.Schema(
 
 userSchema.index({ role: 1, isActive: 1 });
 
+// Partial unique indexes ensure only non-empty strings are indexed.
+// Omitted or undefined phone (email users) or email (phone users) never conflict.
+userSchema.index(
+    { email: 1 },
+    {
+        unique: true,
+        partialFilterExpression: { email: { $type: "string", $gt: "" } },
+        name: "idx_user_email_unique",
+    }
+);
+
+userSchema.index(
+    { phone: 1 },
+    {
+        unique: true,
+        partialFilterExpression: { phone: { $type: "string", $gt: "" } },
+        name: "idx_user_phone_unique",
+    }
+);
+
 userSchema.pre("validate", function(next) {
-    if (this.phone) {
+    if (this.phone && typeof this.phone === "string" && this.phone.trim().length > 0) {
         this.phone = normalizePhoneNumber(this.phone);
+    } else {
+        this.phone = undefined;
+    }
+
+    if (this.email && typeof this.email === "string" && this.email.trim().length > 0) {
+        this.email = this.email.trim().toLowerCase();
+    } else {
+        this.email = undefined;
     }
     next();
 });

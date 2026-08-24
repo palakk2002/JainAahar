@@ -20,8 +20,6 @@ const adminSchema = new mongoose.Schema(
     phone: {
       type: String,
       trim: true,
-      unique: true,
-      sparse: true,
     },
 
     password: {
@@ -44,6 +42,22 @@ const adminSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+adminSchema.index(
+  { phone: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { phone: { $type: "string", $gt: "" } },
+    name: "idx_admin_phone_unique",
+  }
+);
+
+adminSchema.pre("validate", function (next) {
+  if (!this.phone || (typeof this.phone === "string" && !this.phone.trim())) {
+    this.phone = undefined;
+  }
+  next();
+});
+
 // Hash password before saving
 adminSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
@@ -53,6 +67,7 @@ adminSchema.pre("save", async function (next) {
 });
 
 // Compare password
+adminSchema.methods = adminSchema.methods || {};
 adminSchema.methods.comparePassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };

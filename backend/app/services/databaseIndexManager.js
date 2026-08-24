@@ -86,10 +86,8 @@ const INDEX_DEFINITIONS = {
     { keys: { phone: 1 }, options: { name: "idx_phone", background: true, sparse: true } },
   ],
 
-  customers: [
-    { keys: { phone: 1 }, options: { name: "idx_phone", background: true, sparse: true } },
-    { keys: { email: 1 }, options: { name: "idx_email", background: true, sparse: true } },
-    { keys: { createdAt: -1 }, options: { name: "idx_created", background: true } },
+  users: [
+    { keys: { createdAt: -1 }, options: { name: "idx_users_created", background: true } },
   ],
 
   deliveries: [
@@ -174,6 +172,76 @@ const INDEX_DEFINITIONS = {
 };
 
 /**
+ * Cleans up legacy non-partial unique indexes and ensures partial unique indexes
+ * are properly built for users and admins.
+ */
+async function cleanupLegacyAuthIndexes() {
+  try {
+    const db = mongoose.connection.db;
+    if (!db) return;
+
+    // 1. Check users collection
+    const usersCollExists = await db.listCollections({ name: "users" }, { nameOnly: true }).hasNext();
+    if (usersCollExists) {
+      const usersCollection = db.collection("users");
+      const existingIndexes = await usersCollection.indexes();
+
+      // Unset explicit nulls for phone/email so they don't count as values
+      await usersCollection.updateMany({ phone: null }, { $unset: { phone: "" } });
+      await usersCollection.updateMany({ email: null }, { $unset: { email: "" } });
+
+      for (const idx of existingIndexes) {
+        // If phone_1 or idx_phone or email_1 exists without partialFilterExpression, drop it
+        if ((idx.name === "phone_1" || idx.name === "idx_phone") && (!idx.partialFilterExpression || !idx.partialFilterExpression.phone)) {
+          logger.info(`[DatabaseIndexManager] Dropping legacy non-partial index "${idx.name}" on users`);
+          await usersCollection.dropIndex(idx.name);
+        }
+        if ((idx.name === "email_1" || idx.name === "idx_email") && (!idx.partialFilterExpression || !idx.partialFilterExpression.email)) {
+          logger.info(`[DatabaseIndexManager] Dropping legacy non-partial index "${idx.name}" on users`);
+          await usersCollection.dropIndex(idx.name);
+        }
+      }
+
+      // Sync mongoose indexes for User model
+      if (mongoose.models.User) {
+        await mongoose.models.User.createIndexes();
+      }
+    }
+
+    // 2. Check admins collection
+    const adminsCollExists = await db.listCollections({ name: "admins" }, { nameOnly: true }).hasNext();
+    if (adminsCollExists) {
+      const adminsCollection = db.collection("admins");
+      const existingAdminIndexes = await adminsCollection.indexes();
+      await adminsCollection.updateMany({ phone: null }, { $unset: { phone: "" } });
+
+      for (const idx of existingAdminIndexes) {
+        if (idx.name === "phone_1" && (!idx.partialFilterExpression || !idx.partialFilterExpression.phone)) {
+          logger.info(`[DatabaseIndexManager] Dropping legacy non-partial index "${idx.name}" on admins`);
+          await adminsCollection.dropIndex(idx.name);
+        }
+      }
+
+      if (mongoose.models.Admin) {
+        await mongoose.models.Admin.createIndexes();
+      }
+    }
+
+    // 3. Drop phantom customers collection if empty
+    const customersCollExists = await db.listCollections({ name: "customers" }, { nameOnly: true }).hasNext();
+    if (customersCollExists) {
+      const count = await db.collection("customers").estimatedDocumentCount();
+      if (count === 0) {
+        await db.collection("customers").drop();
+        logger.info("[DatabaseIndexManager] Dropped empty phantom collection `customers`");
+      }
+    }
+  } catch (error) {
+    logger.warn("[DatabaseIndexManager] Warning during legacy index cleanup:", error.message);
+  }
+}
+
+/**
  * Create all required indexes across all collections
  * @returns {Promise<void>}
  */
@@ -181,6 +249,9 @@ export async function createAllIndexes() {
   const startTime = Date.now();
   logger.info("[DatabaseIndexManager] Starting index creation...");
   
+  // Clean up legacy non-partial indexes before building additive indexes
+  await cleanupLegacyAuthIndexes();
+
   const results = {
     created: 0,
     existing: 0,

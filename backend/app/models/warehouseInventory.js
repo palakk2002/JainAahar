@@ -90,21 +90,25 @@ warehouseInventorySchema.index({ warehouse: 1, available: 1 });
 warehouseInventorySchema.index({ warehouse: 1, sku: 1 });
 
 /** Virtual: computed total */
-warehouseInventorySchema.virtual("total").get(function () {
-  return this.available + this.reserved + this.damaged + this.defective;
-});
+if (typeof warehouseInventorySchema.virtual === "function") {
+  warehouseInventorySchema.virtual("total").get(function () {
+    return this.available + this.reserved + this.damaged + this.defective;
+  });
 
-warehouseInventorySchema.set("toJSON", { virtuals: true });
-warehouseInventorySchema.set("toObject", { virtuals: true });
+  /** Convenience: is this item low on stock? */
+  warehouseInventorySchema.virtual("isLowStock").get(function () {
+    return this.available > 0 && this.available <= this.minStock;
+  });
 
-/** Convenience: is this item low on stock? */
-warehouseInventorySchema.virtual("isLowStock").get(function () {
-  return this.available > 0 && this.available <= this.minStock;
-});
+  /** Convenience: is this item out of stock? */
+  warehouseInventorySchema.virtual("isOutOfStock").get(function () {
+    return this.available <= 0;
+  });
+}
 
-/** Convenience: is this item out of stock? */
-warehouseInventorySchema.virtual("isOutOfStock").get(function () {
-  return this.available <= 0;
-});
+if (typeof warehouseInventorySchema.set === "function") {
+  warehouseInventorySchema.set("toJSON", { virtuals: true });
+  warehouseInventorySchema.set("toObject", { virtuals: true });
+}
 
 export default mongoose.model("WarehouseInventory", warehouseInventorySchema);

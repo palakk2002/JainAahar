@@ -222,9 +222,10 @@ export async function waitForRedis(maxRetries = 10, baseDelay = 1000) {
   }
 
   const isProduction = process.env.NODE_ENV === "production";
-  const maxDelay = 30000; // 30 seconds max delay
+  const effectiveMaxRetries = isProduction ? maxRetries : 2;
+  const maxDelay = isProduction ? 30000 : 1000;
 
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+  for (let attempt = 1; attempt <= effectiveMaxRetries; attempt++) {
     try {
       // Try to connect if not already connected
       if (client.status !== "ready" && client.status !== "connect") {
@@ -237,22 +238,22 @@ export async function waitForRedis(maxRetries = 10, baseDelay = 1000) {
         return;
       }
     } catch (error) {
-      const delay = Math.min(baseDelay * Math.pow(2, attempt - 1), maxDelay);
-      const isLastAttempt = attempt === maxRetries;
+      const isMaxClients = String(error?.message || "").includes("max number of clients");
+      const isLastAttempt = attempt === effectiveMaxRetries || (!isProduction && isMaxClients);
 
       if (isLastAttempt) {
-        const errorMessage = `Failed to connect to Redis after ${maxRetries} attempts: ${error.message}`;
+        const errorMessage = `Failed to connect to Redis: ${error.message}`;
         if (isProduction) {
           console.warn(`[Redis] ⚠️ CRITICAL: ${errorMessage} - Continuing without Redis in production.`);
-          return;
         } else {
-          console.warn(`[Redis] ${errorMessage} - Continuing without Redis`);
-          return;
+          console.warn(`[Redis] ${errorMessage} - Continuing without Redis fallback`);
         }
+        return;
       }
 
+      const delay = Math.min(baseDelay * Math.pow(2, attempt - 1), maxDelay);
       console.log(
-        `[Redis] Connection attempt ${attempt}/${maxRetries} failed: ${error.message}. ` +
+        `[Redis] Connection attempt ${attempt}/${effectiveMaxRetries} failed: ${error.message}. ` +
         `Retrying in ${delay}ms...`
       );
 
