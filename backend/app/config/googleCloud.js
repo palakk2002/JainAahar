@@ -13,8 +13,6 @@ let translateClient = null;
 
 if (apiKey && apiKey !== 'your_api_key_here') {
   translateClient = new Translate({ key: apiKey });
-} else {
-  console.warn("GOOGLE_CLOUD_TRANSLATE_API_KEY is not defined or is placeholder. Translations will fallback to original text.");
 }
 
 export default translateClient;

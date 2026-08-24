@@ -72,32 +72,20 @@ async function validateDependencies() {
     result.errors.push(`MongoDB validation failed: ${error.message}`);
   }
   
-  // Validate Redis connection (mandatory in production)
+  // Validate Redis connection (graceful fallback in production if disabled or unreachable)
   try {
     if (isRedisEnabled()) {
       const client = getRedisClient();
       if (client && client.status === 'ready') {
         result.checks.redis = { status: 'UP', message: 'Connected' };
       } else {
-        result.checks.redis = { status: 'DOWN', message: 'Not ready' };
-        if (isProduction) {
-          result.valid = false;
-          result.errors.push('Redis is required in production but not ready');
-        }
+        result.checks.redis = { status: 'WARN', message: 'Redis not ready - running with fallback queue stubs' };
       }
     } else {
-      result.checks.redis = { status: 'DISABLED', message: 'Redis is disabled' };
-      if (isProduction) {
-        result.valid = false;
-        result.errors.push('Redis is required in production mode');
-      }
+      result.checks.redis = { status: 'DISABLED', message: 'Redis is disabled - running with fallback queue stubs' };
     }
   } catch (error) {
-    result.checks.redis = { status: 'ERROR', message: error.message };
-    if (isProduction) {
-      result.valid = false;
-      result.errors.push(`Redis validation failed: ${error.message}`);
-    }
+    result.checks.redis = { status: 'WARN', message: error.message };
   }
   
   // Validate required environment variables
