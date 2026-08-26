@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Facebook, Twitter, Instagram, Youtube, Mail, MapPin, Phone } from 'lucide-react';
 import Logo from '@/assets/Logo.png';
 import { useSettings } from '@core/context/SettingsContext';
@@ -9,7 +10,7 @@ const Footer = () => {
     const primaryColor = settings?.primaryColor || 'var(--primary)';
 
     return (
-        <footer className="relative bg-[#051108] pt-20 pb-10 mt-20 text-slate-300 md:bg-gradient-to-br md:from-brand-700 md:via-brand-800 md:to-brand-900 md:pt-32 md:pb-16 md:mt-32 overflow-hidden">
+        <footer className="relative bg-[#051108] pt-20 pb-10 mt-20 text-slate-300 md:bg-gradient-to-br md:from-brand-700 md:via-brand-800 md:to-brand-900 md:pt-32 md:pb-16 md:mt-32 overflow-hidden font-['Outfit',_sans-serif]">
             {/* Subtle Texture/Glow Overlay */}
             <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-20">
                 <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full opacity-30 blur-[150px]" style={{ backgroundColor: primaryColor }} />
@@ -48,25 +49,24 @@ const Footer = () => {
                             <span className="h-1 w-4 hidden md:block" style={{ backgroundColor: primaryColor }}></span> Quick Links
                         </h3>
                         <ul className="space-y-2 md:space-y-4">
-                            <li><a href="#" className="hover:text-brand-300 transition-colors md:text-base md:font-semibold flex items-center group text-white"><span className="hidden md:block w-0 h-px bg-white group-hover:w-4 group-hover:mr-2 transition-all"></span>Home</a></li>
-                            <li><a href="#" className="hover:text-brand-300 transition-colors md:text-base md:font-semibold flex items-center group text-white"><span className="hidden md:block w-0 h-px bg-white group-hover:w-4 group-hover:mr-2 transition-all"></span>About Us</a></li>
-                            <li><a href="#" className="hover:text-brand-300 transition-colors md:text-base md:font-semibold flex items-center group text-white"><span className="hidden md:block w-0 h-px bg-white group-hover:w-4 group-hover:mr-2 transition-all"></span>Shop</a></li>
-                            <li><a href="#" className="hover:text-brand-300 transition-colors md:text-base md:font-semibold flex items-center group text-white"><span className="hidden md:block w-0 h-px bg-white group-hover:w-4 group-hover:mr-2 transition-all"></span>Blogs</a></li>
-                            <li><a href="#" className="hover:text-brand-300 transition-colors md:text-base md:font-semibold flex items-center group text-white"><span className="hidden md:block w-0 h-px bg-white group-hover:w-4 group-hover:mr-2 transition-all"></span>Contact</a></li>
+                            <li><Link to="/" className="hover:text-brand-300 transition-colors md:text-base md:font-semibold flex items-center group text-white"><span className="hidden md:block w-0 h-px bg-white group-hover:w-4 group-hover:mr-2 transition-all"></span>Home</Link></li>
+                            <li><Link to="/about" className="hover:text-brand-300 transition-colors md:text-base md:font-semibold flex items-center group text-white"><span className="hidden md:block w-0 h-px bg-white group-hover:w-4 group-hover:mr-2 transition-all"></span>About Us</Link></li>
+                            <li><Link to="/categories" className="hover:text-brand-300 transition-colors md:text-base md:font-semibold flex items-center group text-white"><span className="hidden md:block w-0 h-px bg-white group-hover:w-4 group-hover:mr-2 transition-all"></span>Categories</Link></li>
+                            <li><Link to="/contact-us" className="hover:text-brand-300 transition-colors md:text-base md:font-semibold flex items-center group text-white"><span className="hidden md:block w-0 h-px bg-white group-hover:w-4 group-hover:mr-2 transition-all"></span>Contact Us</Link></li>
+                            <li><Link to="/support" className="hover:text-brand-300 transition-colors md:text-base md:font-semibold flex items-center group text-white"><span className="hidden md:block w-0 h-px bg-white group-hover:w-4 group-hover:mr-2 transition-all"></span>Help & Support</Link></li>
                         </ul>
                     </div>
 
-                    {/* Categories */}
+                    {/* Policies */}
                     <div className="md:pt-4">
                         <h3 className="text-white font-bold text-lg mb-4 md:text-xl md:font-black md:uppercase md:tracking-widest md:mb-8 flex items-center gap-2">
-                            <span className="h-1 w-4 hidden md:block" style={{ backgroundColor: primaryColor }}></span> Categories
+                            <span className="h-1 w-4 hidden md:block" style={{ backgroundColor: primaryColor }}></span> Policies & Info
                         </h3>
                         <ul className="space-y-2 md:space-y-4">
-                            <li><a href="#" className="hover:text-brand-300 transition-colors md:text-base md:font-semibold flex items-center group text-white"><span className="hidden md:block w-0 h-px bg-white group-hover:w-4 group-hover:mr-2 transition-all"></span>Fruits & Vegetables</a></li>
-                            <li><a href="#" className="hover:text-brand-300 transition-colors md:text-base md:font-semibold flex items-center group text-white"><span className="hidden md:block w-0 h-px bg-white group-hover:w-4 group-hover:mr-2 transition-all"></span>Dairy Products</a></li>
-                            <li><a href="#" className="hover:text-brand-300 transition-colors md:text-base md:font-semibold flex items-center group text-white"><span className="hidden md:block w-0 h-px bg-white group-hover:w-4 group-hover:mr-2 transition-all"></span>Meat & Fish</a></li>
-                            <li><a href="#" className="hover:text-brand-300 transition-colors md:text-base md:font-semibold flex items-center group text-white"><span className="hidden md:block w-0 h-px bg-white group-hover:w-4 group-hover:mr-2 transition-all"></span>Bakery & Snacks</a></li>
-                            <li><a href="#" className="hover:text-brand-300 transition-colors md:text-base md:font-semibold flex items-center group text-white"><span className="hidden md:block w-0 h-px bg-white group-hover:w-4 group-hover:mr-2 transition-all"></span>Beverages</a></li>
+                            <li><Link to="/privacy-policy" className="hover:text-brand-300 transition-colors md:text-base md:font-semibold flex items-center group text-white"><span className="hidden md:block w-0 h-px bg-white group-hover:w-4 group-hover:mr-2 transition-all"></span>Privacy Policy</Link></li>
+                            <li><Link to="/terms" className="hover:text-brand-300 transition-colors md:text-base md:font-semibold flex items-center group text-white"><span className="hidden md:block w-0 h-px bg-white group-hover:w-4 group-hover:mr-2 transition-all"></span>Terms & Conditions</Link></li>
+                            <li><Link to="/shipping-policy" className="hover:text-brand-300 transition-colors md:text-base md:font-semibold flex items-center group text-white"><span className="hidden md:block w-0 h-px bg-white group-hover:w-4 group-hover:mr-2 transition-all"></span>Shipping Policy</Link></li>
+                            <li><Link to="/cancellation-refund-policy" className="hover:text-brand-300 transition-colors md:text-base md:font-semibold flex items-center group text-white"><span className="hidden md:block w-0 h-px bg-white group-hover:w-4 group-hover:mr-2 transition-all"></span>Cancellation & Refund</Link></li>
                         </ul>
                     </div>
 
@@ -79,27 +79,29 @@ const Footer = () => {
                             <li className="flex items-start gap-3 md:gap-5 group">
                                 <div className="hidden md:flex h-12 w-12 rounded-xl bg-white/10 items-center justify-center text-white transition-all shrink-0 group-hover:opacity-90"><MapPin size={22} /></div>
                                 <MapPin className="mt-1 shrink-0 md:hidden" size={18} style={{ color: primaryColor }} />
-                                <span className="md:text-base text-white md:pt-1 font-medium">{settings?.address || '—'}</span>
+                                <span className="md:text-base text-white md:pt-1 font-medium">{settings?.address || 'Aahar Jain Hub, Main Market'}</span>
                             </li>
                             <li className="flex items-center gap-3 md:gap-5 group">
                                 <div className="hidden md:flex h-12 w-12 rounded-xl bg-white/10 items-center justify-center text-white transition-all shrink-0 group-hover:opacity-90"><Phone size={22} /></div>
                                 <Phone className="shrink-0 md:hidden" size={18} style={{ color: primaryColor }} />
-                                <span className="md:text-base text-white font-medium">{settings?.supportPhone || '—'}</span>
+                                <a href="tel:+919806380757" className="md:text-base text-white font-bold hover:text-emerald-300 transition-colors">+91 9806380757</a>
                             </li>
                             <li className="flex items-center gap-3 md:gap-5 group">
                                 <div className="hidden md:flex h-12 w-12 rounded-xl bg-white/10 items-center justify-center text-white transition-all shrink-0 group-hover:opacity-90"><Mail size={22} /></div>
                                 <Mail className="shrink-0 md:hidden" size={18} style={{ color: primaryColor }} />
-                                <span className="md:text-base text-white font-medium">{settings?.supportEmail || '—'}</span>
+                                <a href="mailto:aaharjain@gmail.com" className="md:text-base text-white font-medium hover:text-emerald-300 transition-colors">aaharjain@gmail.com</a>
                             </li>
                         </ul>
                     </div>
                 </div>
 
                 <div className="border-t border-white/10 mt-12 pt-8 text-center text-sm md:flex md:justify-between md:text-left md:mt-24 md:pt-12">
-                    <p className="md:text-base text-white/60">&copy; {new Date().getFullYear()} {settings?.appName || 'App'}. All rights reserved.</p>
-                    <div className="flex gap-6 justify-center md:justify-end mt-4 md:mt-0 md:gap-12">
-                        <a href="#" className="hover:text-brand-300 md:text-base text-white/60 transition-all">Privacy Policy</a>
-                        <a href="#" className="hover:text-brand-300 md:text-base text-white/60 transition-all">Terms of Service</a>
+                    <p className="md:text-base text-white/60">&copy; {new Date().getFullYear()} {settings?.appName || 'Aahar Jain'}. All rights reserved.</p>
+                    <div className="flex flex-wrap gap-4 sm:gap-6 justify-center md:justify-end mt-4 md:mt-0 md:gap-8 text-xs sm:text-sm">
+                        <Link to="/privacy-policy" className="hover:text-brand-300 text-white/70 transition-all">Privacy Policy</Link>
+                        <Link to="/terms" className="hover:text-brand-300 text-white/70 transition-all">Terms & Conditions</Link>
+                        <Link to="/shipping-policy" className="hover:text-brand-300 text-white/70 transition-all">Shipping Policy</Link>
+                        <Link to="/cancellation-refund-policy" className="hover:text-brand-300 text-white/70 transition-all">Cancellation & Refund</Link>
                     </div>
                 </div>
             </div>

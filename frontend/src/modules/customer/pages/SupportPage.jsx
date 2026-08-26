@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { MessageCircle, Phone, Mail, ChevronDown, ChevronUp, FileText, PlusCircle, X, Send, User, Clock, CheckCircle } from 'lucide-react';
+import { MessageCircle, Phone, Mail, ChevronDown, ChevronUp, FileText, PlusCircle, X, Send, User, Clock, CheckCircle, ChevronLeft } from 'lucide-react';
 import { useToast } from '@shared/components/ui/Toast';
 import { useAuth } from '@core/context/AuthContext';
 import { useSettings } from '@core/context/SettingsContext';
@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import axiosInstance from '@core/api/axios';
 import { getJSON, setJSON, STORAGE_KEYS } from '@core/utils/storage';
+import ContactDetailCard from '../components/shared/ContactDetailCard';
 
 const FAQ_CACHE_KEY = STORAGE_KEYS.FAQ_CACHE;
 const FAQ_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -103,51 +104,26 @@ const SupportPage = () => {
 
     return (
         <div className="min-h-screen bg-slate-50 pb-24 font-['Outfit',_sans-serif]">
-            <div className="max-w-2xl mx-auto px-4 pt-6 relative z-20 space-y-5">
-                {/* Official Contact Info Card */}
-                <div className="bg-gradient-to-br from-emerald-900 via-emerald-800 to-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-lg border border-emerald-700/30">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-emerald-300">
-                            <Phone size={24} />
-                        </div>
-                        <div>
-                            <h2 className="text-lg font-extrabold tracking-tight">Customer Care & Support</h2>
-                            <p className="text-xs text-emerald-200 font-medium">We're here to assist you</p>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-                        <div className="bg-white/10 backdrop-blur-xs rounded-2xl p-3.5 border border-white/10 flex flex-col justify-center">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300 block mb-1">Contact Person</span>
-                            <span className="text-sm font-bold text-white flex items-center gap-1.5">
-                                <User size={15} className="text-emerald-400 shrink-0" />
-                                {contactName}
-                            </span>
-                        </div>
-
-                        <a 
-                            href={`mailto:${contactEmail}`}
-                            className="bg-white/10 backdrop-blur-xs rounded-2xl p-3.5 border border-white/10 hover:bg-white/20 transition-all block group"
-                        >
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300 block mb-1">Email Us</span>
-                            <span className="text-sm font-bold text-white flex items-center gap-1.5 truncate group-hover:text-emerald-200">
-                                <Mail size={15} className="text-emerald-400 shrink-0" />
-                                {contactEmail}
-                            </span>
-                        </a>
-
-                        <a 
-                            href={`tel:+91${contactPhone}`}
-                            className="bg-emerald-500 hover:bg-emerald-400 text-white rounded-2xl p-3.5 border border-emerald-400/50 shadow-md transition-all block text-center"
-                        >
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-100 block mb-1">Direct Call</span>
-                            <span className="text-sm font-black flex items-center justify-center gap-1.5">
-                                <Phone size={15} className="shrink-0" />
-                                +91 {contactPhone}
-                            </span>
-                        </a>
+            {/* Header */}
+            <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md px-4 py-3.5 border-b border-slate-100 flex items-center justify-between shadow-xs">
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => navigate(-1)}
+                        className="w-10 h-10 flex items-center justify-center hover:bg-slate-100 rounded-full transition-colors -ml-1 text-slate-800 cursor-pointer"
+                        aria-label="Back"
+                    >
+                        <ChevronLeft size={22} />
+                    </button>
+                    <div>
+                        <h1 className="text-lg font-black text-slate-900 leading-tight">Help & Customer Support</h1>
+                        <p className="text-[11px] text-slate-500 font-medium">Assistance, tickets & FAQs</p>
                     </div>
                 </div>
+            </div>
+
+            <div className="max-w-2xl mx-auto px-4 pt-5 relative z-20 space-y-5">
+                {/* Official Contact Detail Card */}
+                <ContactDetailCard title="Customer Care & Support" />
 
                 {/* Contact Channels Grid */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -202,20 +178,32 @@ const SupportPage = () => {
                 </div>
 
                 {/* Legal & Policy Links */}
-                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
-                    <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3">Legal & Policies</h3>
-                    <div className="space-y-3">
-                        <Link to="/privacy-policy" className="flex items-center gap-3 text-slate-700 hover:text-slate-900 font-bold text-sm">
+                <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+                    <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3.5">Legal & Policies</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <Link to="/privacy-policy" className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 text-slate-700 hover:text-slate-900 font-bold text-sm transition-colors">
                             <div className="w-8 h-8 rounded-full bg-purple-50/80 border border-purple-100 flex items-center justify-center text-purple-700 shrink-0">
                                 <span className="text-xs">🛡️</span>
                             </div>
                             Privacy Policy
                         </Link>
-                        <Link to="/terms" className="flex items-center gap-3 text-slate-700 hover:text-slate-900 font-bold text-sm">
+                        <Link to="/terms" className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 text-slate-700 hover:text-slate-900 font-bold text-sm transition-colors">
                             <div className="w-8 h-8 rounded-full bg-indigo-50/80 border border-indigo-100 flex items-center justify-center text-indigo-700 shrink-0">
                                 <span className="text-xs">📜</span>
                             </div>
                             Terms & Conditions
+                        </Link>
+                        <Link to="/shipping-policy" className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 text-slate-700 hover:text-slate-900 font-bold text-sm transition-colors">
+                            <div className="w-8 h-8 rounded-full bg-emerald-50/80 border border-emerald-100 flex items-center justify-center text-emerald-700 shrink-0">
+                                <span className="text-xs">🚚</span>
+                            </div>
+                            Shipping Policy
+                        </Link>
+                        <Link to="/cancellation-refund-policy" className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 text-slate-700 hover:text-slate-900 font-bold text-sm transition-colors">
+                            <div className="w-8 h-8 rounded-full bg-rose-50/80 border border-rose-100 flex items-center justify-center text-rose-700 shrink-0">
+                                <span className="text-xs">🔄</span>
+                            </div>
+                            Cancellation & Refund
                         </Link>
                     </div>
                 </div>

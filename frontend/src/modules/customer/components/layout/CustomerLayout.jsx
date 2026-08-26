@@ -13,7 +13,13 @@ import { onReturnPickupOtp, onReturnDropOtp } from '@core/services/orderSocket';
 import { toast } from 'sonner';
 import { ShieldCheck, Package } from 'lucide-react';
 
-const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = false, showCart: showCartProp, showBottomNav: showBottomNavProp }) => {
+const CustomerLayout = ({
+    children,
+    showHeader: showHeaderProp = undefined,
+    fullHeight = false,
+    showCart: showCartProp = undefined,
+    showBottomNav: showBottomNavProp = undefined
+}) => {
     const location = useLocation();
     const { isOpen: isProductDetailOpen } = useProductDetail();
     const { user, token } = useAuth();
@@ -81,8 +87,12 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
 
     const isPrivacy = path === '/privacy' || path.startsWith('/privacy');
     const isSupport = path === '/support' || path.startsWith('/support');
+    const isContact = path === '/contact' || path.startsWith('/contact');
     const isTerms = path === '/terms' || path.startsWith('/terms');
     const isAbout = path === '/about' || path.startsWith('/about');
+    const isShipping = path === '/shipping' || path.startsWith('/shipping');
+    const isRefund = path.includes('refund') || path.includes('cancellation');
+    const isPolicyPage = isPrivacy || isSupport || isContact || isTerms || isAbout || isShipping || isRefund;
     const isCheckout = path === '/checkout' || path.startsWith('/checkout');
     const isSearch = path === '/search' || path.startsWith('/search');
     const isChat = path === '/chat' || path.startsWith('/chat');
@@ -91,19 +101,20 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
 
     // Desktop header visibility
     const hideHeaderDesktopRoutes = [
-        '/', '/checkout', '/chat', '/support', '/privacy', '/privacy-policy', '/about', '/terms'
+        '/', '/checkout', '/chat', '/support', '/contact', '/contact-us', '/privacy', '/privacy-policy', '/about', '/about-us', '/terms', '/shipping', '/shipping-policy', '/cancellation-refund-policy', '/refund-policy'
     ];
-    const isHeaderHiddenDesktop = hideHeaderDesktopRoutes.includes(path) || isPrivacy || isSupport || isTerms || isAbout || isCheckout || isChat;
+    const isHeaderHiddenDesktop = hideHeaderDesktopRoutes.includes(path) || isPolicyPage || isCheckout || isChat;
     const showHeaderDesktop = showHeaderProp !== undefined ? showHeaderProp : !isHeaderHiddenDesktop;
 
     // Mobile header visibility: Hide layout Header on mobile when page has its own mobile header
     const hideHeaderMobileRoutes = [
         '/', '/categories', '/orders', '/transactions', '/profile',
         '/profile/edit', '/wishlist', '/addresses', '/wallet',
-        '/support', '/privacy', '/privacy-policy', '/about', '/terms',
+        '/support', '/contact', '/contact-us', '/privacy', '/privacy-policy', '/about', '/about-us', '/terms',
+        '/shipping', '/shipping-policy', '/cancellation-refund-policy', '/refund-policy',
         '/checkout', '/search', '/chat', '/notifications'
     ];
-    const isHeaderHiddenMobile = hideHeaderMobileRoutes.includes(path) || isPrivacy || isSupport || isTerms || isAbout || path.startsWith('/category') || path.startsWith('/orders') || path.startsWith('/product') || path.startsWith('/kit');
+    const isHeaderHiddenMobile = hideHeaderMobileRoutes.includes(path) || isPolicyPage || path.startsWith('/category') || path.startsWith('/orders') || path.startsWith('/product') || path.startsWith('/kit');
     const showHeaderMobile = showHeaderProp !== undefined ? showHeaderProp : !isHeaderHiddenMobile;
 
     const hideBottomNav = isCheckout || isSearch || isChat || isProduct || isPaymentStatus;
@@ -112,8 +123,8 @@ const CustomerLayout = ({ children, showHeader: showHeaderProp, fullHeight = fal
     const showCart = showCartProp !== undefined ? showCartProp : (!isCheckout && !isSearch && !isChat && !path.startsWith('/orders'));
 
     // Condition to hide the MobileFooterMessage ("India's last minute app") on specific pages
-    const hideFooterMessageRoutes = ['/profile', '/profile/edit', '/privacy', '/privacy-policy', '/support'];
-    const showFooterMessage = showBottomNav && !hideFooterMessageRoutes.includes(path) && !path.startsWith('/category') && !isPrivacy && !isSupport;
+    const hideFooterMessageRoutes = ['/profile', '/profile/edit', '/privacy', '/privacy-policy', '/support', '/contact', '/contact-us', '/shipping-policy', '/cancellation-refund-policy', '/refund-policy'];
+    const showFooterMessage = showBottomNav && !hideFooterMessageRoutes.includes(path) && !path.startsWith('/category') && !isPolicyPage;
 
     // Hide elements on mobile only when product detail is open
     const finalShowHeaderMobile = showHeaderMobile && !isProductDetailOpen;

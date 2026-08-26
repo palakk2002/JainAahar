@@ -37,10 +37,13 @@ const OrderTransactionsPage = lazy(() => import('../../modules/customer/pages/Or
 const AddressesPage = lazy(() => import('../../modules/customer/pages/AddressesPage'));
 const SettingsPage = lazy(() => import('../../modules/customer/pages/SettingsPage'));
 const SupportPage = lazy(() => import('../../modules/customer/pages/SupportPage'));
+const ContactUsPage = lazy(() => import('../../modules/customer/pages/ContactUsPage'));
 const ChatPage = lazy(() => import('../../modules/customer/pages/ChatPage'));
 const TermsPage = lazy(() => import('../../modules/customer/pages/TermsPage'));
 const PrivacyPage = lazy(() => import('../../modules/customer/pages/PrivacyPage'));
 const AboutPage = lazy(() => import('../../modules/customer/pages/AboutPage'));
+const ShippingPolicyPage = lazy(() => import('../../modules/customer/pages/ShippingPolicyPage'));
+const RefundPolicyPage = lazy(() => import('../../modules/customer/pages/RefundPolicyPage'));
 const EditProfilePage = lazy(() => import('../../modules/customer/pages/EditProfilePage'));
 const OrderDetailPage = lazy(() => import('../../modules/customer/pages/OrderDetailPage'));
 const ProductDetailPage = lazy(() => import('../../modules/customer/pages/ProductDetailPage'));
@@ -186,10 +189,23 @@ const AppRouter = () => {
                         { path: 'product/:id', element: <ProductDetailPage /> },
                         { path: 'kit/:id', element: <KitDetailPage /> },
                         { path: 'terms', element: <TermsPage /> },
+                        { path: 'terms-conditions', element: <TermsPage /> },
+                        { path: 'terms-and-conditions', element: <TermsPage /> },
+                        { path: 'terms-of-service', element: <TermsPage /> },
                         { path: 'privacy', element: <PrivacyPage /> },
                         { path: 'privacy-policy', element: <PrivacyPage /> },
                         { path: 'support', element: <SupportPage /> },
+                        { path: 'contact', element: <ContactUsPage /> },
+                        { path: 'contact-us', element: <ContactUsPage /> },
                         { path: 'about', element: <AboutPage /> },
+                        { path: 'about-us', element: <AboutPage /> },
+                        { path: 'shipping', element: <ShippingPolicyPage /> },
+                        { path: 'shipping-policy', element: <ShippingPolicyPage /> },
+                        { path: 'shipping-delivery-policy', element: <ShippingPolicyPage /> },
+                        { path: 'cancellation-refund-policy', element: <RefundPolicyPage /> },
+                        { path: 'cancellation-and-refund-policy', element: <RefundPolicyPage /> },
+                        { path: 'cancellation-policy', element: <RefundPolicyPage /> },
+                        { path: 'refund-policy', element: <RefundPolicyPage /> },
                         { path: 'offers', element: <OffersPage /> },
                         { path: 'shop-by-store', element: <ShopByStorePage /> },
                         { path: 'wishlist', element: <ProtectedRoute><WishlistPage /></ProtectedRoute> },

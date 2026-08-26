@@ -4,7 +4,7 @@ import {
     User, MapPin, Package, CreditCard, Wallet, ChevronRight,
     LogOut, ShieldCheck, Heart, HelpCircle, Info, Edit2, ChevronLeft, Bell, ShoppingCart,
     ClipboardCheck, Ticket, LifeBuoy, MapPinned, CalendarCheck, BadgePercent, Globe,
-    Trash2, AlertTriangle
+    Trash2, AlertTriangle, Phone, ScrollText, Truck, RotateCcw
 } from 'lucide-react';
 import { useAuth } from '@core/context/AuthContext';
 import { useSettings } from '@core/context/SettingsContext';
@@ -256,19 +256,43 @@ const ProfilePage = () => {
 
                             <MenuItem
                                 icon={LifeBuoy}
-                                label={t('helpSupport')}
+                                label={t('helpSupport') || "Help & Support"}
                                 path="/support"
                                 badgeBg="bg-purple-50/80 border-purple-100/70 text-purple-700"
                             />
                             <MenuItem
+                                icon={Phone}
+                                label="Contact Us"
+                                path="/contact-us"
+                                badgeBg="bg-emerald-50/80 border-emerald-100/70 text-emerald-700"
+                            />
+                            <MenuItem
                                 icon={ShieldCheck}
-                                label={t('privacy')}
-                                path="/privacy"
+                                label={t('privacy') || "Privacy Policy"}
+                                path="/privacy-policy"
                                 badgeBg="bg-indigo-50/80 border-indigo-100/70 text-indigo-700"
                             />
                             <MenuItem
+                                icon={ScrollText}
+                                label="Terms & Conditions"
+                                path="/terms"
+                                badgeBg="bg-blue-50/80 border-blue-100/70 text-blue-700"
+                            />
+                            <MenuItem
+                                icon={Truck}
+                                label="Shipping Policy"
+                                path="/shipping-policy"
+                                badgeBg="bg-teal-50/80 border-teal-100/70 text-teal-700"
+                            />
+                            <MenuItem
+                                icon={RotateCcw}
+                                label="Cancellation & Refund"
+                                path="/cancellation-refund-policy"
+                                badgeBg="bg-rose-50/80 border-rose-100/70 text-rose-700"
+                            />
+                            <MenuItem
                                 icon={Info}
-                                label={t('aboutUs')}
+                                label={t('aboutUs') || "About Us"}
                                 path="/about"
                                 badgeBg="bg-cyan-50/80 border-cyan-100/70 text-cyan-700"
                             />
