@@ -3,12 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@core/context/AuthContext';
 import { useSettings } from '@core/context/SettingsContext';
 import { useTranslation } from '@core/context/LanguageContext';
-import { ChevronLeft, Globe, ChevronDown, Mail } from 'lucide-react';
+import { ChevronLeft, Globe, ChevronDown, Mail, Phone } from 'lucide-react';
 import { toast } from 'sonner';
 import { customerApi } from '../services/customerApi';
 
 const CustomerAuth = () => {
     const [isLogin, setIsLogin] = useState(true);
+    const [authMethod, setAuthMethod] = useState('phone'); // 'phone' | 'email'
     const [isLoading, setIsLoading] = useState(false);
     const [showOtp, setShowOtp] = useState(false);
     const [timer, setTimer] = useState(0);
@@ -21,6 +22,7 @@ const CustomerAuth = () => {
     const navigate = useNavigate();
 
     const [formData, setFormData] = useState({
+        phone: '',
         email: '',
         otp: '',
         name: '',
@@ -47,36 +49,70 @@ const CustomerAuth = () => {
 
     const handleSendOtp = async (e) => {
         e?.preventDefault();
-        const emailTrimmed = formData.email.trim();
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailTrimmed || !emailRegex.test(emailTrimmed)) {
-            toast.error('Please enter a valid email address');
-            return;
-        }
-        if (!isLogin && !formData.name.trim()) {
-            toast.error(t('enterFullName'));
-            return;
-        }
-        
-        setIsLoading(true);
-        try {
-            if (isLogin) {
-                await customerApi.sendLoginOtp({ email: emailTrimmed });
-            } else {
-                await customerApi.sendSignupOtp({ 
-                    name: formData.name.trim(), 
-                    email: emailTrimmed,
-                    referralCode: formData.referralCode
-                });
+
+        if (authMethod === 'phone') {
+            const phoneTrimmed = formData.phone.trim().replace(/\D/g, '');
+            if (!phoneTrimmed || phoneTrimmed.length < 10) {
+                toast.error(t('enterValidPhone') || 'Please enter a valid 10-digit mobile number');
+                return;
             }
-            setShowOtp(true);
-            setTimer(30);
-            toast.success('OTP sent to your email!');
-        } catch (error) {
-            const apiMessage = error?.response?.data?.message || error?.message || 'Failed to send OTP';
-            toast.error(apiMessage);
-        } finally {
-            setIsLoading(false);
+            if (!isLogin && !formData.name.trim()) {
+                toast.error(t('enterFullName'));
+                return;
+            }
+
+            setIsLoading(true);
+            try {
+                if (isLogin) {
+                    await customerApi.sendLoginOtp({ phone: phoneTrimmed });
+                } else {
+                    await customerApi.sendSignupOtp({
+                        name: formData.name.trim(),
+                        phone: phoneTrimmed,
+                        referralCode: formData.referralCode
+                    });
+                }
+                setShowOtp(true);
+                setTimer(30);
+                toast.success('OTP sent to your mobile number!');
+            } catch (error) {
+                const apiMessage = error?.response?.data?.message || error?.message || 'Failed to send OTP';
+                toast.error(apiMessage);
+            } finally {
+                setIsLoading(false);
+            }
+        } else {
+            const emailTrimmed = formData.email.trim();
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailTrimmed || !emailRegex.test(emailTrimmed)) {
+                toast.error('Please enter a valid email address');
+                return;
+            }
+            if (!isLogin && !formData.name.trim()) {
+                toast.error(t('enterFullName'));
+                return;
+            }
+
+            setIsLoading(true);
+            try {
+                if (isLogin) {
+                    await customerApi.sendLoginOtp({ email: emailTrimmed });
+                } else {
+                    await customerApi.sendSignupOtp({
+                        name: formData.name.trim(),
+                        email: emailTrimmed,
+                        referralCode: formData.referralCode
+                    });
+                }
+                setShowOtp(true);
+                setTimer(30);
+                toast.success('OTP sent to your email!');
+            } catch (error) {
+                const apiMessage = error?.response?.data?.message || error?.message || 'Failed to send OTP';
+                toast.error(apiMessage);
+            } finally {
+                setIsLoading(false);
+            }
         }
     };
 
@@ -88,7 +124,14 @@ const CustomerAuth = () => {
         }
         setIsLoading(true);
         try {
-            const response = await customerApi.verifyOtp({ email: formData.email.trim(), otp: formData.otp });
+            const payload = {
+                otp: formData.otp,
+                ...(authMethod === 'phone'
+                    ? { phone: formData.phone.trim().replace(/\D/g, '') }
+                    : { email: formData.email.trim() }
+                )
+            };
+            const response = await customerApi.verifyOtp(payload);
             const { token, customer } = response.data.result;
             login({ ...customer, token, role: 'customer' });
             toast.success(t('loggedInSuccess'));
@@ -178,13 +221,43 @@ const CustomerAuth = () => {
                 
                 {!showOtp ? (
                     <>
-                        <div className="text-left mb-6">
+                        <div className="text-left mb-4">
                             <h2 className="text-xl font-bold text-gray-900">
                                 {t('loginSignup')}
                             </h2>
                             <p className="mt-1 text-sm text-gray-500">
-                                {isLogin ? "Enter your email address to continue" : t('createAccount')}
+                                {isLogin
+                                    ? (authMethod === 'phone' ? (t('enterMobile') || 'Enter your mobile number to continue') : 'Enter your email address to continue')
+                                    : t('createAccount')}
                             </p>
+                        </div>
+
+                        {/* Phone / Email Toggle Switch */}
+                        <div className="mb-4 p-1 bg-gray-100/80 rounded-2xl flex items-center gap-1 border border-gray-200/60">
+                            <button
+                                type="button"
+                                onClick={() => setAuthMethod('phone')}
+                                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                    authMethod === 'phone'
+                                        ? 'bg-white text-orange-600 shadow-xs border border-gray-200/50'
+                                        : 'text-gray-500 hover:text-gray-800'
+                                }`}
+                            >
+                                <Phone size={14} />
+                                <span>Phone Number</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setAuthMethod('email')}
+                                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                    authMethod === 'email'
+                                        ? 'bg-white text-orange-600 shadow-xs border border-gray-200/50'
+                                        : 'text-gray-500 hover:text-gray-800'
+                                }`}
+                            >
+                                <Mail size={14} />
+                                <span>Email Address</span>
+                            </button>
                         </div>
 
                         <form className="space-y-4" onSubmit={handleSendOtp}>
@@ -214,20 +287,39 @@ const CustomerAuth = () => {
                                 </div>
                             )}
 
-                            <div className="relative flex items-center border border-gray-200 rounded-xl overflow-hidden focus-within:border-[#f97316] focus-within:ring-1 focus-within:ring-[#f97316] transition-all bg-white">
-                                <div className="pl-4 pr-3 py-3.5 text-gray-400 border-r border-gray-200 bg-gray-50 flex items-center justify-center">
-                                    <Mail size={18} />
+                            {authMethod === 'phone' ? (
+                                <div className="relative flex items-center border border-gray-200 rounded-xl overflow-hidden focus-within:border-[#f97316] focus-within:ring-1 focus-within:ring-[#f97316] transition-all bg-white">
+                                    <div className="pl-4 pr-3 py-3.5 text-gray-600 font-bold text-sm border-r border-gray-200 bg-gray-50 flex items-center gap-1.5">
+                                        <Phone size={15} className="text-gray-400" />
+                                        <span>+91</span>
+                                    </div>
+                                    <input
+                                        required
+                                        type="tel"
+                                        name="phone"
+                                        maxLength={10}
+                                        value={formData.phone}
+                                        placeholder={t('enterMobile') || 'Enter 10-digit mobile number'}
+                                        className="w-full px-4 py-3.5 text-sm font-semibold text-gray-800 outline-none bg-transparent"
+                                        onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                                    />
                                 </div>
-                                <input
-                                    required
-                                    type="email"
-                                    name="email"
-                                    value={formData.email}
-                                    placeholder="Enter your email address"
-                                    className="w-full px-4 py-3.5 text-sm font-semibold text-gray-800 outline-none bg-transparent"
-                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                />
-                            </div>
+                            ) : (
+                                <div className="relative flex items-center border border-gray-200 rounded-xl overflow-hidden focus-within:border-[#f97316] focus-within:ring-1 focus-within:ring-[#f97316] transition-all bg-white">
+                                    <div className="pl-4 pr-3 py-3.5 text-gray-400 border-r border-gray-200 bg-gray-50 flex items-center justify-center">
+                                        <Mail size={18} />
+                                    </div>
+                                    <input
+                                        required
+                                        type="email"
+                                        name="email"
+                                        value={formData.email}
+                                        placeholder="Enter your email address"
+                                        className="w-full px-4 py-3.5 text-sm font-semibold text-gray-800 outline-none bg-transparent"
+                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                    />
+                                </div>
+                            )}
 
                             <button
                                 type="submit"
@@ -241,7 +333,7 @@ const CustomerAuth = () => {
                         <div className="mt-6 text-center">
                             <button
                                 onClick={() => setIsLogin(!isLogin)}
-                                className="text-sm font-semibold text-gray-500 hover:text-[#f97316] transition-colors"
+                                className="text-sm font-semibold text-gray-500 hover:text-[#f97316] transition-colors cursor-pointer"
                             >
                                 {isLogin ? t('newUser') : t('alreadyAccount')}
                             </button>
@@ -253,7 +345,7 @@ const CustomerAuth = () => {
                             <div className="flex items-center gap-3 mb-1">
                                 <button
                                     onClick={() => setShowOtp(false)}
-                                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                                    className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
                                 >
                                     <ChevronLeft size={20} />
                                 </button>
@@ -262,7 +354,7 @@ const CustomerAuth = () => {
                                 </h2>
                             </div>
                             <p className="mt-1 text-sm text-gray-500 ml-8">
-                                Sent to {formData.email}
+                                Sent to {authMethod === 'phone' ? `+91 ${formData.phone}` : formData.email}
                             </p>
                         </div>
 
@@ -310,7 +402,7 @@ const CustomerAuth = () => {
                                         type="button"
                                         disabled={timer > 0}
                                         onClick={handleSendOtp}
-                                        className={`text-sm font-semibold ${timer > 0 ? 'text-gray-400' : 'text-[#f97316] hover:underline'}`}
+                                        className={`text-sm font-semibold cursor-pointer ${timer > 0 ? 'text-gray-400' : 'text-[#f97316] hover:underline'}`}
                                     >
                                         {timer > 0 ? `${t('resendIn')} ${timer}s` : t('resendCode')}
                                     </button>

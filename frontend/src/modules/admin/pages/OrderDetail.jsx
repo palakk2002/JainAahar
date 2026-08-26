@@ -73,25 +73,19 @@ const OrderDetail = () => {
 
     const handleShiprocketCreateAdmin = async () => {
         try {
-            const token = localStorage.getItem('adminToken') || localStorage.getItem('token');
-            const API_URL = import.meta.env.VITE_API_URL || "http://localhost:7000/api";
-            const res = await fetch(`${API_URL}/delivery/shipment/create`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: token ? `Bearer ${token}` : "",
-                },
-                body: JSON.stringify({ orderId: order.orderId, preferredProvider: "shiprocket" }),
+            const res = await adminApi.createShipment({
+                orderId: order.orderId,
+                preferredProvider: "shiprocket",
             });
-            const data = await res.json();
-            if (res.ok && data.success) {
-                showToast(`Shiprocket AWB #${data.result?.externalId || "Generated"} Created!`, "success");
+            if (res.data?.success) {
+                showToast(`Shiprocket AWB #${res.data?.result?.externalId || "Generated"} Created!`, "success");
                 fetchDetail();
             } else {
-                showToast(data.message || "Shipment creation failed", "error");
+                showToast(res.data?.message || "Shipment creation failed", "error");
             }
         } catch (err) {
-            showToast("Failed to connect to Shiprocket service", "error");
+            console.error("Shiprocket shipment creation error:", err);
+            showToast(err.response?.data?.message || "Failed to connect to Shiprocket service", "error");
         }
     };
 

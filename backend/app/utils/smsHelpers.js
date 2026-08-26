@@ -40,19 +40,35 @@ export function buildMessage(otp) {
     .replace(/\$\{minutes\}/g, String(minutes))
     .replace(/\$\{appName\}/g, appName);
 
-  // DLT templates often use generic variable tokens. Replace them in a stable order
-  // so the generated content always matches the approved template wording.
-  const genericPlaceholders = [
-    "##var##",
-    "{#var#}",
-    "{#VAR#}",
-    "{#var1#}",
-    "{#var2#}",
-    "{#var3#}",
-  ];
-  const replacementOrder = [appName, String(otp), String(minutes)];
+  // Count total occurrences of generic placeholders
+  const genericTokens = ["##var##", "{#var#}", "{#VAR#}"];
+  let totalGenericTokens = 0;
+  for (const token of genericTokens) {
+    let pos = 0;
+    while ((pos = msg.indexOf(token, pos)) !== -1) {
+      totalGenericTokens += 1;
+      pos += token.length;
+    }
+  }
 
-  genericPlaceholders.forEach((placeholder) => {
+  // Determine replacement order based on token count
+  let replacementOrder;
+  if (totalGenericTokens === 1) {
+    replacementOrder = [String(otp)];
+  } else if (totalGenericTokens === 2) {
+    replacementOrder = [String(otp), String(minutes)];
+  } else {
+    replacementOrder = [appName, String(otp), String(minutes)];
+  }
+
+  // Replace explicit numbered DLT placeholders first if present
+  msg = msg
+    .replace(/\{#var1#\}/g, appName)
+    .replace(/\{#var2#\}/g, String(otp))
+    .replace(/\{#var3#\}/g, String(minutes));
+
+  // Replace unnumbered generic placeholders in determined order
+  genericTokens.forEach((placeholder) => {
     let occurrence = 0;
     while (msg.includes(placeholder)) {
       const replacement =
