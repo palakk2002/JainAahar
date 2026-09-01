@@ -30,7 +30,9 @@ function tokenForRequestUrl(url) {
     if (url.startsWith('/seller')) return getStoredAuthToken(STORAGE_KEYS.AUTH_SELLER);
     if (url.startsWith('/admin')) return getStoredAuthToken(STORAGE_KEYS.AUTH_ADMIN);
     if (url.startsWith('/delivery')) return getStoredAuthToken(STORAGE_KEYS.AUTH_DELIVERY);
-    if (url.startsWith('/warehouse')) return getStoredAuthToken(STORAGE_KEYS.AUTH_WAREHOUSE);
+    if (url.startsWith('/warehouse')) {
+        return getStoredAuthToken(STORAGE_KEYS.AUTH_WAREHOUSE) || getStoredAuthToken(STORAGE_KEYS.AUTH_ADMIN);
+    }
     if (
         url.startsWith('/customer') ||
         url.startsWith('/cart') ||
@@ -66,6 +68,11 @@ axiosInstance.interceptors.request.use(
         const activeRole = getActiveRole();
         const primaryStorageKey = ROLE_TO_STORAGE_KEY[activeRole];
         let token = primaryStorageKey ? getStoredAuthToken(primaryStorageKey) : null;
+
+        // Fallback: If in warehouse portal and no warehouse token is stored, check for admin token
+        if (!token && (activeRole === ROLES.WAREHOUSE || activeRole === ROLES.WAREHOUSE_MGMT)) {
+            token = getStoredAuthToken(STORAGE_KEYS.AUTH_ADMIN);
+        }
 
         // Fallback 1: URL-derived token (cross-portal calls, e.g. admin → /products).
         if (!token) {

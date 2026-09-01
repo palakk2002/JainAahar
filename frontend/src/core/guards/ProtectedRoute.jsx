@@ -3,7 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@core/context/AuthContext';
 
 const ProtectedRoute = ({ children }) => {
-    const { isAuthenticated, isLoading, user } = useAuth();
+    const { isAuthenticated, isLoading, user, authData, role } = useAuth();
     const location = useLocation();
 
     if (isLoading) {
@@ -13,6 +13,8 @@ const ProtectedRoute = ({ children }) => {
             </div>
         );
     }
+
+    const isAdmin = role === 'admin' || user?.role === 'admin' || Boolean(authData?.admin);
 
     if (!isAuthenticated) {
         if (location.pathname.startsWith('/admin')) {
@@ -24,13 +26,19 @@ const ProtectedRoute = ({ children }) => {
         if (location.pathname.startsWith('/delivery')) {
             return <Navigate to="/delivery/auth" state={{ from: location }} replace />;
         }
-        if (location.pathname.startsWith('/warehouse')) {
+        if (location.pathname.startsWith('/warehouse') || location.pathname.startsWith('/warehouse-mgmt')) {
+            if (isAdmin) {
+                return <>{children}</>;
+            }
             return <Navigate to="/warehouse/auth" state={{ from: location }} replace />;
         }
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
     if (location.pathname.startsWith('/seller')) {
+        if (isAdmin) {
+            return <>{children}</>;
+        }
         const applicationStatus =
             user?.applicationStatus || (user?.isVerified ? 'approved' : 'pending');
         const isApprovedSeller =
@@ -54,7 +62,12 @@ const ProtectedRoute = ({ children }) => {
         }
     }
 
-    if (location.pathname.startsWith('/warehouse')) {
+    if (location.pathname.startsWith('/warehouse') || location.pathname.startsWith('/warehouse-mgmt')) {
+        // Admin users have full access to warehouse operations
+        if (isAdmin) {
+            return <>{children}</>;
+        }
+
         const applicationStatus =
             user?.applicationStatus || (user?.isVerified ? 'approved' : 'pending');
         const isApprovedWarehouse =

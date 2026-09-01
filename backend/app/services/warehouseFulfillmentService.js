@@ -362,6 +362,20 @@ export async function markPacked({ id, user, notes = "" }) {
   }
   await fulfillment.save();
 
+  // Notify customer via WhatsApp (Non-blocking)
+  setImmediate(async () => {
+    try {
+      const { sendOrderNotification } = await import("./whatsappService.js");
+      const { WHATSAPP_EVENTS } = await import("../constants/whatsapp.js");
+      await sendOrderNotification(WHATSAPP_EVENTS.ORDER_PACKED, {
+        orderId: fulfillment.orderId,
+        order: fulfillment.order,
+      });
+    } catch (waErr) {
+      logger.debug("[WarehouseFulfillment] WhatsApp packed notification skipped", { error: waErr?.message });
+    }
+  });
+
   return fulfillment;
 }
 
@@ -518,6 +532,24 @@ export async function createShiprocketShipmentForFulfillment(fulfillmentDoc) {
   fulfillmentDoc.shipmentStatus = shipmentResult.providerStatus || "SHIPMENT_CREATED";
 
   await fulfillmentDoc.save();
+
+  // Notify customer via WhatsApp (Non-blocking)
+  setImmediate(async () => {
+    try {
+      const { sendShipmentNotification } = await import("./whatsappService.js");
+      const { WHATSAPP_EVENTS } = await import("../constants/whatsapp.js");
+      await sendShipmentNotification(WHATSAPP_EVENTS.SHIPMENT_CREATED, {
+        order,
+        shipment: fulfillmentDoc,
+        awbCode: fulfillmentDoc.awbCode,
+        courierName: "Shiprocket",
+        trackingUrl: fulfillmentDoc.trackingUrl,
+      });
+    } catch (waErr) {
+      logger.debug("[WarehouseFulfillment] WhatsApp shipment created notification skipped", { error: waErr?.message });
+    }
+  });
+
   return fulfillmentDoc;
 }
 
@@ -626,6 +658,20 @@ export async function markCompleted({ id, user, notes = "" }) {
         },
         updatedOrder.customer,
       );
+
+      // Notify customer via WhatsApp (Non-blocking)
+      setImmediate(async () => {
+        try {
+          const { sendOrderNotification } = await import("./whatsappService.js");
+          const { WHATSAPP_EVENTS } = await import("../constants/whatsapp.js");
+          await sendOrderNotification(WHATSAPP_EVENTS.ORDER_DELIVERED, {
+            order: updatedOrder,
+            orderId: fulfillment.orderId,
+          });
+        } catch (waErr) {
+          logger.debug("[WarehouseFulfillment] WhatsApp delivered notification skipped", { error: waErr?.message });
+        }
+      });
     }
   } catch (ordErr) {
     logger.warn(`[WarehouseFulfillment] Error updating order status to delivered: ${ordErr.message}`);

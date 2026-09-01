@@ -4,7 +4,7 @@ import {
     User, MapPin, Package, CreditCard, Wallet, ChevronRight,
     LogOut, ShieldCheck, Heart, HelpCircle, Info, Edit2, ChevronLeft, Bell, ShoppingCart,
     ClipboardCheck, Ticket, LifeBuoy, MapPinned, CalendarCheck, BadgePercent, Globe,
-    Trash2, AlertTriangle, Phone, ScrollText, Truck, RotateCcw
+    Trash2, AlertTriangle, Phone, ScrollText, Truck, RotateCcw, MessageSquare, Settings
 } from 'lucide-react';
 import { useAuth } from '@core/context/AuthContext';
 import { useSettings } from '@core/context/SettingsContext';
@@ -254,6 +254,12 @@ const ProfilePage = () => {
                                 )}
                             </div>
 
+                            <MenuItem
+                                icon={MessageSquare}
+                                label="WhatsApp & Notification Settings"
+                                path="/profile/settings"
+                                badgeBg="bg-emerald-50/80 border-emerald-100/70 text-emerald-700"
+                            />
                             <MenuItem
                                 icon={LifeBuoy}
                                 label={t('helpSupport') || "Help & Support"}

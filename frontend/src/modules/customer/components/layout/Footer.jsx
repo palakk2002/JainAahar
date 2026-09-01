@@ -67,6 +67,8 @@ const Footer = () => {
                             <li><Link to="/terms" className="hover:text-brand-300 transition-colors md:text-base md:font-semibold flex items-center group text-white"><span className="hidden md:block w-0 h-px bg-white group-hover:w-4 group-hover:mr-2 transition-all"></span>Terms & Conditions</Link></li>
                             <li><Link to="/shipping-policy" className="hover:text-brand-300 transition-colors md:text-base md:font-semibold flex items-center group text-white"><span className="hidden md:block w-0 h-px bg-white group-hover:w-4 group-hover:mr-2 transition-all"></span>Shipping Policy</Link></li>
                             <li><Link to="/cancellation-refund-policy" className="hover:text-brand-300 transition-colors md:text-base md:font-semibold flex items-center group text-white"><span className="hidden md:block w-0 h-px bg-white group-hover:w-4 group-hover:mr-2 transition-all"></span>Cancellation & Refund</Link></li>
+                            <li><Link to="/support" className="hover:text-brand-300 transition-colors md:text-base md:font-semibold flex items-center group text-white"><span className="hidden md:block w-0 h-px bg-white group-hover:w-4 group-hover:mr-2 transition-all"></span>Help & Support</Link></li>
+                            <li><Link to="/contact-us" className="hover:text-brand-300 transition-colors md:text-base md:font-semibold flex items-center group text-white"><span className="hidden md:block w-0 h-px bg-white group-hover:w-4 group-hover:mr-2 transition-all"></span>Contact Us</Link></li>
                         </ul>
                     </div>
 
@@ -79,7 +81,13 @@ const Footer = () => {
                             <li className="flex items-start gap-3 md:gap-5 group">
                                 <div className="hidden md:flex h-12 w-12 rounded-xl bg-white/10 items-center justify-center text-white transition-all shrink-0 group-hover:opacity-90"><MapPin size={22} /></div>
                                 <MapPin className="mt-1 shrink-0 md:hidden" size={18} style={{ color: primaryColor }} />
-                                <span className="md:text-base text-white md:pt-1 font-medium">{settings?.address || 'Aahar Jain Hub, Main Market'}</span>
+                                <div className="md:text-base text-white md:pt-1 font-medium leading-relaxed">
+                                    {settings?.address ? settings.address : (
+                                        <>
+                                            Flat/Door/Block No. 00, SITA CENTRAL SCHOOL, Karera, Road/Street/Lane KARERA, District SHIVPURI, MADHYA PRADESH - 473660
+                                        </>
+                                    )}
+                                </div>
                             </li>
                             <li className="flex items-center gap-3 md:gap-5 group">
                                 <div className="hidden md:flex h-12 w-12 rounded-xl bg-white/10 items-center justify-center text-white transition-all shrink-0 group-hover:opacity-90"><Phone size={22} /></div>
@@ -89,7 +97,7 @@ const Footer = () => {
                             <li className="flex items-center gap-3 md:gap-5 group">
                                 <div className="hidden md:flex h-12 w-12 rounded-xl bg-white/10 items-center justify-center text-white transition-all shrink-0 group-hover:opacity-90"><Mail size={22} /></div>
                                 <Mail className="shrink-0 md:hidden" size={18} style={{ color: primaryColor }} />
-                                <a href="mailto:aaharjain@gmail.com" className="md:text-base text-white font-medium hover:text-emerald-300 transition-colors">aaharjain@gmail.com</a>
+                                <a href="mailto:Nikhilkarera@gmail.com" className="md:text-base text-white font-medium hover:text-emerald-300 transition-colors">Nikhilkarera@gmail.com</a>
                             </li>
                         </ul>
                     </div>
@@ -102,6 +110,8 @@ const Footer = () => {
                         <Link to="/terms" className="hover:text-brand-300 text-white/70 transition-all">Terms & Conditions</Link>
                         <Link to="/shipping-policy" className="hover:text-brand-300 text-white/70 transition-all">Shipping Policy</Link>
                         <Link to="/cancellation-refund-policy" className="hover:text-brand-300 text-white/70 transition-all">Cancellation & Refund</Link>
+                        <Link to="/support" className="hover:text-brand-300 text-white/70 transition-all">Help & Support</Link>
+                        <Link to="/contact-us" className="hover:text-brand-300 text-white/70 transition-all">Contact Us</Link>
                     </div>
                 </div>
             </div>

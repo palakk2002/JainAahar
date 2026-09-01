@@ -30,6 +30,8 @@ import kitRoute from "./kitRoutes.js";
 import authOtpRoute from "../modules/otp/otp.routes.js";
 import employeeRoute from "./employeeRoutes.js";
 import translationRoute from "./translationRoutes.js";
+import whatsappRoute from "./whatsappRoutes.js";
+import whatsappWebhookRoute from "./whatsappWebhookRoutes.js";
 
 import express from "express";
 
@@ -40,6 +42,9 @@ const setupRoutes = (app) => {
     app.use("/health", healthRoute);
     app.use("/metrics", metricsRoute);
 
+    router.use("/admin/whatsapp", whatsappRoute);
+    router.use("/customer/whatsapp", whatsappRoute);
+    router.use("/webhooks", whatsappWebhookRoute);
     router.use("/customer", customerRoute);
     router.use("/delivery", deliveryRoute);
     router.use("/delivery", deliveryWebhookRoute);

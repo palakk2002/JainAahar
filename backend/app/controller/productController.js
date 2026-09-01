@@ -162,7 +162,45 @@ function makeProductSku(name, index = 1) {
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "")
     .slice(0, 5) || "item";
-  return `${prefix}-${String(index).padStart(3, "0")}`;
+  const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `${prefix.toUpperCase()}-${String(index).padStart(2, "0")}-${randomSuffix}`;
+}
+
+async function ensureUniqueSlug(baseSlug, excludeId = null) {
+  let slug = baseSlug || "product";
+  let count = 0;
+  while (true) {
+    const candidate = count === 0 ? slug : `${slug}-${count}`;
+    const query = { slug: candidate };
+    if (excludeId) {
+      query._id = { $ne: excludeId };
+    }
+    const exists = await Product.exists(query);
+    if (!exists) {
+      return candidate;
+    }
+    count++;
+  }
+}
+
+async function ensureUniqueSku(baseSku, excludeId = null) {
+  let sku = String(baseSku || "").trim();
+  if (!sku) {
+    sku = `ITEM-${Date.now().toString(36).toUpperCase()}`;
+  }
+  let count = 0;
+  while (true) {
+    const candidate = count === 0 ? sku : `${sku}-${count}`;
+    const query = { sku: candidate };
+    if (excludeId) {
+      query._id = { $ne: excludeId };
+    }
+    const exists = await Product.exists(query);
+    if (!exists) {
+      return candidate;
+    }
+    count++;
+  }
 }
 
 function parseJsonIfString(value) {
@@ -178,8 +216,11 @@ function parseJsonIfString(value) {
 
 function normalizeUrl(value) {
   const normalized = String(value || "").trim();
-  if (!/^https?:\/\//i.test(normalized)) return "";
-  return normalized;
+  if (!normalized) return "";
+  if (/^https?:\/\//i.test(normalized) || /^data:image\//i.test(normalized) || normalized.startsWith("/")) {
+    return normalized;
+  }
+  return "";
 }
 
 function parseImageList(input) {
@@ -208,8 +249,6 @@ function applyMediaFields(productData) {
   } else if (mergedGallery.length > 0) {
     productData.mainImage = mergedGallery[0];
     mergedGallery.shift();
-  } else {
-    delete productData.mainImage;
   }
 
   if (mergedGallery.length > 0) {
@@ -774,22 +813,20 @@ export const createProduct = async (req, res) => {
       return handleResponse(res, 400, "Product name is required");
     }
     
-    // Auto-generate slug
-    if (!productData.slug || productData.slug.trim() === "") {
-      productData.slug = slugify(productData.name);
-    } else {
-      productData.slug = slugify(productData.slug);
-    }
+    // Auto-generate unique slug
+    const baseSlug = slugify(productData.slug || productData.name) || "product";
+    productData.slug = await ensureUniqueSlug(baseSlug);
 
     productData.description =
       typeof productData.description === "string"
         ? productData.description.trim()
         : productData.description || "";
 
-    // Auto-generate product SKU if missing
-    if (!productData.sku || String(productData.sku).trim() === "") {
-      productData.sku = makeProductSku(productData.name, 1);
-    }
+    // Auto-generate and guarantee unique product SKU
+    const baseSku = productData.sku && String(productData.sku).trim()
+      ? String(productData.sku).trim()
+      : makeProductSku(productData.name, 1);
+    productData.sku = await ensureUniqueSku(baseSku);
 
     applyMediaFields(productData);
 
@@ -812,7 +849,7 @@ export const createProduct = async (req, res) => {
         ...variant,
         sku:
           variant?.sku && String(variant.sku).trim()
-            ? variant.sku
+            ? String(variant.sku).trim()
             : makeProductSku(productData.name, idx + 1),
       }));
     }
@@ -958,11 +995,10 @@ export const updateProduct = async (req, res) => {
     }
 
     if (productData.name) {
-      if (!productData.slug || productData.slug.trim() === "") {
-        productData.slug = slugify(productData.name);
-      } else {
-        productData.slug = slugify(productData.slug);
-      }
+      const baseSlug = slugify(productData.slug || productData.name) || "product";
+      productData.slug = await ensureUniqueSlug(baseSlug, id);
+    } else if (productData.slug) {
+      productData.slug = await ensureUniqueSlug(slugify(productData.slug), id);
     }
 
     if (productData.description !== undefined) {
@@ -973,8 +1009,10 @@ export const updateProduct = async (req, res) => {
     }
 
     const skuBaseName = productData.name || product.name;
-    if (!productData.sku || String(productData.sku).trim() === "") {
-      productData.sku = product.sku || makeProductSku(skuBaseName, 1);
+    if (productData.sku && String(productData.sku).trim() !== "") {
+      productData.sku = await ensureUniqueSku(productData.sku, id);
+    } else if (!product.sku) {
+      productData.sku = await ensureUniqueSku(makeProductSku(skuBaseName, 1), id);
     }
     if (productData.mainImage === undefined && product.mainImage) {
       productData.mainImage = product.mainImage;
@@ -999,7 +1037,7 @@ export const updateProduct = async (req, res) => {
         ...variant,
         sku:
           variant?.sku && String(variant.sku).trim()
-            ? variant.sku
+            ? String(variant.sku).trim()
             : makeProductSku(skuBaseName, idx + 1),
       }));
     }
@@ -1100,6 +1138,55 @@ export const deleteProduct = async (req, res) => {
     }
 
     return handleResponse(res, 200, "Product deleted successfully");
+  } catch (error) {
+    return handleResponse(res, 500, error.message);
+  }
+};
+
+/* ===============================
+   DELETE ALL PRODUCTS (ADMIN / SELLER)
+================================ */
+export const deleteAllProducts = async (req, res) => {
+  try {
+    const sellerId = req.user.id;
+    const role = req.user.role;
+
+    const query = role === "admin" ? {} : { sellerId };
+    const productsToDelete = await Product.find(query).select("_id");
+    const ids = productsToDelete.map((p) => String(p._id));
+
+    if (ids.length === 0) {
+      return handleResponse(res, 200, "No products found to delete", { deletedCount: 0 });
+    }
+
+    const result = await Product.deleteMany(query);
+
+    // Enqueue search index removal and invalidate caches for all deleted products
+    await Promise.allSettled(
+      ids.map(async (id) => {
+        try {
+          await enqueueProductRemoval(id);
+          await invalidate(`cache:catalog:product:${id}`);
+        } catch (e) {
+          // continue
+        }
+      })
+    );
+
+    try {
+      await invalidate(buildKey("catalog", "productList", "*"));
+      await invalidate(buildKey("catalog", "categories", "*"));
+      await invalidate("cache:offersections:public:*");
+    } catch (cacheErr) {
+      logger.error("Cache invalidation error", {
+        scope: "deleteAllProducts",
+        error: cacheErr,
+      });
+    }
+
+    return handleResponse(res, 200, `Successfully deleted ${result.deletedCount || ids.length} products`, {
+      deletedCount: result.deletedCount || ids.length,
+    });
   } catch (error) {
     return handleResponse(res, 500, error.message);
   }

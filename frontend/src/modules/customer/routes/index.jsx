@@ -64,6 +64,7 @@ const CustomerRoutes = () => {
                                 <Route path="payment-status" element={<ProtectedRoute><PaymentStatusPage /></ProtectedRoute>} />
                                 <Route path="profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
                                 <Route path="profile/edit" element={<ProtectedRoute><EditProfilePage /></ProtectedRoute>} />
+                                <Route path="profile/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
                             </Routes>
                         </PageTransitionProvider>
                     </CartAnimationProvider>

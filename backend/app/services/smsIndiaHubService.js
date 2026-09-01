@@ -1,20 +1,56 @@
 import axios from "axios";
-import { buildMessage, toIndianNumber } from "../utils/smsHelpers.js";
+import { buildMessage, normalizeMobile, toIndianNumber } from "../utils/smsHelpers.js";
 
 const SMS_INDIA_SUCCESS_CODE = "000";
 
 function getSmsIndiaConfig() {
   return {
-    apiKey: String(process.env.SMS_INDIA_HUB_API_KEY || "").trim(),
-    senderId: String(process.env.SMS_INDIA_HUB_SENDER_ID || "").trim(),
-    dltTemplateId: String(process.env.SMS_INDIA_HUB_DLT_TEMPLATE_ID || "").trim(),
+    apiKey: String(
+      process.env.SMS_INDIA_HUB_API_KEY ||
+        process.env.SMS_API_KEY ||
+        process.env.SMS_KEY ||
+        "",
+    ).trim(),
+    senderId: String(
+      process.env.SMS_INDIA_HUB_SENDER_ID ||
+        process.env.SMS_SENDER_ID ||
+        process.env.SMS_SENDERID ||
+        "",
+    ).trim(),
+    dltTemplateId: String(
+      process.env.SMS_INDIA_HUB_DLT_TEMPLATE_ID ||
+        process.env.SMS_TEMPLATE_ID ||
+        process.env.SMS_DLT_TEMPLATE_ID ||
+        "",
+    ).trim(),
     gatewayId: String(process.env.SMS_INDIA_HUB_GWID || "2").trim(),
-    peId: String(process.env.SMS_INDIA_HUB_PE_ID || "").trim(),
+    campaignId: String(
+      process.env.SMS_CAMPAIGN_ID ||
+        process.env.SMS_INDIA_HUB_CAMPAIGN_ID ||
+        "12719",
+    ).trim(),
+    routeId: String(
+      process.env.SMS_ROUTE_ID ||
+        process.env.SMS_INDIA_HUB_ROUTE_ID ||
+        "100768",
+    ).trim(),
+    peId: String(
+      process.env.SMS_INDIA_HUB_PE_ID ||
+        process.env.SMS_PE_ID ||
+        "",
+    ).trim(),
+    username: String(process.env.SMS_USERNAME || "").trim(),
     url: String(
       process.env.SMS_INDIA_HUB_URL ||
-        "http://cloud.smsindiahub.in/vendorsms/pushsms.aspx",
+        process.env.SMS_API_URL ||
+        "https://login.bulksmssender.in/app/smsapi/index.php",
     ).trim(),
-    timeoutMs: parseInt(process.env.SMS_INDIA_HUB_TIMEOUT_MS || "10000", 10),
+    timeoutMs: parseInt(
+      process.env.SMS_INDIA_HUB_TIMEOUT_MS ||
+        process.env.SMS_TIMEOUT_MS ||
+        "10000",
+      10,
+    ),
   };
 }
 
@@ -23,6 +59,24 @@ function normalizeProviderPayload(payload) {
 }
 
 function parseSmsIndiaResponse(payload) {
+  if (payload && typeof payload === "object") {
+    const status = String(payload.status || "").toLowerCase();
+    if (["success", "ok", "done", "submitted", "000"].includes(status)) {
+      return { code: SMS_INDIA_SUCCESS_CODE, raw: normalizeProviderPayload(payload) };
+    }
+    if (Array.isArray(payload.response)) {
+      const anySuccess = payload.response.some(
+        (r) => String(r.status || "").toLowerCase() === "success",
+      );
+      if (anySuccess) {
+        return { code: SMS_INDIA_SUCCESS_CODE, raw: normalizeProviderPayload(payload) };
+      }
+    }
+    if (status === "failure" || status === "error") {
+      return { code: "PROVIDER_ERROR", raw: normalizeProviderPayload(payload) };
+    }
+  }
+
   const raw = normalizeProviderPayload(payload);
   const trimmed = raw.trim();
   const lower = trimmed.toLowerCase();
@@ -61,7 +115,9 @@ function parseSmsIndiaResponse(payload) {
     lower === "done" ||
     lower.startsWith("success#") ||
     lower.startsWith("done#") ||
-    lower.includes("message submitted")
+    lower.includes("message submitted") ||
+    lower.includes("sms sent successfully") ||
+    lower.includes('"status":"success"')
   ) {
     return { code: SMS_INDIA_SUCCESS_CODE, raw };
   }
@@ -99,51 +155,80 @@ export async function sendSmsIndiaHubOtp({ phone, otp, message }) {
     .map(([key]) => key);
 
   if (missing.length > 0) {
-    const error = new Error(`Missing SMS India HUB config: ${missing.join(", ")}`);
+    const error = new Error(`Missing SMS config: ${missing.join(", ")}`);
     error.statusCode = 500;
     throw error;
   }
 
+  const isBulkSmsSender = config.url.includes("bulksmssender");
+  const params = isBulkSmsSender
+    ? {
+        key: config.apiKey,
+        campaign: config.campaignId,
+        routeid: config.routeId,
+        type: "text",
+        contacts: normalizeMobile(phone),
+        senderid: config.senderId,
+        msg: message || buildMessage(otp),
+        ...(config.dltTemplateId ? { template_id: config.dltTemplateId } : {}),
+        ...(config.peId ? { pe_id: config.peId } : {}),
+      }
+    : {
+        APIKey: config.apiKey,
+        msisdn: toIndianNumber(phone),
+        sid: config.senderId,
+        msg: message || buildMessage(otp),
+        fl: "0",
+        gwid: config.gatewayId,
+        ...(config.dltTemplateId
+          ? {
+              DLT_TE_ID: config.dltTemplateId,
+              TE_ID: config.dltTemplateId,
+            }
+          : {}),
+        ...(config.peId
+          ? {
+              PE_ID: config.peId,
+              EntityId: config.peId,
+            }
+          : {}),
+      };
+
   const response = await axios.get(config.url, {
-    params: {
-      APIKey: config.apiKey,
-      msisdn: toIndianNumber(phone),
-      sid: config.senderId,
-      msg: message || buildMessage(otp),
-      fl: "0",
-      gwid: config.gatewayId,
-      ...(config.dltTemplateId
-        ? {
-            DLT_TE_ID: config.dltTemplateId,
-            TE_ID: config.dltTemplateId,
-          }
-        : {}),
-      ...(config.peId
-        ? {
-            PE_ID: config.peId,
-            EntityId: config.peId,
-          }
-        : {}),
-    },
+    params,
     timeout: config.timeoutMs,
   });
 
   const body = response.data;
-  const inlineErrorCode = body && typeof body === "object" ? body.ErrorCode : null;
+  const inlineErrorCode =
+    body && typeof body === "object"
+      ? body.ErrorCode || body.errorCode || body.code
+      : null;
   const { code: providerCode, raw } = parseSmsIndiaResponse(body);
   const effectiveCode = inlineErrorCode || providerCode;
 
   if (effectiveCode !== SMS_INDIA_SUCCESS_CODE) {
+    const errorMsg =
+      (body &&
+        typeof body === "object" &&
+        (body.msg || body.message || body.error || body.reason)) ||
+      null;
     const error = mapSmsIndiaError(effectiveCode);
-    if (!error.isKnownProviderCode && raw) {
-      error.message = `${error.message}: ${providerSnippet(raw)}`;
+    if (errorMsg) {
+      error.message = `SMS provider error: ${errorMsg}`;
+    } else if (!error.isKnownProviderCode && raw) {
+      const cleanSnippet = providerSnippet(raw);
+      error.message =
+        cleanSnippet.startsWith("ERR:") || cleanSnippet.startsWith("Error:")
+          ? `SMS provider error: ${cleanSnippet}`
+          : `${error.message}: ${cleanSnippet}`;
     }
     error.providerRaw = raw;
     throw error;
   }
 
   return {
-    provider: "sms_india_hub",
+    provider: isBulkSmsSender ? "bulksmssender" : "sms_india_hub",
     providerCode,
     rawResponse: body,
   };
@@ -154,3 +239,4 @@ export const __testables = {
   mapSmsIndiaError,
   parseSmsIndiaResponse,
 };
+

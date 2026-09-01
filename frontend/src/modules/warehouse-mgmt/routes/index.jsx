@@ -1,7 +1,8 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import DashboardLayout from "@shared/layout/DashboardLayout";
 import { setActiveRole, ROLES } from "@core/auth/activeRoleStore";
+import { useAuth } from "@core/context/AuthContext";
 import {
   LayoutDashboard,
   Building2,
@@ -10,6 +11,7 @@ import {
   Truck,
   AlertTriangle,
   ClipboardList,
+  ArrowLeft,
 } from "lucide-react";
 
 // Lazy Load Warehouse Mgmt Pages
@@ -98,12 +100,28 @@ const navItems = [
 ];
 
 const WarehouseMgmtRoutes = () => {
+  const { user, authData, role } = useAuth();
+  const isAdmin = role === "admin" || user?.role === "admin" || Boolean(authData?.admin);
+
   useEffect(() => {
     setActiveRole(ROLES.WAREHOUSE);
   }, []);
 
+  const effectiveNavItems = useMemo(() => {
+    if (!isAdmin) return navItems;
+    return [
+      {
+        label: "Back to Admin Center",
+        path: "/admin",
+        icon: ArrowLeft,
+        color: "indigo",
+      },
+      ...navItems,
+    ];
+  }, [isAdmin]);
+
   return (
-    <DashboardLayout navItems={navItems} title="Warehouse Operations">
+    <DashboardLayout navItems={effectiveNavItems} title="Warehouse Operations">
       <Routes>
         <Route path="/" element={<Navigate to="/warehouse-mgmt/dashboard" replace />} />
         <Route path="/dashboard" element={<Dashboard />} />

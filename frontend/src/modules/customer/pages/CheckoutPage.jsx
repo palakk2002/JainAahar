@@ -33,6 +33,7 @@ import {
   Check,
   Contact2,
   Wallet,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -145,6 +146,9 @@ const CheckoutPage = () => {
   const [orderId, setOrderId] = useState(null);
   const [pricingPreview, setPricingPreview] = useState(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [whatsappOptIn, setWhatsappOptIn] = useState(
+    user?.whatsappNotificationsEnabled !== false
+  );
   const postOrderNavigateRef = useRef(null);
   const previewDebounceRef = useRef(null);
 /**
@@ -1170,6 +1174,27 @@ const CheckoutPage = () => {
               finalAmountToPay={finalAmountToPay}
             />
 
+            {/* WhatsApp Notification Opt-in Card */}
+            <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shrink-0">
+                  <MessageSquare size={18} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900">WhatsApp Order Updates</h4>
+                  <p className="text-[11px] text-slate-500">Get instant live tracking & delivery alerts on WhatsApp</p>
+                </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                <input
+                  type="checkbox"
+                  checked={whatsappOptIn}
+                  onChange={(e) => setWhatsappOptIn(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+              </label>
+            </div>
 
             {/* Desktop Slide to Pay */}
             <div className="hidden lg:block">

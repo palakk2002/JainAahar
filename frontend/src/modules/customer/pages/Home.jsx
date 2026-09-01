@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useInViewAnimation } from "@/core/hooks/useInViewAnimation";
-import { Sparkles, Heart, Snowflake, ChevronLeft, ChevronRight } from "lucide-react";
+import { Sparkles, Heart, Snowflake, ChevronLeft, ChevronRight, TrendingUp, Flame, ShoppingBag } from "lucide-react";
 
 // MUI Icons (shared with admin & icon selector)
 import HomeIcon from "@mui/icons-material/Home";
@@ -646,7 +646,47 @@ const Home = () => {
             </div>
           </div>
         )}
-        <LowestPriceSection products={displayProducts} onSeeAll={() => navigate("/category/all")} />
+        {/* Today's Deals & Additional Deals Sections */}
+        <LowestPriceSection
+          title="Today's Deals"
+          icon={ShoppingBag}
+          iconBg="bg-orange-50"
+          iconColor="text-[#FF8200]"
+          hasTimer={true}
+          products={displayProducts}
+          onSeeAll={() => navigate("/category/all")}
+        />
+
+        <LowestPriceSection
+          title="Lowest Price Ever"
+          icon={Sparkles}
+          iconBg="bg-emerald-50"
+          iconColor="text-emerald-600"
+          hasTimer={false}
+          products={displayProducts}
+          onSeeAll={() => navigate("/category/all")}
+        />
+
+        <LowestPriceSection
+          title="Trending Products"
+          icon={TrendingUp}
+          iconBg="bg-blue-50"
+          iconColor="text-blue-600"
+          hasTimer={false}
+          products={displayProducts}
+          onSeeAll={() => navigate("/category/all")}
+        />
+
+        <LowestPriceSection
+          title="Best Value Deals"
+          icon={Flame}
+          iconBg="bg-rose-50"
+          iconColor="text-rose-600"
+          hasTimer={false}
+          products={displayProducts}
+          onSeeAll={() => navigate("/category/all")}
+        />
+
         <MonthlyBasketSection />
         <OfferSections sections={displayOfferSections} noServiceData={noServiceData} />
 

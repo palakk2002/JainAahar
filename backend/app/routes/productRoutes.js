@@ -5,6 +5,7 @@ import {
     createProduct,
     updateProduct,
     deleteProduct,
+    deleteAllProducts,
     getProductById,
     getModerationProducts,
     approveProduct,
@@ -34,6 +35,13 @@ router.post("/adjust-stock", verifyToken, allowRoles("seller", "admin", "warehou
 router.get("/moderation", verifyToken, allowRoles("admin"), getModerationProducts);
 router.patch("/moderation/:id/approve", verifyToken, allowRoles("admin"), approveProduct);
 router.patch("/moderation/:id/reject", verifyToken, allowRoles("admin"), rejectProduct);
+router.delete(
+    "/delete-all",
+    verifyToken,
+    allowRoles("seller", "admin", "warehouse"),
+    requireApprovedSeller,
+    deleteAllProducts
+);
 router.get("/:id", optionalVerifyToken, getProductById);
 
 router.post(

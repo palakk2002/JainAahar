@@ -14,6 +14,17 @@ export function emitNotificationEvent(eventType, payload = {}) {
         message: error.message,
       });
     }
+
+    // Trigger WhatsApp notification asynchronously (non-blocking)
+    try {
+      const { handleLifecycleEvent } = await import("../../services/whatsappService.js");
+      await handleLifecycleEvent(eventType, payload);
+    } catch (waErr) {
+      logger.debug("WhatsApp lifecycle event handling skipped", {
+        eventType,
+        message: waErr?.message,
+      });
+    }
   });
 }
 

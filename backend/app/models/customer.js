@@ -130,6 +130,24 @@ const userSchema = new mongoose.Schema(
         },
 
         lastLogin: Date,
+
+        // WhatsApp notification preferences
+        whatsappPhone: {
+            type: String,
+            required: false,
+            trim: true,
+        },
+
+        whatsappNotificationsEnabled: {
+            type: Boolean,
+            default: true,
+        },
+
+        whatsappPreferences: {
+            orderUpdates: { type: Boolean, default: true },
+            deliveryUpdates: { type: Boolean, default: true },
+            promotions: { type: Boolean, default: false },
+        },
     },
     {
         timestamps: true,

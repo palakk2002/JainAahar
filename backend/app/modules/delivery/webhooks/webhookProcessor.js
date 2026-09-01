@@ -123,6 +123,40 @@ export async function processDeliveryWebhook({ providerName, rawBody, headers })
       }
     }
 
+    // 7. Dispatch WhatsApp Courier/Shipment Notification (Non-blocking)
+    if (order) {
+      setImmediate(async () => {
+        try {
+          const { sendShipmentNotification } = await import("../../../services/whatsappService.js");
+          const { WHATSAPP_EVENTS } = await import("../../../constants/whatsapp.js");
+
+          let waShipmentEvent = null;
+          const norm = (providerStatus || "").toUpperCase();
+          if (norm.includes("OUT FOR DELIVERY") || canonicalStatus === "OUT_FOR_DELIVERY") {
+            waShipmentEvent = WHATSAPP_EVENTS.OUT_FOR_DELIVERY;
+          } else if (norm.includes("DELIVERED") || canonicalStatus === "DELIVERED") {
+            waShipmentEvent = WHATSAPP_EVENTS.ORDER_DELIVERED;
+          } else if (norm.includes("SHIPPED") || norm.includes("IN TRANSIT")) {
+            waShipmentEvent = WHATSAPP_EVENTS.ORDER_SHIPPED;
+          } else if (norm.includes("UNDELIVERED") || norm.includes("RTO") || norm.includes("FAILED")) {
+            waShipmentEvent = WHATSAPP_EVENTS.DELIVERY_FAILED;
+          }
+
+          if (waShipmentEvent) {
+            await sendShipmentNotification(waShipmentEvent, {
+              order,
+              shipment: shipment || { externalShipmentId: externalId },
+              awbCode: externalId,
+              courierName: providerName === "shiprocket" ? "Shiprocket" : providerName,
+              trackingUrl: externalId ? `https://shiprocket.co/tracking/${externalId}` : null,
+            });
+          }
+        } catch (waErr) {
+          logger.debug("WhatsApp webhook shipment notification skipped", { error: waErr?.message });
+        }
+      });
+    }
+
     return { success: true };
   } catch (err) {
     logger.error({ domain: "delivery", provider: providerName, error: err.message }, "Error processing webhook");

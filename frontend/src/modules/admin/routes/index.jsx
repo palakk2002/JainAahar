@@ -23,6 +23,7 @@ import {
   User,
   AlertTriangle,
   UserCheck,
+  MessageSquare,
 } from "lucide-react";
 
 const Dashboard = React.lazy(() => import("../pages/Dashboard"));
@@ -94,6 +95,7 @@ const ShopByStoreManagement = React.lazy(
 const AdminSettings = React.lazy(() => import("../pages/AdminSettings"));
 const EnvSettings = React.lazy(() => import("../pages/EnvSettings"));
 const AdminProfile = React.lazy(() => import("../pages/AdminProfile"));
+const WhatsAppManagement = React.lazy(() => import("../pages/WhatsAppManagement"));
 
 const MonthlyBasketCategories = React.lazy(() => import("../pages/MonthlyBasketCategories"));
 const MonthlyBasketBanners = React.lazy(() => import("../pages/MonthlyBasketBanners"));
@@ -190,6 +192,7 @@ const navItems = [
     icon: Sparkles,
     color: "amber",
     children: [
+      { label: "WhatsApp Integration", path: "/admin/whatsapp" },
       { label: "Create Sections", path: "/admin/experience-studio" },
       { label: "Hero & categories per page", path: "/admin/hero-categories" },
       { label: "Send Notifications", path: "/admin/notifications" },
@@ -205,16 +208,6 @@ const navItems = [
     children: [
       { label: "Help Tickets", path: "/admin/support-tickets" },
       { label: "Review Content", path: "/admin/moderation" },
-    ],
-  },
-  {
-    label: "Sellers",
-    icon: Building2,
-    color: "blue",
-    children: [
-      { label: "Active Sellers", path: "/admin/sellers/active" },
-      { label: "Waiting for Review", path: "/admin/sellers/pending" },
-      { label: "Seller Locations", path: "/admin/seller-locations" },
     ],
   },
   {
@@ -355,6 +348,7 @@ const AdminRoutes = () => {
         <Route path="/returns" element={<Returns />} />
         <Route path="/billing" element={<BillingCharges />} />
         <Route path="/settings" element={<AdminSettings />} />
+        <Route path="/whatsapp" element={<WhatsAppManagement />} />
         <Route path="/inventory" element={<InventoryManagement />} />
         <Route path="/store-profile" element={<StoreProfile />} />
         <Route path="/store-analytics" element={<StoreAnalytics />} />

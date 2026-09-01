@@ -27,6 +27,7 @@ export const adminCatalogApi = {
     updateProduct: (id, formData) =>
         axiosInstance.put(`/products/${id}`, formData),
     deleteProduct: (id) => axiosInstance.delete(`/products/${id}`),
+    deleteAllProducts: () => axiosInstance.delete('/products/delete-all'),
 };
 
 export default adminCatalogApi;

@@ -23,6 +23,7 @@ import { adminDeliveryApi } from './deliveryApi';
 import { adminContentApi } from './contentApi';
 import { adminSOSApi } from './sosApi';
 import { adminStoreApi } from './storeApi';
+import { adminWhatsappApi } from './whatsappApi';
 
 export {
     adminAuthApi,
@@ -36,6 +37,7 @@ export {
     adminContentApi,
     adminSOSApi,
     adminStoreApi,
+    adminWhatsappApi,
 };
 
 /**
@@ -54,6 +56,7 @@ export const adminApi = {
     ...adminContentApi,
     ...adminSOSApi,
     ...adminStoreApi,
+    ...adminWhatsappApi,
 };
 
 export default adminApi;

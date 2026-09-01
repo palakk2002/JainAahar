@@ -72,8 +72,10 @@ const ProductManagement = ({ initialOpenAdd = false }) => {
 
     const [isProductModalOpen, setIsProductModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [isDeleteAllModalOpen, setIsDeleteAllModalOpen] = useState(false);
     const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState(null);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [itemToReject, setItemToReject] = useState(null);
     const [rejectionNote, setRejectionNote] = useState('');
     const [editingItem, setEditingItem] = useState(null);
@@ -241,9 +243,17 @@ const ProductManagement = ({ initialOpenAdd = false }) => {
 
             if (formData.mainImageFile) {
                 data.append('mainImage', formData.mainImageFile);
+            } else if (formData.mainImage && typeof formData.mainImage === 'string') {
+                data.append('mainImageUrl', formData.mainImage);
             }
             if (formData.galleryFiles && formData.galleryFiles.length > 0) {
                 formData.galleryFiles.forEach((file) => data.append('galleryImages', file));
+            }
+            if (Array.isArray(formData.galleryImages) && formData.galleryImages.length > 0) {
+                const existingUrls = formData.galleryImages.filter(img => typeof img === 'string' && (img.startsWith('http') || img.startsWith('data:')));
+                if (existingUrls.length > 0) {
+                    data.append('galleryImages', JSON.stringify(existingUrls));
+                }
             }
 
             if (editingItem) {
@@ -259,17 +269,6 @@ const ProductManagement = ({ initialOpenAdd = false }) => {
             toast.error(error.response?.data?.message || 'Failed to save product');
         } finally {
             setIsSaving(false);
-        }
-    };
-
-    const confirmDelete = async () => {
-        try {
-            await adminApi.deleteProduct(itemToDelete._id);
-            toast.success('Product deleted');
-            setIsDeleteModalOpen(false);
-            fetchProducts(page);
-        } catch (error) {
-            toast.error('Failed to delete product');
         }
     };
 
@@ -318,6 +317,36 @@ const ProductManagement = ({ initialOpenAdd = false }) => {
         setIsRejectModalOpen(false);
         setItemToReject(null);
         setRejectionNote('');
+    };
+
+    const confirmDelete = async () => {
+        if (!itemToDelete?._id) return;
+        setIsDeleting(true);
+        try {
+            await adminApi.deleteProduct(itemToDelete._id);
+            toast.success('Product deleted successfully');
+            setIsDeleteModalOpen(false);
+            setItemToDelete(null);
+            fetchProducts(page);
+        } catch (error) {
+            toast.error(error?.response?.data?.message || 'Failed to delete product');
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    const confirmDeleteAll = async () => {
+        setIsDeleting(true);
+        try {
+            const res = await adminApi.deleteAllProducts();
+            toast.success(res?.data?.message || 'All products deleted successfully');
+            setIsDeleteAllModalOpen(false);
+            fetchProducts(1);
+        } catch (error) {
+            toast.error(error?.response?.data?.message || 'Failed to delete all products');
+        } finally {
+            setIsDeleting(false);
+        }
     };
 
     const handleImageUpload = (e, type) => {
@@ -474,13 +503,24 @@ const ProductManagement = ({ initialOpenAdd = false }) => {
                     </h1>
                     <p className="ds-description mt-0.5">Track your items, prices, and how many are left in stock.</p>
                 </div>
-                <button
-                    onClick={() => openModal(null)}
-                    className="flex items-center space-x-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-md self-start lg:self-center"
-                >
-                    <HiOutlinePlus className="h-4 w-4" />
-                    <span>Add Product</span>
-                </button>
+                <div className="flex items-center gap-3 self-start lg:self-center">
+                    <button
+                        onClick={() => setIsDeleteAllModalOpen(true)}
+                        disabled={productsList.length === 0}
+                        className="flex items-center space-x-2 px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+                        title="Delete All Products"
+                    >
+                        <HiOutlineTrash className="h-4 w-4" />
+                        <span>Delete All Products</span>
+                    </button>
+                    <button
+                        onClick={() => openModal(null)}
+                        className="flex items-center space-x-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-95"
+                    >
+                        <HiOutlinePlus className="h-4 w-4" />
+                        <span>Add Product</span>
+                    </button>
+                </div>
             </div>
 
             {/* Quick Stats */}
@@ -645,8 +685,21 @@ const ProductManagement = ({ initialOpenAdd = false }) => {
                                     {/* Product Column */}
                                     <td className="px-6 py-5 align-middle">
                                         <div className="flex items-center gap-3 min-w-0">
-                                            <div className="h-11 w-11 shrink-0 rounded-xl overflow-hidden bg-slate-100 ring-1 ring-slate-200 shadow-sm">
-                                                <img src={p.mainImage || p.images?.[0]} alt={p.name} className="h-full w-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                                            <div className="h-11 w-11 shrink-0 rounded-xl overflow-hidden bg-slate-100 ring-1 ring-slate-200 shadow-sm flex items-center justify-center">
+                                                {p.mainImage || p.images?.[0] ? (
+                                                    <img
+                                                        src={p.mainImage || p.images?.[0]}
+                                                        alt={p.name}
+                                                        className="h-full w-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                                        onError={(e) => {
+                                                            e.currentTarget.style.display = 'none';
+                                                            e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                                        }}
+                                                    />
+                                                ) : null}
+                                                <div className={cn("flex items-center justify-center h-full w-full bg-slate-100 text-slate-400", (p.mainImage || p.images?.[0]) ? "hidden" : "")}>
+                                                    <HiOutlinePhoto className="h-5 w-5 text-slate-300" />
+                                                </div>
                                             </div>
                                             <div className="min-w-0">
                                                 <p className="truncate text-[13px] font-semibold leading-5 text-slate-900" title={p.name}>{p.name}</p>
@@ -1247,6 +1300,7 @@ const ProductManagement = ({ initialOpenAdd = false }) => {
                                                     <div className="w-48 aspect-square rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center group hover:border-primary hover:bg-primary/5 transition-all cursor-pointer overflow-hidden relative">
                                                         <input
                                                             type="file"
+                                                            accept="image/*"
                                                             className="absolute inset-0 opacity-0 cursor-pointer z-10"
                                                             onChange={(e) => handleImageUpload(e, 'main')}
                                                         />
@@ -1395,22 +1449,24 @@ const ProductManagement = ({ initialOpenAdd = false }) => {
             {/* Delete Confirmation Modal */}
             <Modal
                 isOpen={isDeleteModalOpen}
-                onClose={() => setIsDeleteModalOpen(false)}
+                onClose={() => !isDeleting && setIsDeleteModalOpen(false)}
                 title="Confirm Deletion"
                 size="sm"
                 footer={
                     <>
                         <button
                             onClick={() => setIsDeleteModalOpen(false)}
-                            className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 transition-colors"
+                            disabled={isDeleting}
+                            className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 transition-colors disabled:opacity-50"
                         >
                             CANCEL
                         </button>
                         <button
                             onClick={confirmDelete}
-                            className="px-6 py-2 bg-rose-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-rose-100 hover:bg-rose-700 transition-all active:scale-95"
+                            disabled={isDeleting}
+                            className="px-6 py-2 bg-rose-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-rose-100 hover:bg-rose-700 transition-all active:scale-95 disabled:opacity-50"
                         >
-                            DELETE PRODUCT
+                            {isDeleting ? 'DELETING...' : 'DELETE PRODUCT'}
                         </button>
                     </>
                 }
@@ -1423,6 +1479,43 @@ const ProductManagement = ({ initialOpenAdd = false }) => {
                     <p className="text-sm text-slate-500 font-medium">
                         Are you sure you want to delete <span className="font-bold text-slate-900">"{itemToDelete?.name}"</span>?
                         This action cannot be undone.
+                    </p>
+                </div>
+            </Modal>
+
+            {/* Delete All Confirmation Modal */}
+            <Modal
+                isOpen={isDeleteAllModalOpen}
+                onClose={() => !isDeleting && setIsDeleteAllModalOpen(false)}
+                title="Delete All Products"
+                size="sm"
+                footer={
+                    <>
+                        <button
+                            onClick={() => setIsDeleteAllModalOpen(false)}
+                            disabled={isDeleting}
+                            className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 transition-colors disabled:opacity-50"
+                        >
+                            CANCEL
+                        </button>
+                        <button
+                            onClick={confirmDeleteAll}
+                            disabled={isDeleting}
+                            className="px-6 py-2 bg-rose-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-rose-100 hover:bg-rose-700 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            {isDeleting ? 'DELETING ALL...' : 'DELETE ALL PRODUCTS'}
+                        </button>
+                    </>
+                }
+            >
+                <div className="flex flex-col items-center text-center py-4">
+                    <div className="h-16 w-16 bg-rose-50 rounded-full flex items-center justify-center mb-4">
+                        <HiOutlineTrash className="h-10 w-10 text-rose-600" />
+                    </div>
+                    <h3 className="text-lg font-black text-slate-900 mb-2 uppercase tracking-tight">Delete All Products?</h3>
+                    <p className="text-sm text-slate-500 font-medium leading-relaxed">
+                        Are you sure you want to delete <span className="font-bold text-rose-600">ALL {total} products</span>?
+                        This will permanently remove all products from the store and database. This action <span className="font-bold text-slate-900">cannot be undone</span>.
                     </p>
                 </div>
             </Modal>

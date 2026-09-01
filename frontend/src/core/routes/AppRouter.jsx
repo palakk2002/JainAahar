@@ -112,6 +112,10 @@ const AppRouter = () => {
                     path: 'seller/pending-approval',
                     element: <ApplicationPending />,
                 },
+                {
+                    path: 'warehouse/pending-approval',
+                    element: <ApplicationPending />,
+                },
 
                 {
                     path: 'admin/auth',

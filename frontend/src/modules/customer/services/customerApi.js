@@ -12,6 +12,8 @@ export const customerApi = {
     invalidateCache("/customer/profile");
     return axiosInstance.delete("/customer/profile");
   },
+  getWhatsAppPreferences: () => axiosInstance.get("/customer/whatsapp/preferences"),
+  updateWhatsAppPreferences: (data) => axiosInstance.put("/customer/whatsapp/preferences", data),
   getWalletTransactions: (params, options = {}) =>
     getWithDedupe("/customer/transactions", params, { ttl: 2000, ...options }),
   addWalletMoney: (data) => {

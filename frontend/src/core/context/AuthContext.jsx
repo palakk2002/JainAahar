@@ -53,7 +53,9 @@ export const AuthProvider = ({ children }) => {
 
     const [user, setUser] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
-    const token = authData[currentRole];
+    const isWarehouseRole = currentRole === 'warehouse' || currentRole === 'warehouse_mgmt';
+    const effectiveToken = authData[currentRole] || (isWarehouseRole ? authData.admin : null);
+    const token = effectiveToken;
     const isAuthenticated = !!token;
 
     useEffect(() => {
@@ -136,7 +138,8 @@ export const AuthProvider = ({ children }) => {
                 try {
                     setIsLoading(true);
                     // Use deduplicated fetch to avoid multiple simultaneous profile calls
-                    const endpoint = `/${currentRole}/profile`;
+                    const isWarehouseAdmin = isWarehouseRole && !authData.warehouse && !!authData.admin;
+                    const endpoint = isWarehouseAdmin ? '/admin/profile' : `/${currentRole}/profile`;
                     const response = await getWithDedupe(endpoint, {}, { ttl: 5000 });
                     setUser(response.data.result);
                 } catch (error) {
@@ -233,14 +236,17 @@ export const AuthProvider = ({ children }) => {
         if (path.startsWith('/admin')) window.location.href = '/admin/auth';
         else if (path.startsWith('/seller')) window.location.href = '/seller/auth';
         else if (path.startsWith('/delivery')) window.location.href = '/delivery/auth';
-        else if (path.startsWith('/warehouse')) window.location.href = '/warehouse/auth';
+        else if (path.startsWith('/warehouse') || path.startsWith('/warehouse-mgmt')) {
+            window.location.href = authData?.admin ? '/admin/auth' : '/warehouse/auth';
+        }
         else window.location.href = '/login';
     };
 
     const refreshUser = async () => {
         if (token) {
             try {
-                const endpoint = `/${currentRole}/profile`;
+                const isWarehouseAdmin = isWarehouseRole && !authData.warehouse && !!authData.admin;
+                const endpoint = isWarehouseAdmin ? '/admin/profile' : `/${currentRole}/profile`;
                 const response = await axiosInstance.get(endpoint);
                 const fetched = response.data?.result || response.data?.data || response.data;
                 if (fetched) {
@@ -256,7 +262,8 @@ export const AuthProvider = ({ children }) => {
     const value = useMemo(() => ({
         user,
         token,
-        role: currentRole,
+        role: (isWarehouseRole && !authData.warehouse && !!authData.admin) ? 'admin' : (user?.role?.toLowerCase() || currentRole),
+        activeRole: currentRole,
         isAuthenticated,
         isLoading,
         authData,

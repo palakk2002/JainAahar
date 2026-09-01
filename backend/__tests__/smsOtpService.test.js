@@ -141,6 +141,43 @@ describe("sms OTP service", () => {
     });
   });
 
+  it("sends real SMS via BulkSMSSender when bulksmssender URL is configured", async () => {
+    process.env.USE_MOCK_OTP = "false";
+    process.env.USE_REAL_SMS = "true";
+    process.env.SMS_INDIA_HUB_API_KEY = "EB10DB6B930B16AA6B8C6709D337EC6296E41219";
+    process.env.SMS_INDIA_HUB_SENDER_ID = "ANAMGM";
+    process.env.SMS_CAMPAIGN_ID = "12719";
+    process.env.SMS_ROUTE_ID = "100768";
+    process.env.SMS_INDIA_HUB_URL = "https://login.bulksmssender.in/app/smsapi/index.php";
+
+    mockCustomerFindOne.mockResolvedValue({ _id: "customer-1", phone: "9876543210" });
+    mockAxiosGet.mockResolvedValue({
+      data: { status: "success", msg: "SMS Sent Successfully" },
+    });
+
+    const result = await sendSmsOtp({
+      mobile: "9876543210",
+      userType: "Customer",
+      purpose: "LOGIN",
+    });
+
+    expect(mockAxiosGet).toHaveBeenCalledWith(
+      "https://login.bulksmssender.in/app/smsapi/index.php",
+      expect.objectContaining({
+        params: expect.objectContaining({
+          key: "EB10DB6B930B16AA6B8C6709D337EC6296E41219",
+          campaign: "12719",
+          routeid: "100768",
+          type: "text",
+          contacts: "9876543210",
+          senderid: "ANAMGM",
+        }),
+      }),
+    );
+    expect(result.sent).toBe(true);
+    expect(result.provider).toBe("bulksmssender");
+  });
+
   it("verifies a valid login OTP, deletes the session, and returns a JWT", async () => {
     const otpHash = __testables.hashOtp("9876543210", "1234", "Customer", "LOGIN");
     const session = makeSession({ otpHash });
