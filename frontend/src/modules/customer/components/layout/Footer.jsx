@@ -81,12 +81,21 @@ const Footer = () => {
                             <li className="flex items-start gap-3 md:gap-5 group">
                                 <div className="hidden md:flex h-12 w-12 rounded-xl bg-white/10 items-center justify-center text-white transition-all shrink-0 group-hover:opacity-90"><MapPin size={22} /></div>
                                 <MapPin className="mt-1 shrink-0 md:hidden" size={18} style={{ color: primaryColor }} />
-                                <div className="md:text-base text-white md:pt-1 font-medium leading-relaxed">
-                                    {settings?.address ? settings.address : (
-                                        <>
-                                            Flat/Door/Block No. 00, SITA CENTRAL SCHOOL, Karera, Road/Street/Lane KARERA, District SHIVPURI, MADHYA PRADESH - 473660
-                                        </>
-                                    )}
+                                <div className="text-white md:pt-0.5 leading-relaxed">
+                                    <h4 className="text-white font-semibold text-sm md:text-base tracking-wide uppercase mb-1">
+                                        {settings?.companyName || 'JAINA ENTERPRISES'}
+                                    </h4>
+                                    <div className="text-slate-200 text-xs md:text-sm font-medium leading-relaxed space-y-0.5">
+                                        {settings?.address ? (
+                                            <div className="whitespace-pre-line">{settings.address}</div>
+                                        ) : (
+                                            <>
+                                                <p>Flat/Door/Block No. 00, SITA CENTRAL SCHOOL,</p>
+                                                <p>Karera, Road/Street/Lane KARERA,</p>
+                                                <p>District SHIVPURI, MADHYA PRADESH - 473660</p>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
                             </li>
                             <li className="flex items-center gap-3 md:gap-5 group">

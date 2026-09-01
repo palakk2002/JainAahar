@@ -24,6 +24,18 @@ const ContactDetailCard = ({ className = '', title = 'Official Contact Details' 
             )}
 
             <div className="space-y-3 relative z-10">
+                {/* Registered Address Box */}
+                <div className="bg-black/15 backdrop-blur-xs rounded-2xl p-3.5 border border-white/15 transition-all hover:bg-black/20">
+                    <div className="text-white">
+                        <span className="font-semibold text-sm block mb-1 uppercase tracking-wide">JAINA ENTERPRISES</span>
+                        <div className="text-xs text-white/90 leading-relaxed font-medium space-y-0.5">
+                            <p>Flat/Door/Block No. 00, SITA CENTRAL SCHOOL,</p>
+                            <p>Karera, Road/Street/Lane KARERA,</p>
+                            <p>District SHIVPURI, MADHYA PRADESH - 473660</p>
+                        </div>
+                    </div>
+                </div>
+
                 {/* Contact Person Box */}
                 <div className="bg-black/15 backdrop-blur-xs rounded-2xl p-3.5 border border-white/15 transition-all hover:bg-black/20">
                     <span className="text-[10px] font-extrabold uppercase tracking-wider text-white/80 block mb-1">

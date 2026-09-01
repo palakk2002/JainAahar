@@ -73,10 +73,20 @@ const ContactUsPage = () => {
                                 <MapPin size={18} />
                             </div>
                             <div>
-                                <h4 className="font-bold text-slate-800">Business Office</h4>
-                                <p className="text-slate-600 text-xs mt-0.5">
-                                    {settings?.address || 'Aahar Jain Central Hub, Main Market, India'}
-                                </p>
+                                <h4 className="font-semibold text-slate-900 text-sm md:text-base uppercase tracking-wide">
+                                    {settings?.companyName || 'JAINA ENTERPRISES'}
+                                </h4>
+                                <div className="text-slate-600 text-xs md:text-sm mt-1 leading-relaxed font-medium space-y-0.5">
+                                    {settings?.address ? (
+                                        <div className="whitespace-pre-line">{settings.address}</div>
+                                    ) : (
+                                        <>
+                                            <p>Flat/Door/Block No. 00, SITA CENTRAL SCHOOL,</p>
+                                            <p>Karera, Road/Street/Lane KARERA,</p>
+                                            <p>District SHIVPURI, MADHYA PRADESH - 473660</p>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>

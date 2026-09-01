@@ -45,9 +45,15 @@ const settingSchema = new mongoose.Schema(
         },
 
         // Legal
-        companyName: String,
+        companyName: {
+            type: String,
+            default: "JAINA ENTERPRISES",
+        },
         taxId: String,
-        address: String,
+        address: {
+            type: String,
+            default: "Flat/Door/Block No. 00, SITA CENTRAL SCHOOL,\nKarera, Road/Street/Lane KARERA,\nDistrict SHIVPURI, MADHYA PRADESH - 473660",
+        },
 
         // Social
         facebook: String,
