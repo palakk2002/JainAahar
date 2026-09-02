@@ -42,6 +42,18 @@ const userSchema = new mongoose.Schema(
             trim: true,
         },
 
+        avatar: {
+            type: String,
+            default: "",
+            trim: true,
+        },
+
+        bio: {
+            type: String,
+            default: "",
+            trim: true,
+        },
+
         password: {
             type: String,
             select: false, // response me password na aaye

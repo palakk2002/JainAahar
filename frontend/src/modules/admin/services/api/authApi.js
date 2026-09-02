@@ -12,6 +12,10 @@ export const adminAuthApi = {
     signup: (data) => axiosInstance.post('/admin/signup', data),
     getProfile: () => axiosInstance.get('/admin/profile'),
     updateProfile: (data) => axiosInstance.put('/admin/profile', data),
+    uploadAvatar: (formData) =>
+        axiosInstance.post('/media/upload', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        }),
     updatePassword: (data) => axiosInstance.put('/admin/profile/password', data),
 };
 

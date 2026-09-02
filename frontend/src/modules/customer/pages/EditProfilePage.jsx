@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Phone, Mail, Camera, Save } from 'lucide-react';
+import { ArrowLeft, User, Phone, Mail, Camera, Save, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useAuth } from '@core/context/AuthContext';
@@ -10,6 +10,10 @@ const EditProfilePage = () => {
     const navigate = useNavigate();
     const { user, login, updateUser, refreshUser } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
+    const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+    const [avatarPreview, setAvatarPreview] = useState(user?.avatar || '');
+    const fileInputRef = useRef(null);
+
     const [sameAsPhone, setSameAsPhone] = useState(
         !user?.whatsappPhone || user?.whatsappPhone === user?.phone
     );
@@ -19,7 +23,8 @@ const EditProfilePage = () => {
         whatsappPhone: user?.whatsappPhone || user?.phone || '',
         whatsappNotificationsEnabled: user?.whatsappNotificationsEnabled !== false,
         email: user?.email || '',
-        bio: user?.bio || ''
+        bio: user?.bio || '',
+        avatar: user?.avatar || ''
     });
 
     useEffect(() => {
@@ -30,14 +35,74 @@ const EditProfilePage = () => {
                 whatsappPhone: user.whatsappPhone || user.phone || '',
                 whatsappNotificationsEnabled: user.whatsappNotificationsEnabled !== false,
                 email: user.email || '',
-                bio: user.bio || ''
+                bio: user.bio || '',
+                avatar: user.avatar || ''
             });
+            setAvatarPreview(user.avatar || '');
             setSameAsPhone(!user.whatsappPhone || user.whatsappPhone === user.phone);
         }
     }, [user]);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handlePhotoChange = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            toast.error('Please select a valid image file (JPEG, PNG, WebP).');
+            return;
+        }
+
+        if (file.size > 10 * 1024 * 1024) {
+            toast.error('Image size should be less than 10MB.');
+            return;
+        }
+
+        // Show local preview immediately
+        const objectUrl = URL.createObjectURL(file);
+        setAvatarPreview(objectUrl);
+
+        // Upload to backend media API
+        setIsUploadingPhoto(true);
+        try {
+            const uploadForm = new FormData();
+            uploadForm.append('file', file);
+
+            const uploadRes = await customerApi.uploadAvatar(uploadForm);
+            const uploadedUrl =
+                uploadRes.data?.data?.url ||
+                uploadRes.data?.data?.secureUrl ||
+                uploadRes.data?.url ||
+                uploadRes.data?.secureUrl ||
+                uploadRes.data?.result?.url;
+
+            if (uploadedUrl) {
+                setFormData((prev) => ({ ...prev, avatar: uploadedUrl }));
+                setAvatarPreview(uploadedUrl);
+                toast.success('Photo uploaded successfully! Click Save Changes to save.');
+            } else {
+                throw new Error('Image URL was not returned by server');
+            }
+        } catch (error) {
+            console.error('Failed to upload photo:', error);
+            toast.error(error.response?.data?.message || 'Failed to upload photo. Please try again.');
+            // Revert preview to previous state
+            setAvatarPreview(formData.avatar || user?.avatar || '');
+        } finally {
+            setIsUploadingPhoto(false);
+            if (e.target) {
+                e.target.value = '';
+            }
+        }
+    };
+
+    const handleRemovePhoto = () => {
+        setAvatarPreview('');
+        setFormData((prev) => ({ ...prev, avatar: '' }));
+        toast.info('Photo removed. Click Save Changes to apply.');
     };
 
     const handleSubmit = async (e) => {
@@ -78,15 +143,75 @@ const EditProfilePage = () => {
 
                 {/* Profile Picture Upload */}
                 <div className="flex flex-col items-center mb-8">
-                    <div className="relative">
-                        <div className="h-28 w-28 rounded-full bg-slate-200 border-4 border-white shadow-md flex items-center justify-center overflow-hidden">
-                            <User size={48} className="text-slate-400" />
+                    <div className="relative group">
+                        <div className="h-28 w-28 rounded-full bg-slate-100 border-4 border-white shadow-md flex items-center justify-center overflow-hidden relative">
+                            {avatarPreview ? (
+                                <img
+                                    src={avatarPreview}
+                                    alt={formData.name || 'Profile'}
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                <User size={48} className="text-slate-400" />
+                            )}
+                            {isUploadingPhoto && (
+                                <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-1 text-white backdrop-blur-[2px]">
+                                    <Loader2 size={24} className="animate-spin text-white" />
+                                    <span className="text-[10px] font-bold">Uploading...</span>
+                                </div>
+                            )}
                         </div>
-                        <button className="absolute bottom-0 right-0 p-2 bg-primary text-primary-foreground rounded-full border-2 border-white shadow-sm hover:bg-[#0a701a] transition-colors">
-                            <Camera size={18} />
+
+                        {/* Hidden File Input */}
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            accept="image/png,image/jpeg,image/webp,image/jpg"
+                            className="hidden"
+                            onChange={handlePhotoChange}
+                        />
+
+                        {/* Camera Button Badge */}
+                        <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isUploadingPhoto}
+                            title="Upload Profile Photo"
+                            className="absolute bottom-0 right-0 p-2.5 bg-primary text-primary-foreground rounded-full border-2 border-white shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center justify-center disabled:opacity-50"
+                        >
+                            {isUploadingPhoto ? (
+                                <Loader2 size={18} className="animate-spin" />
+                            ) : (
+                                <Camera size={18} />
+                            )}
                         </button>
                     </div>
-                    <p className="mt-3 text-sm font-bold text-primary">Change Photo</p>
+
+                    <div className="flex items-center gap-3 mt-3">
+                        <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isUploadingPhoto}
+                            className="text-sm font-bold text-primary hover:underline cursor-pointer flex items-center gap-1.5"
+                        >
+                            <Camera size={15} />
+                            {avatarPreview ? 'Change Photo' : 'Upload Photo'}
+                        </button>
+                        {avatarPreview && (
+                            <>
+                                <span className="text-slate-300">•</span>
+                                <button
+                                    type="button"
+                                    onClick={handleRemovePhoto}
+                                    disabled={isUploadingPhoto}
+                                    className="text-sm font-bold text-rose-500 hover:underline cursor-pointer flex items-center gap-1"
+                                >
+                                    <Trash2 size={14} />
+                                    Remove
+                                </button>
+                            </>
+                        )}
+                    </div>
                 </div>
 
                 {/* Edit Form */}

@@ -56,7 +56,11 @@ export function buildMessage(otp) {
   if (totalGenericTokens === 1) {
     replacementOrder = [String(otp)];
   } else if (totalGenericTokens === 2) {
-    replacementOrder = [String(otp), String(minutes)];
+    if (/(?:hi|dear)\s*(?:\{#var#\}|##var##|\{#VAR#\})/i.test(template)) {
+      replacementOrder = ["User", String(otp)];
+    } else {
+      replacementOrder = [String(otp), String(minutes)];
+    }
   } else {
     replacementOrder = [appName, String(otp), String(minutes)];
   }

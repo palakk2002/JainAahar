@@ -13,8 +13,13 @@ const longitude = Joi.number().min(-180).max(180);
 
 export const updateProfileSchema = Joi.object({
   name: trimmedString.min(2).max(80).optional(),
-  email: trimmedString.email().lowercase().max(200).optional(),
-  avatarUrl: trimmedString.uri().max(2048).optional(),
+  email: trimmedString.email().lowercase().max(200).allow("", null).optional(),
+  avatar: trimmedString.uri().max(2048).allow("", null).optional(),
+  avatarUrl: trimmedString.uri().max(2048).allow("", null).optional(),
+  phone: trimmedString.allow("", null).optional(),
+  whatsappPhone: trimmedString.allow("", null).optional(),
+  whatsappNotificationsEnabled: Joi.boolean().optional(),
+  bio: trimmedString.max(500).allow("", null).optional(),
   dateOfBirth: Joi.date().optional(),
   gender: trimmedString.valid("male", "female", "other", "prefer_not_say").optional(),
 });

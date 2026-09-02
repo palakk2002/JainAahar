@@ -22,6 +22,12 @@ const adminSchema = new mongoose.Schema(
       trim: true,
     },
 
+    avatar: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     password: {
       type: String,
       required: true,

@@ -116,7 +116,18 @@ export const getCustomerProfile = async (req, res) => {
 ================================ */
 export const updateCustomerProfile = async (req, res) => {
     try {
-        const { name, email, phone, bio, addresses } = req.body;
+        const {
+            name,
+            email,
+            phone,
+            bio,
+            addresses,
+            avatar,
+            avatarUrl,
+            whatsappPhone,
+            whatsappNotificationsEnabled,
+            whatsappPreferences,
+        } = req.body;
 
         const customer = await Customer.findById(req.user.id);
         if (!customer) {
@@ -128,10 +139,22 @@ export const updateCustomerProfile = async (req, res) => {
         if (phone !== undefined) customer.phone = phone;
         if (bio !== undefined) customer.bio = bio;
         if (addresses !== undefined) customer.addresses = addresses;
+        if (avatar !== undefined) customer.avatar = avatar;
+        else if (avatarUrl !== undefined) customer.avatar = avatarUrl;
+        if (whatsappPhone !== undefined) customer.whatsappPhone = whatsappPhone;
+        if (whatsappNotificationsEnabled !== undefined) {
+            customer.whatsappNotificationsEnabled = Boolean(whatsappNotificationsEnabled);
+        }
+        if (whatsappPreferences !== undefined) {
+            customer.whatsappPreferences = {
+                ...customer.whatsappPreferences,
+                ...whatsappPreferences,
+            };
+        }
 
         await customer.save();
 
-        return handleResponse(res, 200, "Profile updated successfully", customer);
+        return handleResponse(res, 200, "Profile updated successfully", sanitizeCustomer(customer));
     } catch (error) {
         return handleResponse(res, 500, error.message);
     }

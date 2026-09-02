@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Card from '@shared/components/ui/Card';
 import {
     Save,
@@ -10,7 +10,8 @@ import {
     Camera,
     LogOut,
     Key,
-    X
+    X,
+    Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -18,14 +19,17 @@ import { useAuth } from '@core/context/AuthContext';
 import { adminApi } from '../services/adminApi';
 
 const AdminProfile = () => {
-    const { user, logout } = useAuth();
+    const { user, logout, updateUser, refreshUser } = useAuth();
     const [isSaving, setIsSaving] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+    const fileInputRef = useRef(null);
     const [activeTab, setActiveTab] = useState('profile');
     const [profile, setProfile] = useState({
         name: '',
         email: '',
-        role: 'Admin'
+        role: 'Admin',
+        avatar: ''
     });
 
     const [security, setSecurity] = useState({
@@ -41,16 +45,53 @@ const AdminProfile = () => {
     const fetchProfile = async () => {
         try {
             const response = await adminApi.getProfile();
-            const data = response.data.result;
+            const data = response.data.result || response.data.data || response.data;
             setProfile({
                 name: data.name,
                 email: data.email,
-                role: data.role || 'Admin'
+                role: data.role || 'Admin',
+                avatar: data.avatar || ''
             });
         } catch (error) {
             toast.error('Failed to fetch admin profile');
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handlePhotoUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            toast.error('Please select a valid image file');
+            return;
+        }
+
+        setIsUploadingPhoto(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await adminApi.uploadAvatar(formData);
+            const uploadedUrl =
+                res.data?.data?.url ||
+                res.data?.data?.secureUrl ||
+                res.data?.url ||
+                res.data?.secureUrl;
+
+            if (uploadedUrl) {
+                setProfile((prev) => ({ ...prev, avatar: uploadedUrl }));
+                await adminApi.updateProfile({ ...profile, avatar: uploadedUrl });
+                if (updateUser) updateUser({ avatar: uploadedUrl });
+                if (refreshUser) refreshUser();
+                toast.success('Profile photo updated successfully');
+            }
+        } catch (error) {
+            console.error('Photo upload error:', error);
+            toast.error(error.response?.data?.message || 'Failed to upload photo');
+        } finally {
+            setIsUploadingPhoto(false);
+            if (e.target) e.target.value = '';
         }
     };
 
@@ -130,16 +171,38 @@ const AdminProfile = () => {
                 <div className="lg:col-span-4 space-y-6">
                     <Card className="border-none shadow-xl ring-1 ring-slate-100 bg-white rounded-xl overflow-hidden">
                         <div className="p-8 flex flex-col items-center text-center">
-                            <div className="relative group cursor-pointer">
+                            <div
+                                onClick={() => fileInputRef.current?.click()}
+                                className="relative group cursor-pointer"
+                                title="Change profile photo"
+                            >
                                 <div className="h-32 w-32 rounded-full ring-4 ring-slate-50 bg-slate-100 flex items-center justify-center overflow-hidden">
-                                    {/* Placeholder Avatar */}
-                                    <span className="text-4xl font-black text-slate-300">
-                                        {profile.name?.charAt(0)}
-                                    </span>
+                                    {profile.avatar ? (
+                                        <img
+                                            src={profile.avatar}
+                                            alt={profile.name}
+                                            className="h-full w-full object-cover"
+                                        />
+                                    ) : (
+                                        <span className="text-4xl font-black text-slate-300">
+                                            {profile.name?.charAt(0) || 'A'}
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <Camera className="h-8 w-8 text-white" />
+                                    {isUploadingPhoto ? (
+                                        <Loader2 className="h-8 w-8 text-white animate-spin" />
+                                    ) : (
+                                        <Camera className="h-8 w-8 text-white" />
+                                    )}
                                 </div>
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={handlePhotoUpload}
+                                />
                             </div>
                             <h2 className="mt-6 ds-h2 font-black text-slate-900">{profile.name}</h2>
                             <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-50 text-brand-700 ring-1 ring-brand-200">

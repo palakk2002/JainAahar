@@ -87,7 +87,15 @@ const ProfilePage = () => {
                     <div className="flex items-center gap-3.5">
                         <div className="h-14 w-14 rounded-full bg-gradient-to-tr from-brand-50 to-brand-100/60 border border-brand-200/50 flex items-center justify-center p-0.5 shadow-sm">
                             <div className="h-full w-full rounded-full bg-white flex items-center justify-center overflow-hidden">
-                                <User size={26} className="text-primary" />
+                                {user?.avatar ? (
+                                    <img
+                                        src={user.avatar}
+                                        alt={user?.name || "Customer"}
+                                        className="h-full w-full object-cover"
+                                    />
+                                ) : (
+                                    <User size={26} className="text-primary" />
+                                )}
                             </div>
                         </div>
                         <div>

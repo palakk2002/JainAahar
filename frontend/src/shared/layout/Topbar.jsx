@@ -239,8 +239,16 @@ const Topbar = ({ onMenuClick }) => {
                     }}
                     className="flex items-center space-x-2.5 p-1 pr-3 hover:bg-gray-50 rounded-xl transition-all duration-300 group ring-1 ring-transparent hover:ring-gray-100 shadow-sm hover:shadow-md"
                 >
-                    <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-xs shadow-md group-hover:scale-105 transition-transform">
-                        {user?.name?.[0] || 'A'}
+                    <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-xs shadow-md group-hover:scale-105 transition-transform overflow-hidden">
+                        {user?.avatar || user?.profileImage ? (
+                            <img
+                                src={user.avatar || user.profileImage}
+                                alt={user?.name || "User"}
+                                className="h-full w-full object-cover"
+                            />
+                        ) : (
+                            user?.name?.[0] || 'A'
+                        )}
                     </div>
                     <div>
                         <p className="text-xs font-bold text-gray-900 leading-tight">{user?.name || 'Demo User'}</p>
