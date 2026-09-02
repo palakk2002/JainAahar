@@ -619,17 +619,26 @@ const MainLocationHeader = ({
             style={{ height: navHeight, opacity: navOpacity, marginTop: navMargin }}
             className="relative z-10 -mx-2 flex items-end gap-1 overflow-x-auto overflow-y-visible px-2 pb-0 no-scrollbar md:gap-4 md:px-4"
           >
-            {categories.map((cat) => (
-              <CategoryNavColumn
-                key={cat.id || cat._id}
-                cat={cat}
-                isActive={activeCategory?.id === (cat.id || cat._id)}
-                categoryAccent={categoryAccent}
-                onCategorySelect={onCategorySelect}
-                headerFontColor={headerFontColor}
-                headerIconColor={headerIconColor}
-              />
-            ))}
+            {categories.map((cat) => {
+              const activeId = String(activeCategory?.id || activeCategory?._id || '');
+              const catId = String(cat?.id || cat?._id || '');
+              const isCatActive = Boolean(
+                (activeId && catId && activeId === catId) ||
+                (activeCategory?.name && cat?.name && activeCategory.name.trim().toLowerCase() === cat.name.trim().toLowerCase())
+              );
+
+              return (
+                <CategoryNavColumn
+                  key={cat.id || cat._id || cat.name}
+                  cat={cat}
+                  isActive={isCatActive}
+                  categoryAccent={categoryAccent}
+                  onCategorySelect={onCategorySelect}
+                  headerFontColor={headerFontColor}
+                  headerIconColor={headerIconColor}
+                />
+              );
+            })}
           </motion.div>
 
           {/* Background Decorative patterns */}

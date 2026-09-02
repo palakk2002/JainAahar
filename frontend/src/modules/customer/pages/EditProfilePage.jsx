@@ -256,57 +256,62 @@ const EditProfilePage = () => {
                             </div>
                         </div>
 
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">WhatsApp Number</label>
-                            <div className="flex items-center gap-3 bg-slate-50 px-3 py-2.5 rounded-xl border border-slate-200 focus-within:border-emerald-500 focus-within:ring-4 focus-within:ring-emerald-500/10 transition-all">
-                                <div className="w-9 h-9 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center shrink-0 text-emerald-700 font-black text-xs">
-                                    WA
-                                </div>
-                                <input
-                                    type="tel"
-                                    name="whatsappPhone"
-                                    value={formData.whatsappPhone}
-                                    onChange={handleChange}
-                                    className="bg-transparent w-full text-slate-800 font-bold outline-none placeholder:font-medium text-sm"
-                                    placeholder="Enter WhatsApp number"
-                                />
-                            </div>
-                            <div className="flex items-center justify-between mt-2 px-1">
-                                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-600">
-                                    <input
-                                        type="checkbox"
-                                        checked={sameAsPhone}
-                                        onChange={(e) => {
-                                            setSameAsPhone(e.target.checked);
-                                            if (e.target.checked) {
-                                                setFormData((prev) => ({ ...prev, whatsappPhone: prev.phone }));
-                                            }
-                                        }}
-                                        className="rounded text-emerald-600 focus:ring-emerald-500"
-                                    />
-                                    Same as primary phone number
-                                </label>
-                            </div>
-                        </div>
-
-                        <div className="pt-2 border-t border-slate-100">
-                            <div className="flex items-center justify-between">
+                        {/* WhatsApp Number & Notifications hidden for now */}
+                        {false && (
+                            <>
                                 <div>
-                                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">WhatsApp Notifications</h4>
-                                    <p className="text-xs text-slate-400 mt-0.5">Receive order confirmations, tracking and delivery updates on WhatsApp.</p>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">WhatsApp Number</label>
+                                    <div className="flex items-center gap-3 bg-slate-50 px-3 py-2.5 rounded-xl border border-slate-200 focus-within:border-emerald-500 focus-within:ring-4 focus-within:ring-emerald-500/10 transition-all">
+                                        <div className="w-9 h-9 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center shrink-0 text-emerald-700 font-black text-xs">
+                                            WA
+                                        </div>
+                                        <input
+                                            type="tel"
+                                            name="whatsappPhone"
+                                            value={formData.whatsappPhone}
+                                            onChange={handleChange}
+                                            className="bg-transparent w-full text-slate-800 font-bold outline-none placeholder:font-medium text-sm"
+                                            placeholder="Enter WhatsApp number"
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between mt-2 px-1">
+                                        <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-600">
+                                            <input
+                                                type="checkbox"
+                                                checked={sameAsPhone}
+                                                onChange={(e) => {
+                                                    setSameAsPhone(e.target.checked);
+                                                    if (e.target.checked) {
+                                                        setFormData((prev) => ({ ...prev, whatsappPhone: prev.phone }));
+                                                    }
+                                                }}
+                                                className="rounded text-emerald-600 focus:ring-emerald-500"
+                                            />
+                                            Same as primary phone number
+                                        </label>
+                                    </div>
                                 </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        name="whatsappNotificationsEnabled"
-                                        checked={formData.whatsappNotificationsEnabled}
-                                        onChange={(e) => setFormData((prev) => ({ ...prev, whatsappNotificationsEnabled: e.target.checked }))}
-                                        className="sr-only peer"
-                                    />
-                                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                                </label>
-                            </div>
-                        </div>
+
+                                <div className="pt-2 border-t border-slate-100">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">WhatsApp Notifications</h4>
+                                            <p className="text-xs text-slate-400 mt-0.5">Receive order confirmations, tracking and delivery updates on WhatsApp.</p>
+                                        </div>
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                name="whatsappNotificationsEnabled"
+                                                checked={formData.whatsappNotificationsEnabled}
+                                                onChange={(e) => setFormData((prev) => ({ ...prev, whatsappNotificationsEnabled: e.target.checked }))}
+                                                className="sr-only peer"
+                                            />
+                                            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </>
+                        )}
 
                         <div>
                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Email Address</label>

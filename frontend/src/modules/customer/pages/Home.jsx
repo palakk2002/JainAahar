@@ -488,27 +488,130 @@ const Home = () => {
   const handleBannerTransitionEnd = () => { if (mobileBannerIndex === 2) { setIsInstantBannerJump(true); setMobileBannerIndex(0); } };
   useEffect(() => { if (!isInstantBannerJump) return; const id = requestAnimationFrame(() => setIsInstantBannerJump(false)); return () => cancelAnimationFrame(id); }, [isInstantBannerJump]);
 
-  const productsById = useMemo(() => { const map = {}; displayProducts.forEach((p) => { map[p._id || p.id] = p; }); return map; }, [displayProducts]);
+  const isAllCategory = !activeCategory || activeCategory._id === "all" || activeCategory.id === "all" || (activeCategory?.name && activeCategory.name.toLowerCase() === "all");
+
+  const productsById = useMemo(() => {
+    const map = {};
+    displayProducts.forEach((p) => {
+      map[p._id || p.id] = p;
+    });
+    return map;
+  }, [displayProducts]);
+
   const effectiveQuickCategories = useMemo(() => {
-    const ids = heroConfig.categoryIds || [];
-    let list = displayQuickCategories;
-    if (ids.length > 0) {
-      const resolved = ids.map((id) => displayCategoryMap[id]).filter(Boolean).map((c) => ({ id: c._id, name: c.name, image: c.image || "https://cdn-icons-png.flaticon.com/128/2321/2321831.png" }));
-      if (resolved.length > 0) list = resolved;
+    if (isAllCategory) {
+      const ids = heroConfig.categoryIds || [];
+      let list = displayQuickCategories;
+      if (ids.length > 0) {
+        const resolved = ids.map((id) => displayCategoryMap[id]).filter(Boolean).map((c) => ({ id: c._id, name: c.name, image: c.image || getRealCategoryFallback(c.name) }));
+        if (resolved.length > 0) list = resolved;
+      }
+      const cutoffIndex = list.findIndex(cat => String(cat.name || '').trim().toLowerCase() === 'baby accessories');
+      return cutoffIndex !== -1 ? list.slice(0, cutoffIndex + 1) : list;
     }
-    const cutoffIndex = list.findIndex(cat => String(cat.name || '').trim().toLowerCase() === 'baby accessories');
-    return cutoffIndex !== -1 ? list.slice(0, cutoffIndex + 1) : list;
-  }, [heroConfig.categoryIds, displayCategoryMap, displayQuickCategories]);
+
+    const currentHeaderId = String(activeCategory?._id || activeCategory?.id || '');
+
+    // 1. Check if heroConfig has specific categoryIds for this header
+    const ids = heroConfig.categoryIds || [];
+    if (ids.length > 0) {
+      const resolved = ids.map((id) => displayCategoryMap[id]).filter(Boolean).map((c) => ({ id: c._id, name: c.name, image: c.image || getRealCategoryFallback(c.name) }));
+      if (resolved.length > 0) return resolved;
+    }
+
+    // 2. Find categories whose parentId matches activeCategory._id
+    const matchingCats = Object.values(displayCategoryMap).filter(c =>
+      String(c.parentId || '') === currentHeaderId
+    ).map(c => ({
+      id: c._id,
+      name: c.name,
+      image: c.image || getRealCategoryFallback(c.name)
+    }));
+
+    if (matchingCats.length > 0) {
+      return matchingCats;
+    }
+
+    // 3. Fallback: match quickCategories by parentId or keep current quick categories
+    const nameMatching = displayQuickCategories.filter(c => {
+      const dbCat = displayCategoryMap[c.id];
+      return dbCat && String(dbCat.parentId || '') === currentHeaderId;
+    });
+
+    return nameMatching.length > 0 ? nameMatching : displayQuickCategories;
+  }, [isAllCategory, activeCategory, heroConfig.categoryIds, displayCategoryMap, displayQuickCategories]);
+
+  const headerFilteredProducts = useMemo(() => {
+    if (isAllCategory) return displayProducts;
+    const currentHeaderId = String(activeCategory?._id || activeCategory?.id || '');
+    return displayProducts.filter((p) => {
+      const pHeaderId = String(p.headerId?._id || p.headerId || '');
+      if (pHeaderId && pHeaderId === currentHeaderId) return true;
+      const pCatId = String(p.categoryId?._id || p.categoryId || '');
+      if (pCatId && displayCategoryMap[pCatId] && String(displayCategoryMap[pCatId].parentId || '') === currentHeaderId) return true;
+      if (activeCategory?.name && (
+        String(p.category || '').toLowerCase() === activeCategory.name.toLowerCase() ||
+        String(p.headerName || '').toLowerCase() === activeCategory.name.toLowerCase()
+      )) return true;
+      return false;
+    });
+  }, [isAllCategory, activeCategory, displayProducts, displayCategoryMap]);
 
   useEffect(() => {
-    if (activeCategory && activeCategory._id !== "all" && effectiveQuickCategories.length > 0) {
+    if (isAllCategory || !activeCategory?._id || activeCategory._id === "all") return;
+    let isMounted = true;
+    const fetchHeaderProducts = async () => {
+      try {
+        const hasValidLocation = Number.isFinite(currentLocation?.latitude) && Number.isFinite(currentLocation?.longitude);
+        const params = { headerId: activeCategory._id, limit: 50 };
+        if (hasValidLocation) {
+          params.lat = currentLocation.latitude;
+          params.lng = currentLocation.longitude;
+        }
+        const prodRes = await customerApi.getProducts(params);
+        if (prodRes.data?.success && isMounted) {
+          const rawResult = prodRes.data.result;
+          const dbProds = Array.isArray(prodRes.data.results) ? prodRes.data.results : Array.isArray(rawResult?.items) ? rawResult.items : Array.isArray(rawResult) ? rawResult : [];
+          if (dbProds.length > 0) {
+            const formattedProds = dbProds.map((p) => ({
+              ...p,
+              id: p._id,
+              image: p.mainImage || p.image || DEFAULT_PRODUCT_IMAGE,
+              price: p.salePrice || p.price,
+              originalPrice: p.price,
+              weight: p.weight || "1 unit",
+              deliveryTime: "8-15 mins"
+            }));
+            setProducts((prev) => {
+              const existingMap = new Map(prev.map((p) => [String(p._id || p.id), p]));
+              formattedProds.forEach((p) => existingMap.set(String(p._id || p.id), p));
+              return Array.from(existingMap.values());
+            });
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch header products:", e);
+      }
+    };
+    fetchHeaderProducts();
+    return () => {
+      isMounted = false;
+    };
+  }, [activeCategory?._id, isAllCategory, currentLocation?.latitude, currentLocation?.longitude]);
+
+  useEffect(() => {
+    if (!isAllCategory && effectiveQuickCategories.length > 0) {
       setExpandedCategoryId(effectiveQuickCategories[0].id || effectiveQuickCategories[0]._id);
-    } else if (activeCategory && activeCategory._id === "all") {
+    } else if (isAllCategory) {
       setExpandedCategoryId(null);
     }
-  }, [activeCategory, effectiveQuickCategories]);
+  }, [isAllCategory, activeCategory, effectiveQuickCategories]);
 
-  const sectionsForRenderer = displayHeaderSections.length ? displayHeaderSections : displayExperienceSections;
+  const handleCategorySelect = (cat) => {
+    setActiveCategory(cat);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const isMobile = useMemo(() => isMobileOrWebView(), []);
   const opacity = useTransform(scrollY, (heroVisible && !isMobile) ? [0, 300] : [0, 0], [1, 0.6]);
   const y = useTransform(scrollY, (heroVisible && !isMobile) ? [0, 300] : [0, 0], [0, 80]);
@@ -519,23 +622,24 @@ const Home = () => {
     if (!pendingReturn?.sectionId) return;
     const allSections = displayHeaderSections.length ? displayHeaderSections : displayExperienceSections;
     if (!allSections.length) return;
-    if (allSections.some((s) => s._id === pendingReturn.sectionId)) { const el = document.getElementById(`section-${pendingReturn.sectionId}`); if (el) { el.scrollIntoView({ behavior: "instant", block: "start" }); removeStorage(STORAGE_KEYS.EXPERIENCE_RETURN, { storage: "session" }); setPendingReturn(null); } }
+    if (allSections.some((s) => s._id === pendingReturn.sectionId)) {
+      const el = document.getElementById(`section-${pendingReturn.sectionId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "instant", block: "start" });
+        removeStorage(STORAGE_KEYS.EXPERIENCE_RETURN, { storage: "session" });
+        setPendingReturn(null);
+      }
+    }
   }, [displayHeaderSections, displayExperienceSections, pendingReturn]);
-
-  const renderFloatingElements = (type, isVisible = true) => {
-    if (isMobile) return null;
-    return null; // Particles were already simplified out earlier
-  };
 
   return (
     <div className="min-h-screen pt-[210px] md:pt-[160px] bg-white">
       <div className={cn("contents", isProductDetailOpen && "hidden md:contents")}>
-        <MainLocationHeader categories={displayCategories} activeCategory={activeCategory} onCategorySelect={setActiveCategory} />
+        <MainLocationHeader categories={displayCategories} activeCategory={activeCategory} onCategorySelect={handleCategorySelect} />
       </div>
 
       <>
         {(() => {
-          const isAllCategory = !activeCategory || activeCategory._id === "all" || activeCategory.id === "all";
           const hasVideo = settings?.homeVideoBanner?.isVisible && settings.homeVideoBanner.videoUrl && isAllCategory;
           const hasBanners = heroConfig.banners?.items?.length > 0;
           if (!hasVideo && !hasBanners) return null;
@@ -567,7 +671,7 @@ const Home = () => {
           />
         </div>
         {expandedCategoryId && (
-          <div className="px-4 mb-5 pb-10 relative z-50 animate-in slide-in-from-top-2 fade-in duration-300">
+          <div className="px-4 mb-5 pb-6 relative z-50 animate-in slide-in-from-top-2 fade-in duration-300">
             <div className="bg-slate-50/80 rounded-2xl p-3 border border-slate-100 shadow-sm">
               <div className="flex items-center justify-between mb-3 px-1">
                 <h4 className="text-sm font-bold text-slate-800">
@@ -646,54 +750,126 @@ const Home = () => {
             </div>
           </div>
         )}
-        {/* Today's Deals & Additional Deals Sections */}
-        <LowestPriceSection
-          title="Today's Deals"
-          icon={ShoppingBag}
-          iconBg="bg-orange-50"
-          iconColor="text-[#FF8200]"
-          hasTimer={true}
-          products={displayProducts}
-          onSeeAll={() => navigate("/category/all")}
-        />
 
-        <LowestPriceSection
-          title="Lowest Price Ever"
-          icon={Sparkles}
-          iconBg="bg-emerald-50"
-          iconColor="text-emerald-600"
-          hasTimer={false}
-          products={displayProducts}
-          onSeeAll={() => navigate("/category/all")}
-        />
+        {isAllCategory ? (
+          <>
+            {/* Today's Deals & Additional Deals Sections */}
+            <LowestPriceSection
+              title="Today's Deals"
+              icon={ShoppingBag}
+              iconBg="bg-orange-50"
+              iconColor="text-[#FF8200]"
+              hasTimer={true}
+              products={displayProducts}
+              onSeeAll={() => navigate("/category/all")}
+            />
 
-        <LowestPriceSection
-          title="Trending Products"
-          icon={TrendingUp}
-          iconBg="bg-blue-50"
-          iconColor="text-blue-600"
-          hasTimer={false}
-          products={displayProducts}
-          onSeeAll={() => navigate("/category/all")}
-        />
+            <LowestPriceSection
+              title="Lowest Price Ever"
+              icon={Sparkles}
+              iconBg="bg-emerald-50"
+              iconColor="text-emerald-600"
+              hasTimer={false}
+              products={displayProducts}
+              onSeeAll={() => navigate("/category/all")}
+            />
 
-        <LowestPriceSection
-          title="Best Value Deals"
-          icon={Flame}
-          iconBg="bg-rose-50"
-          iconColor="text-rose-600"
-          hasTimer={false}
-          products={displayProducts}
-          onSeeAll={() => navigate("/category/all")}
-        />
+            <LowestPriceSection
+              title="Trending Products"
+              icon={TrendingUp}
+              iconBg="bg-blue-50"
+              iconColor="text-blue-600"
+              hasTimer={false}
+              products={displayProducts}
+              onSeeAll={() => navigate("/category/all")}
+            />
 
-        <MonthlyBasketSection />
-        <OfferSections sections={displayOfferSections} noServiceData={noServiceData} />
+            <LowestPriceSection
+              title="Best Value Deals"
+              icon={Flame}
+              iconBg="bg-rose-50"
+              iconColor="text-rose-600"
+              hasTimer={false}
+              products={displayProducts}
+              onSeeAll={() => navigate("/category/all")}
+            />
 
-        {sectionsForRenderer.length > 0 && (
-          <div className="container mx-auto px-4 md:px-8 lg:px-[50px] py-4 md:py-8">
-            <SectionRenderer sections={sectionsForRenderer} productsById={productsById} categoriesById={displayCategoryMap} subcategoriesById={displaySubcategoryMap} />
-          </div>
+            <MonthlyBasketSection />
+            <OfferSections sections={displayOfferSections} noServiceData={noServiceData} />
+
+            {displayExperienceSections.length > 0 && (
+              <div className="container mx-auto px-4 md:px-8 lg:px-[50px] py-4 md:py-8">
+                <SectionRenderer sections={displayExperienceSections} productsById={productsById} categoriesById={displayCategoryMap} subcategoriesById={displaySubcategoryMap} />
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {/* Specific Header Category View */}
+            {displayHeaderSections.length > 0 ? (
+              <div className="container mx-auto px-4 md:px-8 lg:px-[50px] py-4 md:py-8">
+                <SectionRenderer sections={displayHeaderSections} productsById={productsById} categoriesById={displayCategoryMap} subcategoriesById={displaySubcategoryMap} />
+              </div>
+            ) : (
+              <div className="pb-12">
+                {headerFilteredProducts.length > 0 ? (
+                  <>
+                    <LowestPriceSection
+                      title={`${activeCategory?.name || "Category"} Deals`}
+                      icon={Sparkles}
+                      iconBg="bg-orange-50"
+                      iconColor="text-[#FF8200]"
+                      hasTimer={false}
+                      products={headerFilteredProducts}
+                      onSeeAll={() => expandedCategoryId ? navigate(`/category/${expandedCategoryId}`) : navigate('/categories')}
+                    />
+
+                    <div className="container mx-auto px-4 md:px-8 lg:px-[50px] py-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-base md:text-lg font-black text-slate-800">
+                          All {activeCategory?.name || "Category"} Products ({headerFilteredProducts.length})
+                        </h3>
+                        {expandedCategoryId && (
+                          <button
+                            onClick={() => {
+                              window.scrollTo(0, 0);
+                              navigate(`/category/${expandedCategoryId}`);
+                            }}
+                            className="text-xs font-bold text-primary hover:underline"
+                          >
+                            {getTranslatedText("View All")}
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
+                        {headerFilteredProducts.map((product) => (
+                          <ProductCard key={product.id || product._id} product={product} />
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="container mx-auto px-4 py-12 text-center max-w-md">
+                    <div className="w-16 h-16 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
+                      🛒
+                    </div>
+                    <h4 className="text-base font-bold text-slate-800 mb-1">
+                      No products found in {activeCategory?.name || "this category"}
+                    </h4>
+                    <p className="text-xs text-slate-500 mb-5 leading-relaxed">
+                      We are adding more products to this category soon. Please check back later!
+                    </p>
+                    <button
+                      onClick={() => handleCategorySelect(ALL_CATEGORY)}
+                      className="px-5 py-2.5 bg-slate-900 text-white text-xs font-bold rounded-xl shadow-sm hover:bg-slate-800 active:scale-95 transition-all"
+                    >
+                      Explore All Categories
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
       </>
     </div>

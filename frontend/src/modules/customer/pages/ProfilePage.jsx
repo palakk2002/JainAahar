@@ -262,12 +262,15 @@ const ProfilePage = () => {
                                 )}
                             </div>
 
-                            <MenuItem
-                                icon={MessageSquare}
-                                label="WhatsApp & Notification Settings"
-                                path="/profile/settings"
-                                badgeBg="bg-emerald-50/80 border-emerald-100/70 text-emerald-700"
-                            />
+                            {/* WhatsApp & Notification Settings hidden for now */}
+                            {false && (
+                                <MenuItem
+                                    icon={MessageSquare}
+                                    label="WhatsApp & Notification Settings"
+                                    path="/profile/settings"
+                                    badgeBg="bg-emerald-50/80 border-emerald-100/70 text-emerald-700"
+                                />
+                            )}
                             <MenuItem
                                 icon={LifeBuoy}
                                 label={t('helpSupport') || "Help & Support"}
