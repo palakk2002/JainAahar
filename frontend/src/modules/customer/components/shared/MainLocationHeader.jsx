@@ -592,7 +592,7 @@ const MainLocationHeader = ({
               </div>
             </div>
 
-            {/* Bottom row: Unified Search Bar with Mic and Scanner SVG */}
+            {/* Bottom row: Unified Search Bar */}
             <div
               onClick={handleSearchClick}
               className="w-full bg-white border border-[#2E7D32]/55 rounded-full px-4 h-9 flex items-center shadow-3xs cursor-pointer hover:border-[#2E7D32] transition-all"
@@ -604,12 +604,8 @@ const MainLocationHeader = ({
                 readOnly
                 className="flex-1 bg-transparent border-none outline-none pl-2 text-slate-800 font-bold placeholder:text-slate-400 text-[12.5px] cursor-pointer"
               />
-              <div className="flex items-center gap-3.5 shrink-0 ml-1">
+              <div className="flex items-center shrink-0 ml-1">
                 <MicIcon sx={{ color: "#78909c", fontSize: 20 }} className="cursor-pointer" />
-                {/* Barcode Scanner SVG */}
-                <svg className="w-5 h-5 text-[#FF8200] cursor-pointer" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 8V4h4M16 4h4v4M4 16v4h4M20 16v4h4M8 12h8" />
-                </svg>
               </div>
             </div>
           </div>

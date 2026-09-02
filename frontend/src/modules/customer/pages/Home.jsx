@@ -369,12 +369,18 @@ const Home = () => {
         ? { lat: currentLocation.latitude, lng: currentLocation.longitude }
         : {};
 
-      const [catRes, prodRes, expRes, sectionsRes] = await Promise.all([
+      const [catResult, prodResult, expResult, sectionsResult] = await Promise.allSettled([
         customerApi.getCategories(),
         customerApi.getProducts(productParams),
-        customerApi.getExperienceSections({ pageType: "home" }).catch(() => null),
-        customerApi.getOfferSections(sectionParams).catch(() => ({ data: {} })),
+        customerApi.getExperienceSections({ pageType: "home" }),
+        customerApi.getOfferSections(sectionParams),
       ]);
+
+      const catRes = catResult.status === "fulfilled" ? catResult.value : null;
+      const prodRes = prodResult.status === "fulfilled" ? prodResult.value : null;
+      const expRes = expResult.status === "fulfilled" ? expResult.value : null;
+      const sectionsRes = sectionsResult.status === "fulfilled" ? sectionsResult.value : null;
+
       const nextHomeData = {
         categories: [ALL_CATEGORY],
         activeCategory: ALL_CATEGORY,
@@ -387,7 +393,8 @@ const Home = () => {
         formattedHeaders: [],
         heroConfig: heroConfigMemoryCache.__home__ || EMPTY_HERO_CONFIG,
       };
-      if (catRes.data.success) {
+
+      if (catRes?.data?.success) {
         const dbCats = catRes.data.results || catRes.data.result || [];
         const catMap = {};
         const subMap = {};
@@ -408,11 +415,13 @@ const Home = () => {
         const cutoffIndex = rawQuickCats.findIndex(cat => String(cat.name || '').trim().toLowerCase() === 'baby accessories');
         nextHomeData.quickCategories = cutoffIndex !== -1 ? rawQuickCats.slice(0, cutoffIndex + 1) : rawQuickCats;
       }
-      if (prodRes.data.success) {
+
+      if (prodRes?.data?.success) {
         const rawResult = prodRes.data.result;
         const dbProds = Array.isArray(prodRes.data.results) ? prodRes.data.results : Array.isArray(rawResult?.items) ? rawResult.items : Array.isArray(rawResult) ? rawResult : [];
         nextHomeData.products = dbProds.map((p) => ({ ...p, id: p._id, image: p.mainImage || p.image || DEFAULT_PRODUCT_IMAGE, price: p.salePrice || p.price, originalPrice: p.price, weight: p.weight || "1 unit", deliveryTime: "8-15 mins" }));
       }
+
       if (expRes?.data?.success) nextHomeData.experienceSections = Array.isArray(expRes.data.result || expRes.data.results) ? (expRes.data.result || expRes.data.results) : [];
       const sectionsList = sectionsRes?.data?.results || sectionsRes?.data?.result || sectionsRes?.data;
       nextHomeData.offerSections = Array.isArray(sectionsList) ? sectionsList : [];
