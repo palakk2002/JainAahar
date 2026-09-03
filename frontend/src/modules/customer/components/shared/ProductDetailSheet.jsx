@@ -10,6 +10,7 @@ import { useSettings } from '@core/context/SettingsContext';
 import { useLocation as useAppLocation } from '../../context/LocationContext';
 import { cn } from '@/lib/utils';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
+import { formatWeight } from '@/core/utils/formatUtils';
 import { customerApi } from '../../services/customerApi';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
@@ -506,15 +507,17 @@ const ProductDetailSheet = () => {
 
                                         {/* Top badges row */}
                                         <div className="flex items-center gap-2 flex-wrap">
-                                            <motion.div
-                                                initial={{ opacity: 0, x: -10 }}
-                                                animate={{ opacity: 1, x: 0 }}
-                                                transition={{ delay: 0.1 }}
-                                                className="inline-flex items-center gap-1.5 bg-[#ecfeff] border border-brand-200/50 text-primary px-3 py-1.5 rounded-lg text-[10px] font-[700] uppercase tracking-wider"
-                                            >
-                                                <Clock size={12} strokeWidth={2.5} className="text-primary" />
-                                                {selectedProduct.deliveryTime || '8-15 MINS'}
-                                            </motion.div>
+                                            {selectedProduct.deliveryTime && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, x: -10 }}
+                                                    animate={{ opacity: 1, x: 0 }}
+                                                    transition={{ delay: 0.1 }}
+                                                    className="inline-flex items-center gap-1.5 bg-[#ecfeff] border border-brand-200/50 text-primary px-3 py-1.5 rounded-lg text-[10px] font-[700] uppercase tracking-wider"
+                                                >
+                                                    <Clock size={12} strokeWidth={2.5} className="text-primary" />
+                                                    {selectedProduct.deliveryTime}
+                                                </motion.div>
+                                            )}
                                             {selectedProduct.originalPrice > selectedProduct.price && (
                                                 <motion.div
                                                     initial={{ opacity: 0, x: -10 }}
@@ -547,7 +550,7 @@ const ProductDetailSheet = () => {
                                                 {selectedProduct.name}
                                             </h1>
                                             {selectedProduct.weight && (
-                                                <span className="text-[13px] text-gray-400 font-bold uppercase tracking-wider">{selectedProduct.weight}</span>
+                                                <span className="text-[13px] text-gray-400 font-bold uppercase tracking-wider">{formatWeight(selectedProduct.weight)}</span>
                                             )}
                                         </motion.div>
 
@@ -665,7 +668,7 @@ const ProductDetailSheet = () => {
                                                                     : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:shadow-sm'
                                                             )}
                                                         >
-                                                            {v.name}
+                                                            {formatWeight(v.name)}
                                                         </motion.button>
                                                     ))}
                                                 </div>
@@ -954,10 +957,12 @@ const ProductDetailSheet = () => {
                             {/* Product Info Container */}
                             <div className="px-5 pt-3 pb-3 space-y-3">
                                 {/* Delivery Time Badge */}
-                                <div className="inline-flex items-center gap-1.5 bg-[#F0FDF4] border border-brand-100 text-primary px-2.5 py-1 rounded-lg text-[10px] font-black uppercase">
-                                    <Clock size={12} strokeWidth={3} />
-                                    {selectedProduct.deliveryTime || "8 Mins"}
-                                </div>
+                                {selectedProduct.deliveryTime && (
+                                    <div className="inline-flex items-center gap-1.5 bg-[#F0FDF4] border border-brand-100 text-primary px-2.5 py-1 rounded-lg text-[10px] font-black uppercase">
+                                        <Clock size={12} strokeWidth={3} />
+                                        {selectedProduct.deliveryTime}
+                                    </div>
+                                )}
 
                                 {/* Title & Weight */}
                                 <div>
@@ -965,7 +970,7 @@ const ProductDetailSheet = () => {
                                         {selectedProduct.name}
                                     </h2>
                                     <p className="text-xs text-slate-500 font-semibold mt-1">
-                                        {selectedVariant?.name || selectedProduct.weight || "1 kg"}
+                                        {formatWeight(selectedVariant?.name || selectedProduct.weight, "1 unit")}
                                     </p>
                                 </div>
 
@@ -1025,7 +1030,7 @@ const ProductDetailSheet = () => {
                                                                     : "bg-slate-50 border-slate-100 text-slate-500"
                                                             )}
                                                         >
-                                                            {v.name}
+                                                            {formatWeight(v.name)}
                                                             {selectedVariant?.sku === v.sku && (
                                                                 <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-primary rounded-bl-lg" />
                                                             )}

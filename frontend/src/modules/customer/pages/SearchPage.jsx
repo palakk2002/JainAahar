@@ -54,7 +54,8 @@ const SearchPage = () => {
 
     // Voice Search Logic (Enhanced)
     const handleVoiceSearch = () => {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const SpeechRecognition =
+            window.SpeechRecognition || window['webkitSpeechRecognition'];
         if (!SpeechRecognition) {
             alert('Voice search is not supported in your browser. Please try Chrome.');
             return;
@@ -148,7 +149,7 @@ const SearchPage = () => {
                         price: p.salePrice || p.price,
                         originalPrice: p.price,
                         weight: p.weight || '1 unit',
-                        deliveryTime: '8-15 mins'
+                        deliveryTime: p.deliveryTime
                     }));
                     setAllProducts(formattedProds);
                 }

@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { customerApi } from '../services/customerApi';
 import { useLocation as useAppLocation } from '../context/LocationContext';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
+import { formatWeight } from '@/core/utils/formatUtils';
 import { useSettings } from '@core/context/SettingsContext';
 import Lottie from 'lottie-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -378,7 +379,7 @@ const ProductDetailPage = () => {
                     <div className="grid grid-cols-3 gap-4">
                         <div className="bg-white p-4 rounded-2xl border border-slate-100 text-center shadow-sm">
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Weight</p>
-                            <p className="text-sm font-black text-slate-800">{product.weight || '1 unit'}</p>
+                            <p className="text-sm font-black text-slate-800">{formatWeight(product.weight, "1 unit")}</p>
                         </div>
                         <div className="bg-white p-4 rounded-2xl border border-slate-100 text-center shadow-sm">
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Stock</p>

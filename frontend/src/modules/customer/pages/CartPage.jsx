@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
+import { formatWeight } from '@/core/utils/formatUtils';
 
 const CartPage = ({ asOverlay = false, onClose }) => {
     const { cart, cartTotal } = useCart();
@@ -44,7 +45,7 @@ const CartPage = ({ asOverlay = false, onClose }) => {
                                     {item.name}
                                 </h3>
                                 <p className="text-[14px] text-gray-500 font-medium mt-1">
-                                    {item.weight || '1 kg'} {item.quantity > 1 ? `(x${item.quantity})` : ''}
+                                    {formatWeight(item.weight || item.variantName, "1 unit")} {item.quantity > 1 ? `(x${item.quantity})` : ''}
                                 </p>
                             </div>
 

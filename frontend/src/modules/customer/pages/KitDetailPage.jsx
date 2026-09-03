@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { customerApi } from '../services/customerApi';
 import { useCart } from '../context/CartContext';
 import { toast } from 'sonner';
+import { formatWeight } from '@/core/utils/formatUtils';
 import { ChevronLeft, Package, Check, Sparkles } from 'lucide-react';
 
 const KitDetailPage = () => {
@@ -71,7 +72,7 @@ const KitDetailPage = () => {
                 <div className="flex justify-between items-start mb-4">
                     <div>
                         <h2 className="text-2xl font-black text-slate-900 leading-tight mb-1">{kit.name}</h2>
-                        <p className="text-sm font-bold text-slate-500">{kit.weight || "Monthly Supply"}</p>
+                        <p className="text-sm font-bold text-slate-500">{formatWeight(kit.weight, "Monthly Supply")}</p>
                     </div>
                     <div className="text-right">
                         <div className="text-2xl font-black text-primary">₹{kit.salePrice || kit.price}</div>

@@ -7,6 +7,7 @@ import { useCart } from "../../context/CartContext";
 import { useToast } from "@shared/components/ui/Toast";
 import { useCartAnimation } from "../../context/CartAnimationContext";
 import { DEFAULT_PRODUCT_IMAGE } from "@/core/utils/imageUtils";
+import { formatWeight } from "@/core/utils/formatUtils";
 import SafeImage from "@/shared/components/SafeImage";
 import { motion, AnimatePresence } from "framer-motion";
 import { useProductDetail } from "../../context/ProductDetailContext";
@@ -256,7 +257,7 @@ function ProductCardComponent({
             </h4>
             <div className="flex items-center gap-1.5 mt-0.5">
               <p className="text-[11px] font-semibold text-slate-400">
-                {product.weight || "1 unit"}
+                {formatWeight(product.weight, "1 unit")}
               </p>
               {Array.isArray(product?.variants) && product.variants.length > 1 && (
                 <span className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full font-bold">
