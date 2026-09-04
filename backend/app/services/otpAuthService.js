@@ -82,11 +82,19 @@ async function dispatchCustomerOtpSms({ phone, otp }) {
 
 
 export function isTestPhone(phone) {
-  return true; // Any phone number accepted with 1234
+  const raw = String(phone || "").replace(/\D/g, "").slice(-10);
+  const testPhones = (process.env.TEST_PHONES || "9999999999")
+    .split(",")
+    .map((p) => p.trim());
+  return testPhones.includes(raw);
 }
 
 export function isTestEmail(email) {
-  return true; // Any email accepted with 1234
+  const normalized = String(email || "").toLowerCase().trim();
+  const testEmails = (process.env.TEST_EMAILS || "test@example.com")
+    .split(",")
+    .map((e) => e.trim().toLowerCase());
+  return testEmails.includes(normalized);
 }
 
 export function normalizeAndValidatePhone(rawPhone) {
@@ -288,58 +296,31 @@ export async function verifyCustomerOtpCode({
     throw err;
   }
 
-  // Universal bypass for OTP 1234
-  if (code === "1234") {
-    let customer = null;
-    if (rawEmail) {
-      const email = String(rawEmail).toLowerCase().trim();
-      customer = await Customer.findOne({ email });
+  if (rawEmail) {
+    const email = String(rawEmail).toLowerCase().trim();
+    const isTest = isTestEmail(email);
+
+    if (isTest && code === "1234") {
+      let customer = await Customer.findOne({ email });
       if (!customer) {
         customer = await Customer.create({
-          name: "Palak patel",
+          name: "Customer",
           email,
           isVerified: true,
           isActive: true,
         });
+      } else {
+        customer.isVerified = true;
+        customer.isActive = true;
+        customer.otpFailedAttempts = 0;
+        customer.otpLockedUntil = null;
+        customer.otpHash = undefined;
+        customer.otpExpiresAt = undefined;
+        customer.lastLogin = new Date();
+        await customer.save();
       }
-    } else if (rawPhone) {
-      const digits = String(rawPhone || "").replace(/\D/g, "");
-      const searchPhones = [
-        rawPhone,
-        rawPhone.trim(),
-        `+91${digits.slice(-10)}`,
-        digits.slice(-10),
-      ].filter(Boolean);
-
-      customer = await Customer.findOne({
-        phone: { $in: searchPhones },
-      });
-
-      if (!customer) {
-        customer = await Customer.create({
-          name: "Customer",
-          phone: `+91${digits.slice(-10)}`,
-          isVerified: true,
-          isActive: true,
-        });
-      }
-    }
-
-    if (customer) {
-      customer.isVerified = true;
-      customer.isActive = true;
-      customer.otpFailedAttempts = 0;
-      customer.otpLockedUntil = null;
-      customer.otpHash = undefined;
-      customer.otpExpiresAt = undefined;
-      customer.lastLogin = new Date();
-      await customer.save();
       return customer;
     }
-  }
-
-  if (rawEmail) {
-    const email = String(rawEmail).toLowerCase().trim();
 
     const verifyAllowed = await incrementWindowCounter(`otp:verify:email:${email}`, {
       limit: OTP_VERIFY_LIMIT_PER_WINDOW(),

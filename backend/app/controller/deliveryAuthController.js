@@ -35,7 +35,7 @@ export const signupDelivery = async (req, res) => {
             return handleResponse(res, 400, "Delivery partner already exists");
         }
 
-        let otp = "1234";
+        let otp = useRealSMS() ? generateOTP() : "1234";
 
         let aadharUrl = delivery?.documents?.aadhar || "";
         let panUrl = delivery?.documents?.pan || "";
@@ -124,10 +124,10 @@ export const loginDelivery = async (req, res) => {
             return handleResponse(res, 404, "Delivery partner not found");
         }
 
-        let otp = "1234";
+        let otp = useRealSMS() ? generateOTP() : "1234";
 
         delivery.otp = otp;
-        delivery.otpExpiry = Date.now() + 60 * 60 * 1000;
+        delivery.otpExpiry = Date.now() + 10 * 60 * 1000;
         await delivery.save();
 
         if (useRealSMS()) {
@@ -158,7 +158,12 @@ export const verifyDeliveryOTP = async (req, res) => {
             return handleResponse(res, 404, "Delivery partner not found");
         }
 
-        if (otp !== "1234" && (delivery.otp !== otp || delivery.otpExpiry <= Date.now())) {
+        const isReal = useRealSMS();
+        const isValid = isReal
+          ? delivery.otp === otp && delivery.otpExpiry > Date.now()
+          : otp === "1234" || (delivery.otp === otp && delivery.otpExpiry > Date.now());
+
+        if (!isValid) {
             return handleResponse(res, 400, "Invalid or expired OTP");
         }
 

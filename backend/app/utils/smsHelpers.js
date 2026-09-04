@@ -58,8 +58,11 @@ export function buildMessage(otp) {
   } else if (totalGenericTokens === 2) {
     if (/(?:hi|dear)\s*(?:\{#var#\}|##var##|\{#VAR#\})/i.test(template)) {
       replacementOrder = ["User", String(otp)];
-    } else {
+    } else if (/valid for\s*(?:\{#var#\}|##var##|\{#VAR#\})/i.test(template)) {
       replacementOrder = [String(otp), String(minutes)];
+    } else {
+      // In standard Indian DLT templates: 1st var is Brand/AppName, 2nd var is OTP
+      replacementOrder = [appName, String(otp)];
     }
   } else {
     replacementOrder = [appName, String(otp), String(minutes)];

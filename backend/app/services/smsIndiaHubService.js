@@ -19,11 +19,17 @@ function getSmsIndiaConfig() {
     ).trim(),
     dltTemplateId: String(
       process.env.SMS_INDIA_HUB_DLT_TEMPLATE_ID ||
+        process.env.SMS_INDIA_HUB_TEMPLATE_ID ||
         process.env.SMS_TEMPLATE_ID ||
         process.env.SMS_DLT_TEMPLATE_ID ||
         "",
     ).trim(),
-    gatewayId: String(process.env.SMS_INDIA_HUB_GWID || "2").trim(),
+    gatewayId: String(
+      process.env.SMS_INDIA_HUB_GWID ||
+        process.env.SMS_INDIA_HUB_CHANNEL ||
+        process.env.SMS_CHANNEL ||
+        "2",
+    ).trim(),
     campaignId: String(
       process.env.SMS_CAMPAIGN_ID ||
         process.env.SMS_INDIA_HUB_CAMPAIGN_ID ||
@@ -32,18 +38,21 @@ function getSmsIndiaConfig() {
     routeId: String(
       process.env.SMS_ROUTE_ID ||
         process.env.SMS_INDIA_HUB_ROUTE_ID ||
+        process.env.SMS_INDIA_HUB_ROUTE ||
         "100768",
     ).trim(),
     peId: String(
       process.env.SMS_INDIA_HUB_PE_ID ||
+        process.env.SMS_INDIA_HUB_ENTITY_ID ||
         process.env.SMS_PE_ID ||
+        process.env.SMS_ENTITY_ID ||
         "",
     ).trim(),
     username: String(process.env.SMS_USERNAME || "").trim(),
     url: String(
       process.env.SMS_INDIA_HUB_URL ||
         process.env.SMS_API_URL ||
-        "https://login.bulksmssender.in/app/smsapi/index.php",
+        "http://cloud.smsindiahub.in/vendorsms/pushsms.aspx",
     ).trim(),
     timeoutMs: parseInt(
       process.env.SMS_INDIA_HUB_TIMEOUT_MS ||
@@ -60,6 +69,17 @@ function normalizeProviderPayload(payload) {
 
 function parseSmsIndiaResponse(payload) {
   if (payload && typeof payload === "object") {
+    const errorCode = String(
+      payload.ErrorCode || payload.errorCode || payload.code || "",
+    ).trim();
+    const errorMessage = String(
+      payload.ErrorMessage || payload.errorMessage || "",
+    ).toLowerCase();
+
+    if (errorCode === SMS_INDIA_SUCCESS_CODE || errorMessage === "done") {
+      return { code: SMS_INDIA_SUCCESS_CODE, raw: normalizeProviderPayload(payload) };
+    }
+
     const status = String(payload.status || "").toLowerCase();
     if (["success", "ok", "done", "submitted", "000"].includes(status)) {
       return { code: SMS_INDIA_SUCCESS_CODE, raw: normalizeProviderPayload(payload) };
