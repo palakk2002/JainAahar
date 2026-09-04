@@ -20,7 +20,7 @@ export const shiprocketProvider = {
       throw new ProviderError("INVALID_CONTEXT", "orderId is required for createShipment");
     }
 
-    const pickupLocation = process.env.SHIPROCKET_PICKUP_LOCATION || pickup?.name || "Primary Warehouse";
+    const pickupLocation = pickup?.shiprocketPickupLocation || process.env.SHIPROCKET_PICKUP_LOCATION || pickup?.name || "Primary Warehouse";
 
     const rawAddress = (drop?.address || "").trim();
     // Shiprocket API strict validation requires at least 1 digit (e.g. 101, 12, B-1) or explicit No.

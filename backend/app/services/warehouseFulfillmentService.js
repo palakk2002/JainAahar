@@ -497,6 +497,7 @@ export async function createShiprocketShipmentForFulfillment(fulfillmentDoc) {
     orderId: fulfillmentDoc.orderId || order.orderId,
     pickup: {
       name: warehouse?.warehouseName || warehouse?.name || "Primary Warehouse",
+      shiprocketPickupLocation: warehouse?.shiprocketPickupLocation || null,
       phone: warehouse?.phone || "9999999999",
       address: warehouse?.address || "Warehouse Address",
       city: warehouse?.city || "Indore",

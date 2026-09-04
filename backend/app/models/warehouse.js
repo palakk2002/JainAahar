@@ -72,6 +72,19 @@ const warehouseSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // ── Shiprocket Pickup Location Sync ──────────────────────────────────
+    /** Shiprocket pickup location nickname (e.g. "INDORE_HUB_PRIMARY") */
+    shiprocketPickupLocation: {
+      type: String,
+      trim: true,
+    },
+
+    /** Whether this warehouse has been synced to Shiprocket as a pickup location */
+    shiprocketPickupSynced: {
+      type: Boolean,
+      default: false,
+    },
+
     documents: {
       tradeLicense: { type: String, trim: true },
       gstCertificate: { type: String, trim: true },

@@ -640,6 +640,33 @@ export const warehouseMgmtApi = {
       return { data: { success: true, result: [] } };
     }
   },
+
+  // ==========================================
+  // SHIPROCKET PICKUP ADDRESS SYNC
+  // ==========================================
+  async syncPickupAddress(warehouseId, data) {
+    return axiosInstance.post(`/warehouse/shiprocket-pickup/sync/${warehouseId}`, data);
+  },
+
+  async listShiprocketPickups() {
+    try {
+      return await axiosInstance.get("/warehouse/shiprocket-pickup/list");
+    } catch {
+      return { data: { success: true, result: { locations: [] } } };
+    }
+  },
+
+  async getPickupSyncStatus() {
+    try {
+      return await axiosInstance.get("/warehouse/shiprocket-pickup/status");
+    } catch {
+      return { data: { success: true, result: { items: [] } } };
+    }
+  },
+
+  async updatePickupAddress(warehouseId, data) {
+    return axiosInstance.put(`/warehouse/shiprocket-pickup/update/${warehouseId}`, data);
+  },
 };
 
 export default warehouseMgmtApi;

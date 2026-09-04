@@ -7,6 +7,7 @@ import warehouseRoute from "./warehouseAuth.js";
 import warehouseInventoryRoute from "./warehouseInventoryRoutes.js";
 import warehouseTransferRoute from "./warehouseTransferRoutes.js";
 import warehouseFulfillmentRoute from "./warehouseFulfillmentRoutes.js";
+import shiprocketPickupRoute from "./shiprocketPickupRoutes.js";
 import categoryRoute from "./categoryRoutes.js";
 import productRoute from "./productRoutes.js";
 import cartRoute from "./cartRoutes.js";
@@ -58,6 +59,7 @@ const setupRoutes = (app) => {
     router.use("/warehouse/inventory", warehouseInventoryRoute);
     router.use("/warehouse/transfers", warehouseTransferRoute);
     router.use("/warehouse/fulfillments", warehouseFulfillmentRoute);
+    router.use("/warehouse/shiprocket-pickup", shiprocketPickupRoute);
     router.use("/warehouse", warehouseRoute);
     router.use("/settings", settingsRoute);
     router.use("/categories", categoryRoute);

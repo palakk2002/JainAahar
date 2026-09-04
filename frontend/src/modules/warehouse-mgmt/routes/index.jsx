@@ -31,6 +31,7 @@ const StockAudit = React.lazy(() => import("../pages/StockAudit"));
 const LowStock = React.lazy(() => import("../pages/LowStock"));
 const OutOfStock = React.lazy(() => import("../pages/OutOfStock"));
 const Reports = React.lazy(() => import("../pages/Reports"));
+const PickupAddresses = React.lazy(() => import("../pages/PickupAddresses"));
 
 const navItems = [
   {
@@ -68,6 +69,7 @@ const navItems = [
     children: [
       { label: "Warehouse Orders", path: "/warehouse-mgmt/orders" },
       { label: "Picking & Packing", path: "/warehouse-mgmt/fulfillment" },
+      { label: "Pickup Addresses", path: "/warehouse-mgmt/pickup-addresses" },
     ],
   },
   {
@@ -132,6 +134,7 @@ const WarehouseMgmtRoutes = () => {
         <Route path="/outward" element={<StockOutward />} />
         <Route path="/orders" element={<Orders />} />
         <Route path="/fulfillment" element={<Fulfillment />} />
+        <Route path="/pickup-addresses" element={<PickupAddresses />} />
         <Route path="/transfers" element={<Transfers />} />
         <Route path="/damaged" element={<DamagedDefective />} />
         <Route path="/returns" element={<Returns />} />
