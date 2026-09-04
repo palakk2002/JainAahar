@@ -1,5 +1,10 @@
+import http from "http";
+import https from "https";
 import axios from "axios";
 import { buildMessage, normalizeMobile, toIndianNumber } from "../utils/smsHelpers.js";
+
+const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 50 });
+const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 50 });
 
 const SMS_INDIA_SUCCESS_CODE = "000";
 
@@ -217,6 +222,8 @@ export async function sendSmsIndiaHubOtp({ phone, otp, message }) {
   const response = await axios.get(config.url, {
     params,
     timeout: config.timeoutMs,
+    httpAgent,
+    httpsAgent,
   });
 
   const body = response.data;
