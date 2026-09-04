@@ -100,9 +100,6 @@ const {
 describe("Phase 0 payment hardening", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    process.env.RAZORPAY_KEY_ID = "rzp_test_key";
-    process.env.RAZORPAY_KEY_SECRET = "rzp_test_secret";
-    process.env.RAZORPAY_WEBHOOK_SECRET = "rzp_wh_secret";
     process.env.PHONEPE_CLIENT_ID = "phonepe-client";
     process.env.PHONEPE_CLIENT_SECRET = "phonepe-secret";
     process.env.PHONEPE_CLIENT_VERSION = "1";
@@ -136,7 +133,7 @@ describe("Phase 0 payment hardening", () => {
     mockPaymentCreate.mockResolvedValue({
       _id: "payment-1",
       publicOrderId: "ORD-20260325-ABC123",
-      gatewayName: "RAZORPAY",
+      gatewayName: "PHONEPE",
       gatewayOrderId: "order_gateway_1",
       amount: 49900,
       currency: "INR",

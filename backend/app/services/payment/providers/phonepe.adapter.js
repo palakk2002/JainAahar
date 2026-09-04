@@ -68,99 +68,125 @@ export class PhonePeAdapter extends PaymentProviderPort {
   async getPaymentStatus({ merchantOrderId }) {
     const client = getPhonePeClient();
     const response = await client.getOrderStatus(merchantOrderId);
+    const lastPayment =
+      Array.isArray(response.paymentDetails) && response.paymentDetails.length > 0
+        ? response.paymentDetails[response.paymentDetails.length - 1]
+        : null;
+
+    const transactionId =
+      lastPayment?.transactionId || response.transactionId || response.orderId || null;
+    const responseCode =
+      response.errorCode || response.detailedErrorCode || response.responseCode || response.state;
+
     return {
       state: response.state,
-      transactionId: response.transactionId,
-      responseCode: response.responseCode,
+      transactionId,
+      responseCode,
       gatewayResponse: response,
     };
   }
 
   async validateWebhook({ rawBody, authorization }) {
     const client = getPhonePeClient();
-    let jsonPayload;
-    try {
-      jsonPayload = JSON.parse(rawBody.toString("utf8"));
-    } catch {
-      const err = new Error("Invalid format: Webhook body must be JSON");
-      err.statusCode = 400;
-      throw err;
+    const rawString = Buffer.isBuffer(rawBody) ? rawBody.toString("utf8") : String(rawBody || "");
+
+    const username = String(process.env.PHONEPE_WEBHOOK_USERNAME || "").trim();
+    const password = String(process.env.PHONEPE_WEBHOOK_PASSWORD || "").trim();
+
+    if (username && password) {
+      try {
+        client.validateCallback(username, password, authorization, rawString);
+        return true;
+      } catch {
+        return false;
+      }
     }
-    const base64Response = jsonPayload.response;
-    if (!base64Response) {
-      const err = new Error("Invalid payload: Missing 'response' field");
-      err.statusCode = 400;
-      throw err;
-    }
-    const ok = await client.validateCallback(base64Response, authorization);
-    return ok;
+
+    // Fallback: If webhook username/password not configured in env, ensure authorization header is present
+    return Boolean(authorization);
   }
 
   async decodeWebhookPayload({ rawBody }) {
+    const rawString = Buffer.isBuffer(rawBody) ? rawBody.toString("utf8") : String(rawBody || "");
     let jsonPayload;
     try {
-      jsonPayload = JSON.parse(rawBody.toString("utf8"));
+      jsonPayload = JSON.parse(rawString);
     } catch {
       const err = new Error("Invalid format: Webhook body must be JSON");
       err.statusCode = 400;
       throw err;
     }
-    const base64Response = jsonPayload.response;
-    if (!base64Response) {
-      const err = new Error("Invalid payload: Missing 'response' field");
-      err.statusCode = 400;
-      throw err;
+
+    let payload = jsonPayload;
+
+    // Support PhonePe v1 legacy base64 format if received
+    if (jsonPayload.response && typeof jsonPayload.response === "string") {
+      try {
+        payload = JSON.parse(Buffer.from(jsonPayload.response, "base64").toString("utf8"));
+      } catch {
+        const err = new Error("Invalid webhook payload: Base64 decode failed");
+        err.statusCode = 400;
+        throw err;
+      }
+    } else if (jsonPayload.payload && typeof jsonPayload.payload === "object") {
+      // PhonePe v2 standard format
+      payload = jsonPayload.payload;
     }
-    let payload;
-    try {
-      payload = JSON.parse(
-        Buffer.from(base64Response, "base64").toString("utf8"),
-      );
-    } catch {
-      const err = new Error("Invalid webhook payload: Base64 decode failed");
-      err.statusCode = 400;
-      throw err;
-    }
-    // Audit Phase 2 (H-4): the previous fallback `crypto.randomUUID()` defeated
-    // the `PaymentWebhookEvent.eventId` unique-index deduplication whenever
-    // PhonePe omitted `transactionId` (true for some early CREATED/PENDING
-    // callbacks). Each redelivery produced a fresh UUID and the same logical
-    // event was processed twice.
-    //
-    // Fix: when `transactionId` is absent, derive a stable hash from the
-    // identity tuple `(merchantOrderId, state, payload)`. Identical
-    // redeliveries collapse onto the same eventId and short-circuit at the
-    // unique-index check (code 11000 → `duplicate: true`).
-    //
-    // Backward compatibility: the primary `payload.transactionId` branch is
-    // unchanged, so every existing happy-path webhook (which carries a
-    // transactionId) produces the exact same eventId as before. Only the
-    // pathological no-transactionId branch is hardened.
+
+    const lastPayment =
+      Array.isArray(payload.paymentDetails) && payload.paymentDetails.length > 0
+        ? payload.paymentDetails[payload.paymentDetails.length - 1]
+        : null;
+
+    const transactionId =
+      payload.transactionId || lastPayment?.transactionId || payload.orderId || null;
+    const merchantOrderId =
+      payload.merchantOrderId || payload.originalMerchantOrderId || jsonPayload.merchantOrderId || null;
+    const state = payload.state || jsonPayload.type || "PENDING";
+    const responseCode =
+      payload.errorCode || payload.detailedErrorCode || payload.responseCode || state;
+
+    // Stable eventId derivation for idempotency deduplication (H-4)
     const stableEventId =
-      payload.transactionId ||
+      transactionId ||
       crypto
         .createHash("sha256")
-        .update(
-          `${payload.merchantOrderId || ""}|${payload.state || ""}|${JSON.stringify(payload)}`,
-        )
+        .update(`${merchantOrderId || ""}|${state || ""}|${JSON.stringify(payload)}`)
         .digest("hex");
 
     return {
       eventId: stableEventId,
-      merchantOrderId: payload.merchantOrderId,
-      state: payload.state,
-      transactionId: payload.transactionId,
-      responseCode: payload.responseCode,
-      raw: payload,
+      merchantOrderId,
+      state,
+      transactionId,
+      responseCode,
+      raw: jsonPayload,
     };
   }
 
   mapStatusToInternal(gatewayState) {
     const normalized = String(gatewayState || "").toUpperCase();
-    if (normalized === "COMPLETED") return PAYMENT_STATUS.CAPTURED;
-    if (normalized === "FAILED") return PAYMENT_STATUS.FAILED;
-    if (normalized === "PENDING" || normalized === "CREATED")
+    if (
+      normalized === "COMPLETED" ||
+      normalized === "SUCCESS" ||
+      normalized === "PG_ORDER_COMPLETED"
+    ) {
+      return PAYMENT_STATUS.CAPTURED;
+    }
+    if (
+      normalized === "FAILED" ||
+      normalized === "FAILURE" ||
+      normalized === "PG_ORDER_FAILED"
+    ) {
+      return PAYMENT_STATUS.FAILED;
+    }
+    if (
+      normalized === "PENDING" ||
+      normalized === "CREATED" ||
+      normalized === "ATTEMPTED"
+    ) {
       return PAYMENT_STATUS.PENDING;
+    }
     return PAYMENT_STATUS.PENDING;
   }
 }

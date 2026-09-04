@@ -493,10 +493,8 @@ export async function createPaymentOrderForOrderRef({
         provider: existingForKey.gatewayName,
         redirectUrl: existingForKey.rawGatewayResponse?.redirectUrl || null,
         merchantOrderId: existingForKey.gatewayOrderId,
-        razorpayOrderId: existingForKey.rawGatewayResponse?.razorpayOrderId || null,
         amount: existingForKey.amount,
         currency: existingForKey.currency,
-        keyId: existingForKey.rawGatewayResponse?.keyId || null,
         duplicate: true,
       };
     }
@@ -514,22 +512,18 @@ export async function createPaymentOrderForOrderRef({
 
   if (
     existingOpenPayment &&
-    ((provider.providerName === "PHONEPE" && existingOpenPayment.rawGatewayResponse?.redirectUrl) ||
-      (provider.providerName === "RAZORPAY" && existingOpenPayment.rawGatewayResponse?.razorpayOrderId))
+    existingOpenPayment.rawGatewayResponse?.redirectUrl
   ) {
     return {
       payment: existingOpenPayment,
       provider: existingOpenPayment.gatewayName,
       redirectUrl: existingOpenPayment.rawGatewayResponse?.redirectUrl || null,
       merchantOrderId: existingOpenPayment.gatewayOrderId,
-      razorpayOrderId: existingOpenPayment.rawGatewayResponse?.razorpayOrderId || null,
       amount: existingOpenPayment.amount,
       currency: existingOpenPayment.currency,
-      keyId: existingOpenPayment.rawGatewayResponse?.keyId || provider.keyId || null,
       duplicate: true,
     };
   }
-
 
   const amountPaise = getPayableAmountPaise(target);
   const currency = String(primaryOrder?.paymentBreakdown?.currency || "INR").toUpperCase();
@@ -565,8 +559,6 @@ export async function createPaymentOrderForOrderRef({
       redirectUrl: initResult.redirectUrl || null,
       merchantOrderId: merchantOrderId,
       amount: amountPaise,
-      razorpayOrderId: initResult.razorpayOrderId || null,
-      keyId: initResult.keyId || null,
     },
     statusHistory: [
       {
@@ -587,7 +579,6 @@ export async function createPaymentOrderForOrderRef({
     gatewayOrderId: payment.gatewayOrderId,
     amount: payment.amount,
     redirectUrl: initResult.redirectUrl,
-    razorpayOrderId: initResult.razorpayOrderId,
     provider: provider.providerName,
   });
 
@@ -596,95 +587,9 @@ export async function createPaymentOrderForOrderRef({
     provider: provider.providerName,
     redirectUrl: initResult.redirectUrl || null,
     merchantOrderId: merchantOrderId,
-    razorpayOrderId: initResult.razorpayOrderId || null,
     amount: amountPaise,
     currency,
-    keyId: initResult.keyId || null,
     duplicate: false,
-  };
-}
-
-export async function verifyRazorpayPaymentStatus({
-  merchantOrderId,
-  razorpay_order_id,
-  razorpay_payment_id,
-  razorpay_signature,
-  userId,
-  correlationId = null,
-}) {
-  const query = merchantOrderId
-    ? { gatewayOrderId: merchantOrderId }
-    : { "rawGatewayResponse.razorpayOrderId": razorpay_order_id };
-
-  const payment = await Payment.findOne(query);
-  if (!payment) {
-    const err = new Error("Payment attempt not found");
-    err.statusCode = 404;
-    throw err;
-  }
-
-  if (userId && String(payment.customer) !== String(userId)) {
-    const err = new Error("Not authorized to verify this payment");
-    err.statusCode = 403;
-    throw err;
-  }
-
-  // Idempotency: If already captured/paid, return successfully
-  if (payment.status === PAYMENT_STATUS.CAPTURED) {
-    return { payment, status: PAYMENT_STATUS.CAPTURED, duplicate: true };
-  }
-
-  const provider = getActivePaymentProvider();
-
-  if (typeof provider.verifySignature === "function") {
-    const isValid = provider.verifySignature({
-      razorpayOrderId: razorpay_order_id || payment.rawGatewayResponse?.razorpayOrderId,
-      razorpayPaymentId: razorpay_payment_id,
-      razorpaySignature: razorpay_signature,
-    });
-
-    if (!isValid) {
-      await transitionPaymentState(payment, {
-        nextStatus: PAYMENT_STATUS.FAILED,
-        source: PAYMENT_EVENT_SOURCE.CLIENT_VERIFY,
-        reason: "Razorpay signature verification failed",
-        gatewayPaymentId: razorpay_payment_id,
-      });
-
-      await handleOrderSideEffectsFromPaymentStatus(payment, PAYMENT_STATUS.FAILED, "Invalid Signature");
-      const err = new Error("Invalid payment signature");
-      err.statusCode = 400;
-      throw err;
-    }
-  }
-
-  await transitionPaymentState(payment, {
-    nextStatus: PAYMENT_STATUS.CAPTURED,
-    source: PAYMENT_EVENT_SOURCE.CLIENT_VERIFY,
-    reason: "Razorpay payment verified via signature",
-    gatewayPaymentId: razorpay_payment_id,
-  });
-
-  payment.gatewaySignature = razorpay_signature;
-  payment.correlationId = correlationId || payment.correlationId;
-  await payment.save();
-
-  await handleOrderSideEffectsFromPaymentStatus(
-    payment,
-    PAYMENT_STATUS.CAPTURED,
-    "Payment Verified",
-  );
-
-  logger.info("razorpay_payment_verified", {
-    correlationId,
-    merchantOrderId: payment.gatewayOrderId,
-    razorpayPaymentId: razorpay_payment_id,
-    status: PAYMENT_STATUS.CAPTURED,
-  });
-
-  return {
-    payment,
-    status: PAYMENT_STATUS.CAPTURED,
   };
 }
 
@@ -821,22 +726,6 @@ export async function processPhonePeWebhook({
 }
 
 export async function verifyClientPaymentCallback(data) {
-  const provider = getActivePaymentProvider();
-  if (
-    provider.providerName === PAYMENT_GATEWAY.RAZORPAY ||
-    data.razorpay_order_id ||
-    data.razorpay_signature
-  ) {
-    return verifyRazorpayPaymentStatus({
-      merchantOrderId: data.gatewayOrderId || data.merchantOrderId,
-      razorpay_order_id: data.razorpay_order_id,
-      razorpay_payment_id: data.gatewayPaymentId || data.razorpay_payment_id || data.transactionId,
-      razorpay_signature: data.razorpay_signature,
-      userId: data.userId,
-      correlationId: data.correlationId,
-    });
-  }
-
   return verifyPhonePePaymentStatus({
     merchantOrderId: data.gatewayOrderId || data.merchantOrderId,
     userId: data.userId,

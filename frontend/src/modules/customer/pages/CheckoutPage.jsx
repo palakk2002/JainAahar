@@ -3,10 +3,9 @@ import { Link, useNavigate } from "react-router-dom";
 import Lottie from "lottie-react";
 import { useInViewAnimation } from "@/core/hooks/useInViewAnimation";
 import { useCart } from "../context/CartContext";
-import { useAuth } from "../../../core/context/AuthContext";
 import { useWishlist } from "../context/WishlistContext";
+import { useAuth } from "../../../core/context/AuthContext";
 import { customerApi } from "../services/customerApi";
-import loadRazorpayScript from "../../../shared/utils/loadRazorpayScript";
 import { useLocation as useAppLocation } from "../context/LocationContext";
 import { applyCloudinaryTransform } from "@/core/utils/imageUtils";
 import {
@@ -215,7 +214,12 @@ const CheckoutPage = () => {
   }, [cart.length === 0]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const paymentMethods = [
-    // Online payment hidden for now as requested
+    {
+      id: "online",
+      label: "Pay Online (PhonePe / UPI / Cards)",
+      icon: CreditCard,
+      sublabel: "UPI, Cards, NetBanking via PhonePe",
+    },
     {
       id: "cash",
       label: "Cash on Delivery",
@@ -795,108 +799,13 @@ const CheckoutPage = () => {
 
             const paymentData = paymentRes.data.result || {};
 
-            // Scenario A: PhonePe / Redirect-based Gateway
             if (paymentData.redirectUrl) {
               clearCart();
               window.location.href = paymentData.redirectUrl;
               return;
             }
 
-            // Scenario B: Razorpay / Modal Checkout Flow
-            const keyId =
-              paymentData.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID;
-            const razorpayOrderId = paymentData.razorpayOrderId;
-
-            if (razorpayOrderId && keyId) {
-              const loaded = await loadRazorpayScript();
-              const RazorpayClass =
-                /** @type {any} */ (window).Razorpay ||
-                /** @type {any} */ (window)["Razorpay"];
-              if (!loaded || !RazorpayClass) {
-                throw new Error(
-                  "Unable to load Razorpay payment SDK. Please check your internet connection."
-                );
-              }
-
-              const rawContact = String(
-                user?.phone || displayPhone || currentAddress?.phone || ""
-              ).replace(/\D/g, "");
-              const formattedContact =
-                rawContact.length >= 10 ? rawContact.slice(-10) : rawContact;
-
-              const options = {
-                key: keyId,
-                amount: paymentData.amount,
-                currency: paymentData.currency || "INR",
-                name: "Jain Aahar",
-                description: `Payment for Order #${mainOrderId}`,
-                order_id: razorpayOrderId,
-                prefill: {
-                  name: user?.name || displayName || currentAddress?.name || "",
-                  email: user?.email || "",
-                  contact: formattedContact,
-                },
-                theme: {
-                  color: "#ea580c",
-                },
-                modal: {
-                  ondismiss: function () {
-                    setIsPlacingOrder(false);
-                    showToast(
-                      "Payment popup closed. You can complete payment anytime from Order Details.",
-                      "warning"
-                    );
-                    clearCart();
-                    navigate(`/orders/${mainOrderId}`);
-                  },
-                },
-                handler: async function (response) {
-                  try {
-                    await customerApi.verifyRazorpayPayment({
-                      merchantOrderId: paymentData.merchantOrderId || paymentRef,
-                      razorpay_order_id: response.razorpay_order_id,
-                      razorpay_payment_id: response.razorpay_payment_id,
-                      razorpay_signature: response.razorpay_signature,
-                    });
-
-                    clearCart();
-                    showToast("Payment successful!", "success");
-                    navigate(
-                      `/payment-status?merchantOrderId=${
-                        paymentData.merchantOrderId || paymentRef
-                      }`
-                    );
-                  } catch (verifyError) {
-                    setIsPlacingOrder(false);
-                    showToast(
-                      verifyError.response?.data?.message ||
-                        verifyError.message ||
-                        "Payment verification failed. Please check order details.",
-                      "error"
-                    );
-                    clearCart();
-                    navigate(`/orders/${mainOrderId}`);
-                  }
-                },
-              };
-
-              const rzp = new RazorpayClass(options);
-              rzp.on("payment.failed", function (response) {
-                setIsPlacingOrder(false);
-                showToast(
-                  response.error?.description || "Payment failed. Please try again.",
-                  "error"
-                );
-                clearCart();
-                navigate(`/orders/${mainOrderId}`);
-              });
-              rzp.open();
-              return;
-            }
-
-
-
-            throw new Error("Invalid payment gateway response received");
+            throw new Error("Payment gateway redirect URL not received");
           } catch (payError) {
             setIsPlacingOrder(false);
             showToast(
