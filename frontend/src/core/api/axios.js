@@ -69,6 +69,14 @@ axiosInstance.interceptors.request.use(
         const primaryStorageKey = ROLE_TO_STORAGE_KEY[activeRole];
         let token = primaryStorageKey ? getStoredAuthToken(primaryStorageKey) : null;
 
+        // If request is explicitly targeting an admin endpoint, prioritize the admin token
+        if (url.startsWith('/admin')) {
+            const adminToken = getStoredAuthToken(STORAGE_KEYS.AUTH_ADMIN);
+            if (adminToken) {
+                token = adminToken;
+            }
+        }
+
         // Fallback: If in warehouse portal and no warehouse token is stored, check for admin token
         if (!token && (activeRole === ROLES.WAREHOUSE || activeRole === ROLES.WAREHOUSE_MGMT)) {
             token = getStoredAuthToken(STORAGE_KEYS.AUTH_ADMIN);

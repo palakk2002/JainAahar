@@ -9,6 +9,7 @@ import { warehouseMgmtApi } from "../services/warehouseMgmtApi";
  * @property {string} [selectedWarehouse]
  * @property {Function} [onChange]
  * @property {string} [className]
+ * @property {boolean} [showAllOption]
  */
 
 /**
@@ -18,6 +19,7 @@ export const WarehouseSelector = ({
   selectedWarehouse = "all",
   onChange = () => {},
   className = "",
+  showAllOption = true,
 } = {}) => {
   const { isWarehouseUser, warehouseId, warehouseName } = useWarehouseContext();
   const [warehouseList, setWarehouseList] = useState([]);
@@ -40,19 +42,33 @@ export const WarehouseSelector = ({
       warehouseMgmtApi.getWarehouses().then((res) => {
         if (!isMounted) return;
         const items = res.data?.result || [];
-        const formatted = items.map((w) => ({
-          id: String(w._id || w.id),
-          label: w.warehouseName || w.name || w.shopName || "Warehouse",
-          code: (w.warehouseName || w.name || "WH").slice(0, 3).toUpperCase(),
-        }));
-        setWarehouseList([{ id: "all", label: "All Warehouses", code: "ALL" }, ...formatted]);
+        const formatted = items.map((w) => {
+          const rawName = w.warehouseName || w.name || w.shopName || "Warehouse";
+          const title = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+          return {
+            id: String(w._id || w.id),
+            label: title,
+            city: w.city || "",
+            code: (w.warehouseName || w.name || "WH").slice(0, 3).toUpperCase(),
+          };
+        });
+
+        if (showAllOption) {
+          setWarehouseList([{ id: "all", label: "All Warehouses", code: "ALL" }, ...formatted]);
+        } else {
+          setWarehouseList(formatted);
+          // If in single-warehouse mode and currently "all" or invalid, select first warehouse
+          if (formatted.length > 0 && (selectedWarehouse === "all" || !formatted.some(f => f.id === selectedWarehouse))) {
+            onChange(formatted[0].id);
+          }
+        }
       });
     }
 
     return () => {
       isMounted = false;
     };
-  }, [isWarehouseUser, warehouseId, warehouseName]);
+  }, [isWarehouseUser, warehouseId, warehouseName, showAllOption]);
 
   return (
     <div

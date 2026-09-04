@@ -20,12 +20,20 @@ export const WarehouseComparisonCard = ({ warehouses = [] }) => {
                 <p className="text-xs text-slate-500 font-medium">{wh.city}, {wh.state} ({wh.pincode})</p>
               </div>
             </div>
-            <button
-              onClick={() => navigate(`/warehouse-mgmt/warehouses/${wh.id}`)}
-              className="text-xs font-bold text-primary bg-primary/5 hover:bg-primary/10 px-3 py-1.5 rounded-lg transition-colors"
-            >
-              View Warehouse
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => navigate(`/warehouse-mgmt/dashboard?warehouse=${wh.id}`)}
+                className="text-xs font-bold text-white bg-primary hover:bg-primary/90 px-3 py-1.5 rounded-lg transition-colors shadow-2xs"
+              >
+                Open Dashboard
+              </button>
+              <button
+                onClick={() => navigate(`/warehouse-mgmt/warehouses/${wh.id}`)}
+                className="text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors"
+              >
+                Details
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">

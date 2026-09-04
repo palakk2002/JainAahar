@@ -6,7 +6,7 @@ import Badge from "@shared/components/ui/Badge";
 import Modal from "@shared/components/ui/Modal";
 import Loader from "@shared/components/ui/Loader";
 import { warehouseMgmtApi } from "../services/warehouseMgmtApi";
-import { Building2, Eye, Edit3, Package, MapPin, Phone, Mail, Truck } from "lucide-react";
+import { Building2, Eye, Edit3, Package, MapPin, Phone, Mail, Truck, LayoutDashboard } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -113,9 +113,16 @@ export const Warehouses = () => {
       cell: (row) => (
         <div className="flex items-center gap-2">
           <button
+            onClick={() => navigate(`/warehouse-mgmt/dashboard?warehouse=${row.id}`)}
+            className="px-2.5 py-1 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 text-orange-700 text-xs font-bold transition-colors flex items-center gap-1"
+            title="Open Hub Operations Dashboard"
+          >
+            <LayoutDashboard size={13} /> Dashboard
+          </button>
+          <button
             onClick={() => navigate(`/warehouse-mgmt/warehouses/${row.id}`)}
             className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
-            title="View Overview"
+            title="View Details"
           >
             <Eye size={14} />
           </button>

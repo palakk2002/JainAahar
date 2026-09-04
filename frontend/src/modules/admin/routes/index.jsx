@@ -160,7 +160,8 @@ const navItems = [
     icon: Building2,
     color: "teal",
     children: [
-      { label: "Dashboard", path: "/warehouse-mgmt/dashboard" },
+      { label: "Consolidated Overview", path: "/warehouse-mgmt/overview" },
+      { label: "Warehouse Dashboard", path: "/warehouse-mgmt/dashboard" },
       { label: "All Warehouses", path: "/warehouse-mgmt/warehouses" },
       { label: "Inventory Levels", path: "/warehouse-mgmt/inventory" },
       { label: "Stock Inward", path: "/warehouse-mgmt/inward" },

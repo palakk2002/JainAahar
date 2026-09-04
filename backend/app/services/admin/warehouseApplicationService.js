@@ -58,11 +58,19 @@ export function formatWarehouseApplication(warehouse) {
 
   return {
     id: String(warehouse._id),
+    _id: String(warehouse._id),
+    name: warehouse.warehouseName || warehouse.name || warehouse.shopName || "Unnamed Warehouse",
+    warehouseName: warehouse.warehouseName || warehouse.name || warehouse.shopName || "Unnamed Warehouse",
     shopName: warehouse.warehouseName || warehouse.shopName || "Unnamed Warehouse",
-    warehouseName: warehouse.warehouseName || warehouse.shopName || "Unnamed Warehouse",
     ownerName: warehouse.name || "Unnamed Owner",
     email: warehouse.email || "",
     phone: warehouse.phone || "",
+    address: warehouse.address || "",
+    city: warehouse.city || "",
+    state: warehouse.state || "",
+    pincode: warehouse.pincode || "",
+    locality: warehouse.locality || "",
+    shiprocketPickupLocation: warehouse.shiprocketPickupLocation || "",
     category: warehouse.category || "General",
     applicationDate: createdAt.toLocaleDateString("en-GB", {
       day: "2-digit",
@@ -73,7 +81,7 @@ export function formatWarehouseApplication(warehouse) {
     status: warehouse.applicationStatus || (warehouse.isVerified ? "approved" : "pending"),
     documents: docs,
     documentFiles,
-    location: warehouse.address || "Not provided",
+    location: warehouse.address || (warehouse.city ? `${warehouse.city}, ${warehouse.state || ""}` : "Not provided"),
     description: warehouse.description || "No application note provided.",
     verificationScore: docs.length
       ? Math.min(100, 55 + docs.length * 12 + (warehouse.address ? 10 : 0))

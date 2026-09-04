@@ -16,6 +16,7 @@ import {
 
 // Lazy Load Warehouse Mgmt Pages
 const Dashboard = React.lazy(() => import("../pages/Dashboard"));
+const NetworkOverview = React.lazy(() => import("../pages/NetworkOverview"));
 const Warehouses = React.lazy(() => import("../pages/Warehouses"));
 const WarehouseDetail = React.lazy(() => import("../pages/WarehouseDetail"));
 const Inventory = React.lazy(() => import("../pages/Inventory"));
@@ -35,24 +36,39 @@ const PickupAddresses = React.lazy(() => import("../pages/PickupAddresses"));
 
 const buildNavItems = (basePath, isWarehouseUser, isAdmin) => {
   return [
-    {
-      label: "Dashboard",
-      path: `${basePath}/dashboard`,
-      icon: LayoutDashboard,
-      color: "indigo",
-      end: true,
-    },
     ...(!isWarehouseUser && isAdmin
       ? [
           {
-            label: "Warehouses",
+            label: "Consolidated Overview",
+            path: `${basePath}/overview`,
+            icon: LayoutDashboard,
+            color: "indigo",
+            end: true,
+          },
+          {
+            label: "Warehouse Dashboard",
+            path: `${basePath}/dashboard`,
+            icon: Building2,
+            color: "orange",
+            end: true,
+          },
+          {
+            label: "All Warehouses",
             path: `${basePath}/warehouses`,
             icon: Building2,
             color: "teal",
             end: false,
           },
         ]
-      : []),
+      : [
+          {
+            label: "Dashboard",
+            path: `${basePath}/dashboard`,
+            icon: LayoutDashboard,
+            color: "indigo",
+            end: true,
+          },
+        ]),
     {
       label: "Inventory",
       path: `${basePath}/inventory`,
@@ -119,8 +135,12 @@ const WarehouseMgmtRoutes = () => {
   const basePath = location.pathname.startsWith("/warehouse-mgmt") ? "/warehouse-mgmt" : "/warehouse";
 
   useEffect(() => {
-    setActiveRole(ROLES.WAREHOUSE);
-  }, []);
+    if (isAdmin) {
+      setActiveRole(ROLES.ADMIN);
+    } else {
+      setActiveRole(ROLES.WAREHOUSE);
+    }
+  }, [isAdmin]);
 
   const effectiveNavItems = useMemo(() => {
     const nav = buildNavItems(basePath, isWarehouseUser, isAdmin);
@@ -137,7 +157,7 @@ const WarehouseMgmtRoutes = () => {
     ];
   }, [basePath, isWarehouseUser, isAdmin]);
 
-  const defaultRedirect = `${basePath}/dashboard`;
+  const defaultRedirect = isAdmin ? `${basePath}/overview` : `${basePath}/dashboard`;
   const portalTitle = isWarehouseUser
     ? (user?.warehouseName || user?.name || "Warehouse Portal")
     : "Warehouse Operations";
@@ -146,6 +166,7 @@ const WarehouseMgmtRoutes = () => {
     <DashboardLayout navItems={effectiveNavItems} title={portalTitle}>
       <Routes>
         <Route path="/" element={<Navigate to={defaultRedirect} replace />} />
+        {isAdmin && <Route path="/overview" element={<NetworkOverview />} />}
         <Route path="/dashboard" element={<Dashboard />} />
         {isAdmin && <Route path="/warehouses" element={<Warehouses />} />}
         {isAdmin && <Route path="/warehouses/:warehouseId" element={<WarehouseDetail />} />}
