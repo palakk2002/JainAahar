@@ -58,11 +58,10 @@ const OrdersList = () => {
     const handleCSVExport = () => {
         setIsExporting(true);
         try {
-            const headers = ["Order ID", "Customer", "Seller", "Status", "Amount", "Date", "Payment"];
+            const headers = ["Order ID", "Customer", "Status", "Amount", "Date", "Payment"];
             const rows = orders.map(o => [
                 o.id,
                 o.customer,
-                o.seller,
                 o.status.toUpperCase(),
                 `₹${o.amount}`,
                 o.date,
@@ -337,7 +336,7 @@ const OrdersList = () => {
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 group-focus-within:text-fuchsia-500 transition-colors" />
                         <input
                             type="text"
-                            placeholder="Search by Order ID, Customer, or Shop..."
+                            placeholder="Search by Order ID or Customer..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="w-full pl-11 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-xs font-semibold outline-none focus:ring-2 focus:ring-fuchsia-500/10 transition-all"
@@ -366,7 +365,6 @@ const OrdersList = () => {
                             <tr className="bg-slate-50/50">
                                 <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Order Details</th>
                                 <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Customer</th>
-                                <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Seller</th>
                                 <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</th>
                                 <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Amount</th>
                                 <th className="px-4 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
@@ -375,7 +373,7 @@ const OrdersList = () => {
                         <tbody className="divide-y divide-slate-50">
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan="6" className="px-4 py-20 text-center">
+                                    <td colSpan={5} className="px-4 py-20 text-center">
                                         <div className="flex justify-center flex-col items-center gap-2">
                                             <div className="h-8 w-8 border-4 border-fuchsia-600 border-t-transparent rounded-full animate-spin"></div>
                                             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading Orders...</p>
@@ -408,12 +406,6 @@ const OrdersList = () => {
                                         <div className="flex items-center gap-2">
                                             <div className="h-2 w-2 rounded-full bg-brand-500" />
                                             <span className="text-xs font-black text-slate-700">{order.customer}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-4 py-5">
-                                        <div className="flex items-center gap-2">
-                                            <div className="h-2 w-2 rounded-full bg-brand-500" />
-                                            <span className="text-xs font-black text-slate-700">{order.seller}</span>
                                         </div>
                                     </td>
                                     <td className="px-4 py-5" onClick={(e) => e.stopPropagation()}>
@@ -483,7 +475,7 @@ const OrdersList = () => {
                                 </tr>
                             )) : (
                                 <tr>
-                                    <td colSpan="6" className="px-4 py-20 text-center">
+                                    <td colSpan={5} className="px-4 py-20 text-center">
                                         <div className="flex flex-col items-center gap-4">
                                             <div className="h-20 w-20 bg-slate-50 rounded-full flex items-center justify-center">
                                                 <Search className="h-10 w-10 text-slate-200" />

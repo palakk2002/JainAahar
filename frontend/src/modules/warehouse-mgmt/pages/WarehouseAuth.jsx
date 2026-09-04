@@ -83,7 +83,7 @@ const WarehouseAuth = () => {
             login(authData);
 
             toast.success('Welcome back, Warehouse Manager.');
-            navigate('/warehouse-mgmt');
+            navigate('/warehouse/dashboard');
         } catch (error) {
             console.error('Warehouse login error:', error);
             toast.error(error.response?.data?.message || 'Authentication failed');

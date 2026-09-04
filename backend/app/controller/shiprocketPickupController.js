@@ -48,7 +48,15 @@ export const syncPickupAddress = async (req, res) => {
     // Call Shiprocket API
     const result = await addPickupLocation(pickupData);
 
-    // Update warehouse record with synced pickup location
+    // Update warehouse record in DB with all latest address fields + synced pickup location
+    if (pickupData.address) warehouse.address = pickupData.address;
+    if (pickupData.address_2) warehouse.locality = pickupData.address_2;
+    if (pickupData.city) warehouse.city = pickupData.city;
+    if (pickupData.state) warehouse.state = pickupData.state;
+    if (pickupData.pin_code) warehouse.pincode = pickupData.pin_code;
+    if (pickupData.phone) warehouse.phone = pickupData.phone;
+    if (pickupData.email) warehouse.email = pickupData.email;
+    if (pickupData.name) warehouse.name = pickupData.name;
     warehouse.shiprocketPickupLocation = pickupData.pickup_location;
     warehouse.shiprocketPickupSynced = true;
     await warehouse.save();

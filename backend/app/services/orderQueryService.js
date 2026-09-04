@@ -562,18 +562,37 @@ export async function getOrderWithAccess(orderId, userId, role) {
     !isBroadcastedOrder &&
     !isAdmin
   ) {
-    logger.warn("Authorization denied for order", {
-      scope: "ORDER_ACCESS",
-      orderId: order.orderId,
-      requestedBy: uid,
-      role: roleNorm,
-      customerIdStr,
-      hasCustomer: !!order.customer,
-    });
     throw svcErr(
       "Access denied. You are not authorized to view this order.",
       403,
     );
+  }
+
+  // Attach warehouse fulfillment & Shiprocket tracking if available
+  try {
+    const WarehouseFulfillment = (await import("../models/warehouseFulfillment.js")).default;
+    const fulfillment = await WarehouseFulfillment.findOne({
+      order: order._id,
+      status: { $ne: "CANCELLED" },
+    }).lean();
+
+    if (fulfillment) {
+      order.fulfillment = {
+        fulfillmentId: fulfillment.fulfillmentId,
+        status: fulfillment.status,
+        shiprocketOrderId: fulfillment.shiprocketOrderId,
+        awbCode: fulfillment.awbCode,
+        courierName: fulfillment.courierName,
+        trackingUrl: fulfillment.trackingUrl,
+        shipmentStatus: fulfillment.shipmentStatus,
+      };
+      order.awbCode = fulfillment.awbCode;
+      order.courierName = fulfillment.courierName || "Shiprocket";
+      order.trackingUrl = fulfillment.trackingUrl;
+      order.shipmentStatus = fulfillment.shipmentStatus;
+    }
+  } catch (fulErr) {
+    logger.warn(`[OrderQuery] Non-fatal fulfillment populate error: ${fulErr.message}`);
   }
 
   return {

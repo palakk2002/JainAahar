@@ -21,6 +21,11 @@ import {
   ShoppingBag,
   Bell,
   ArrowUpRight,
+  Truck,
+  PlusCircle,
+  MapPin,
+  Phone,
+  Mail,
 } from "lucide-react";
 import {
   AreaChart,
@@ -33,20 +38,18 @@ import {
   PieChart,
   Pie,
   Cell,
-  BarChart,
-  Bar,
 } from "recharts";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 export const WarehouseDashboard = () => {
-  const [selectedWarehouse, setSelectedWarehouse] = useState("all");
+  const { isWarehouseUser, getActiveWarehouse, warehouseName, basePath, user } = useWarehouseContext();
+  const [selectedWarehouse, setSelectedWarehouse] = useState(() => getActiveWarehouse("all"));
   const [stats, setStats] = useState(null);
   const [warehouses, setWarehouses] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const { isWarehouseUser, getActiveWarehouse, warehouseName } = useWarehouseContext();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -55,15 +58,15 @@ export const WarehouseDashboard = () => {
         const activeWhId = getActiveWarehouse(selectedWarehouse);
         const [statsRes, whRes, alertsRes] = await Promise.all([
           warehouseMgmtApi.getDashboardStats(activeWhId),
-          warehouseMgmtApi.getWarehouses(),
-          warehouseMgmtApi.getAlerts(),
+          isWarehouseUser ? Promise.resolve({ data: { success: true, result: [] } }) : warehouseMgmtApi.getWarehouses(),
+          warehouseMgmtApi.getAlerts(activeWhId),
         ]);
-        if (statsRes.data.success) setStats(statsRes.data.result);
-        if (whRes.data.success) setWarehouses(whRes.data.result);
-        if (alertsRes.data.success) {
+        if (statsRes.data?.success) setStats(statsRes.data.result);
+        if (whRes.data?.success) setWarehouses(whRes.data.result);
+        if (alertsRes.data?.success) {
           let filteredAlerts = alertsRes.data.result;
-          if (isWarehouseUser) {
-            filteredAlerts = filteredAlerts.filter(a => a.warehouseId === activeWhId);
+          if (isWarehouseUser && activeWhId) {
+            filteredAlerts = filteredAlerts.filter(a => !a.warehouseId || a.warehouseId === activeWhId);
           }
           setAlerts(filteredAlerts);
         }
@@ -84,7 +87,7 @@ export const WarehouseDashboard = () => {
     );
   }
 
-  // Mock or live chart data
+  // Stock status pie data
   const pieData = [
     { name: "Available Stock", value: stats?.availableStock || 0, color: "#10b981" },
     { name: "Reserved Stock", value: stats?.reservedStock || 0, color: "#0284c7" },
@@ -104,16 +107,15 @@ export const WarehouseDashboard = () => {
         { day: "Sun", inward: 0, outward: 0 },
       ];
 
-  const warehouseOrdersData = [
-    { name: "Indore WH", pending: 28, completed: 142 },
-    { name: "Shivpuri WH", pending: 14, completed: 86 },
-  ];
-
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Warehouse Dashboard"
-        description="Physical stock inventory, fulfillment operations & warehouse analytics"
+        title={isWarehouseUser ? `${warehouseName || "Warehouse"} Dashboard` : "Warehouse Operations Dashboard"}
+        description={
+          isWarehouseUser
+            ? "Your warehouse inventory, fulfillment orders & dispatch hub"
+            : "Physical stock inventory, multi-warehouse comparison & operational analytics"
+        }
         actions={
           !isWarehouseUser ? (
             <WarehouseSelector
@@ -121,30 +123,92 @@ export const WarehouseDashboard = () => {
               onChange={setSelectedWarehouse}
             />
           ) : (
-            <span className="text-sm font-semibold text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full border border-gray-200">
-              📍 {warehouseName}
-            </span>
+            <div className="flex items-center gap-2 bg-orange-50 border border-orange-200/80 px-3.5 py-1.5 rounded-full text-xs font-bold text-orange-800 shadow-2xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>📍 {warehouseName} ({user?.city || "Hub"})</span>
+            </div>
           )
         }
       />
 
-      {/* 12 Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <StatCard
-          label="Warehouses"
-          value={stats?.totalWarehouses}
-          icon={Building2}
-          color="text-primary"
-          bg="bg-primary/10"
-          onClick={() => navigate("/warehouse-mgmt/warehouses")}
-        />
+      {/* Warehouse Manager Dedicated Overview Card */}
+      {isWarehouseUser && (
+        <Card className="p-4 sm:p-5 bg-gradient-to-r from-orange-500/10 via-amber-500/5 to-transparent border-orange-200/70">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Building2 className="text-orange-600" size={20} />
+                <h2 className="text-lg font-bold text-slate-900">{warehouseName}</h2>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 border border-emerald-200">
+                  Active Hub
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600">
+                {user?.address && (
+                  <span className="flex items-center gap-1">
+                    <MapPin size={13} className="text-slate-400" />
+                    {user.address}, {user.city} ({user.pincode})
+                  </span>
+                )}
+                {user?.phone && (
+                  <span className="flex items-center gap-1">
+                    <Phone size={13} className="text-slate-400" />
+                    {user.phone}
+                  </span>
+                )}
+                {user?.email && (
+                  <span className="flex items-center gap-1">
+                    <Mail size={13} className="text-slate-400" />
+                    {user.email}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => navigate(`${basePath}/inward`)}
+                className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition-all shadow-xs"
+              >
+                <PlusCircle size={14} /> Stock Inward
+              </button>
+              <button
+                onClick={() => navigate(`${basePath}/fulfillment`)}
+                className="flex items-center gap-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition-all shadow-xs"
+              >
+                <Truck size={14} /> Picking & Packing
+              </button>
+              <button
+                onClick={() => navigate(`${basePath}/inventory`)}
+                className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition-all shadow-xs"
+              >
+                <Package size={14} /> View Inventory
+              </button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Summary KPI Cards */}
+      <div className={`grid grid-cols-2 sm:grid-cols-3 ${isWarehouseUser ? "lg:grid-cols-5" : "lg:grid-cols-6"} gap-3`}>
+        {!isWarehouseUser && (
+          <StatCard
+            label="Warehouses"
+            value={stats?.totalWarehouses}
+            icon={Building2}
+            color="text-primary"
+            bg="bg-primary/10"
+            onClick={() => navigate(`${basePath}/warehouses`)}
+          />
+        )}
         <StatCard
           label="Total SKUs"
           value={stats?.totalSkus}
           icon={Package}
           color="text-indigo-600"
           bg="bg-indigo-50"
-          onClick={() => navigate("/warehouse-mgmt/inventory")}
+          onClick={() => navigate(`${basePath}/inventory`)}
         />
         <StatCard
           label="Stock Units"
@@ -152,7 +216,7 @@ export const WarehouseDashboard = () => {
           icon={Layers}
           color="text-blue-600"
           bg="bg-blue-50"
-          onClick={() => navigate("/warehouse-mgmt/inventory")}
+          onClick={() => navigate(`${basePath}/inventory`)}
         />
         <StatCard
           label="Available"
@@ -160,7 +224,7 @@ export const WarehouseDashboard = () => {
           icon={CheckCircle2}
           color="text-emerald-600"
           bg="bg-emerald-50"
-          onClick={() => navigate("/warehouse-mgmt/inventory")}
+          onClick={() => navigate(`${basePath}/inventory`)}
         />
         <StatCard
           label="Reserved Stock"
@@ -168,7 +232,7 @@ export const WarehouseDashboard = () => {
           icon={Clock}
           color="text-sky-600"
           bg="bg-sky-50"
-          onClick={() => navigate("/warehouse-mgmt/orders")}
+          onClick={() => navigate(`${basePath}/orders`)}
         />
         <StatCard
           label="Low Stock Items"
@@ -176,7 +240,7 @@ export const WarehouseDashboard = () => {
           icon={AlertTriangle}
           color="text-amber-600"
           bg="bg-amber-50"
-          onClick={() => navigate("/warehouse-mgmt/low-stock")}
+          onClick={() => navigate(`${basePath}/low-stock`)}
         />
         <StatCard
           label="Out of Stock"
@@ -184,7 +248,7 @@ export const WarehouseDashboard = () => {
           icon={XCircle}
           color="text-rose-600"
           bg="bg-rose-50"
-          onClick={() => navigate("/warehouse-mgmt/out-of-stock")}
+          onClick={() => navigate(`${basePath}/out-of-stock`)}
         />
         <StatCard
           label="Damaged Stock"
@@ -192,7 +256,7 @@ export const WarehouseDashboard = () => {
           icon={ShieldAlert}
           color="text-orange-600"
           bg="bg-orange-50"
-          onClick={() => navigate("/warehouse-mgmt/damaged")}
+          onClick={() => navigate(`${basePath}/damaged`)}
         />
         <StatCard
           label="Defective Stock"
@@ -200,7 +264,7 @@ export const WarehouseDashboard = () => {
           icon={ShieldAlert}
           color="text-red-600"
           bg="bg-red-50"
-          onClick={() => navigate("/warehouse-mgmt/damaged")}
+          onClick={() => navigate(`${basePath}/damaged`)}
         />
         <StatCard
           label="Pending Transfers"
@@ -208,7 +272,7 @@ export const WarehouseDashboard = () => {
           icon={ArrowRightLeft}
           color="text-violet-600"
           bg="bg-violet-50"
-          onClick={() => navigate("/warehouse-mgmt/transfers")}
+          onClick={() => navigate(`${basePath}/transfers`)}
         />
         <StatCard
           label="Pending Returns"
@@ -216,7 +280,7 @@ export const WarehouseDashboard = () => {
           icon={RotateCcw}
           color="text-pink-600"
           bg="bg-pink-50"
-          onClick={() => navigate("/warehouse-mgmt/returns")}
+          onClick={() => navigate(`${basePath}/returns`)}
         />
         <StatCard
           label="Pending Orders"
@@ -224,12 +288,12 @@ export const WarehouseDashboard = () => {
           icon={ShoppingBag}
           color="text-cyan-600"
           bg="bg-cyan-50"
-          onClick={() => navigate("/warehouse-mgmt/orders")}
+          onClick={() => navigate(`${basePath}/orders`)}
         />
       </div>
 
-      {/* Warehouse Comparison (Indore vs Shivpuri) */}
-      {!isWarehouseUser && (
+      {/* Warehouse Comparison Card (Admin only) */}
+      {!isWarehouseUser && warehouses.length > 0 && (
         <div className="space-y-3">
           <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
             <Building2 size={18} className="text-primary" />
@@ -270,7 +334,7 @@ export const WarehouseDashboard = () => {
         <Card className="p-5">
           <div className="border-b border-slate-100 pb-3 mb-4">
             <h3 className="font-bold text-slate-900 text-sm">Stock Distribution</h3>
-            <p className="text-xs text-slate-500">Breakdown of total inventory status</p>
+            <p className="text-xs text-slate-500">Breakdown of inventory physical status</p>
           </div>
           <div className="h-48 w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -295,7 +359,7 @@ export const WarehouseDashboard = () => {
         </Card>
       </div>
 
-      {/* Dashboard Alerts Section */}
+      {/* Operational Alerts Section */}
       <Card className="p-5">
         <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2">
@@ -303,7 +367,7 @@ export const WarehouseDashboard = () => {
             <h3 className="font-bold text-slate-900 text-sm">Operational Alerts</h3>
           </div>
           <button
-            onClick={() => navigate("/warehouse-mgmt/low-stock")}
+            onClick={() => navigate(`${basePath}/low-stock`)}
             className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
           >
             View All Alerts <ArrowUpRight size={14} />
@@ -311,24 +375,28 @@ export const WarehouseDashboard = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {alerts.map((alert) => (
-            <div
-              key={alert.id}
-              onClick={() => navigate(alert.actionUrl)}
-              className="p-3.5 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:border-slate-200 transition-all cursor-pointer flex items-start gap-3 shadow-xs"
-            >
-              <div className={`p-2 rounded-lg ${alert.severity === "critical" ? "bg-rose-100 text-rose-600" : alert.severity === "warning" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-600"}`}>
-                <AlertTriangle size={16} />
+          {alerts.length === 0 ? (
+            <p className="text-xs text-slate-400 py-3 col-span-2">No critical stock alerts for this warehouse.</p>
+          ) : (
+            alerts.map((alert) => (
+              <div
+                key={alert.id}
+                onClick={() => navigate(alert.actionUrl?.replace(/^\/warehouse-mgmt/, basePath) || `${basePath}/low-stock`)}
+                className="p-3.5 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:border-slate-200 transition-all cursor-pointer flex items-start gap-3 shadow-2xs"
+              >
+                <div className={`p-2 rounded-lg ${alert.severity === "critical" || alert.severity === "High" ? "bg-rose-100 text-rose-600" : alert.severity === "warning" || alert.severity === "Medium" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-600"}`}>
+                  <AlertTriangle size={16} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-bold text-slate-900 text-xs truncate">{alert.title || alert.type}</h4>
+                  <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{alert.message}</p>
+                  <span className="text-[10px] font-bold text-slate-400 mt-1.5 block">
+                    {alert.warehouseName || warehouseName} • {new Date(alert.date || alert.timestamp || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="font-bold text-slate-900 text-xs truncate">{alert.title}</h4>
-                <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{alert.message}</p>
-                <span className="text-[10px] font-bold text-slate-400 mt-1.5 block">
-                  {alert.warehouseName} • {new Date(alert.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
-              </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </Card>
     </div>
@@ -336,3 +404,4 @@ export const WarehouseDashboard = () => {
 };
 
 export default WarehouseDashboard;
+

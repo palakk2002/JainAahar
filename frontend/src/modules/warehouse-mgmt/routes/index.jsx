@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import DashboardLayout from "@shared/layout/DashboardLayout";
 import { setActiveRole, ROLES } from "@core/auth/activeRoleStore";
 import { useAuth } from "@core/context/AuthContext";
@@ -33,102 +33,123 @@ const OutOfStock = React.lazy(() => import("../pages/OutOfStock"));
 const Reports = React.lazy(() => import("../pages/Reports"));
 const PickupAddresses = React.lazy(() => import("../pages/PickupAddresses"));
 
-const navItems = [
-  {
-    label: "Dashboard",
-    path: "/warehouse-mgmt/dashboard",
-    icon: LayoutDashboard,
-    color: "indigo",
-    end: true,
-  },
-  {
-    label: "Warehouses",
-    path: "/warehouse-mgmt/warehouses",
-    icon: Building2,
-    color: "teal",
-  },
-  {
-    label: "Inventory",
-    path: "/warehouse-mgmt/inventory",
-    icon: Box,
-    color: "amber",
-  },
-  {
-    label: "Stock In / Out",
-    icon: ArrowRightLeft,
-    color: "emerald",
-    children: [
-      { label: "Stock Inward", path: "/warehouse-mgmt/inward" },
-      { label: "Stock Outward", path: "/warehouse-mgmt/outward" },
-    ],
-  },
-  {
-    label: "Fulfillment",
-    icon: Truck,
-    color: "blue",
-    children: [
-      { label: "Warehouse Orders", path: "/warehouse-mgmt/orders" },
-      { label: "Picking & Packing", path: "/warehouse-mgmt/fulfillment" },
-      { label: "Pickup Addresses", path: "/warehouse-mgmt/pickup-addresses" },
-    ],
-  },
-  {
-    label: "Stock Transfers",
-    path: "/warehouse-mgmt/transfers",
-    icon: ArrowRightLeft,
-    color: "violet",
-  },
-  {
-    label: "Stock Exceptions",
-    icon: AlertTriangle,
-    color: "rose",
-    children: [
-      { label: "Damaged & Defective", path: "/warehouse-mgmt/damaged" },
-      { label: "Returned Items", path: "/warehouse-mgmt/returns" },
-      { label: "Stock Adjustments", path: "/warehouse-mgmt/adjustments" },
-    ],
-  },
-  {
-    label: "Audit & Reports",
-    icon: ClipboardList,
-    color: "slate",
-    children: [
-      { label: "Movement History", path: "/warehouse-mgmt/audit" },
-      { label: "Low Stock Alerts", path: "/warehouse-mgmt/low-stock" },
-      { label: "Out of Stock Items", path: "/warehouse-mgmt/out-of-stock" },
-      { label: "Operational Reports", path: "/warehouse-mgmt/reports" },
-    ],
-  },
-];
+const buildNavItems = (basePath, isWarehouseUser, isAdmin) => {
+  return [
+    {
+      label: "Dashboard",
+      path: `${basePath}/dashboard`,
+      icon: LayoutDashboard,
+      color: "indigo",
+      end: true,
+    },
+    ...(!isWarehouseUser && isAdmin
+      ? [
+          {
+            label: "Warehouses",
+            path: `${basePath}/warehouses`,
+            icon: Building2,
+            color: "teal",
+            end: false,
+          },
+        ]
+      : []),
+    {
+      label: "Inventory",
+      path: `${basePath}/inventory`,
+      icon: Box,
+      color: "amber",
+      end: false,
+    },
+    {
+      label: "Stock In / Out",
+      icon: ArrowRightLeft,
+      color: "emerald",
+      children: [
+        { label: "Stock Inward", path: `${basePath}/inward` },
+        { label: "Stock Outward", path: `${basePath}/outward` },
+      ],
+    },
+    {
+      label: "Fulfillment",
+      icon: Truck,
+      color: "blue",
+      children: [
+        { label: "Warehouse Orders", path: `${basePath}/orders` },
+        { label: "Picking & Packing", path: `${basePath}/fulfillment` },
+        { label: "Pickup Addresses", path: `${basePath}/pickup-addresses` },
+      ],
+    },
+    {
+      label: "Stock Transfers",
+      path: `${basePath}/transfers`,
+      icon: ArrowRightLeft,
+      color: "violet",
+      end: false,
+    },
+    {
+      label: "Stock Exceptions",
+      icon: AlertTriangle,
+      color: "rose",
+      children: [
+        { label: "Damaged & Defective", path: `${basePath}/damaged` },
+        { label: "Returned Items", path: `${basePath}/returns` },
+        { label: "Stock Adjustments", path: `${basePath}/adjustments` },
+      ],
+    },
+    {
+      label: "Audit & Reports",
+      icon: ClipboardList,
+      color: "slate",
+      children: [
+        { label: "Movement History", path: `${basePath}/audit` },
+        { label: "Low Stock Alerts", path: `${basePath}/low-stock` },
+        { label: "Out of Stock Items", path: `${basePath}/out-of-stock` },
+        { label: "Operational Reports", path: `${basePath}/reports` },
+      ],
+    },
+  ];
+};
 
 const WarehouseMgmtRoutes = () => {
   const { user, authData, role } = useAuth();
+  const location = useLocation();
+
   const isAdmin = role === "admin" || user?.role === "admin" || Boolean(authData?.admin);
+  const isWarehouseUser = !isAdmin && (role === "warehouse" || role === "warehouse_mgmt" || user?.role === "warehouse");
+  const basePath = location.pathname.startsWith("/warehouse-mgmt") ? "/warehouse-mgmt" : "/warehouse";
 
   useEffect(() => {
     setActiveRole(ROLES.WAREHOUSE);
   }, []);
 
   const effectiveNavItems = useMemo(() => {
-    if (!isAdmin) return navItems;
+    const nav = buildNavItems(basePath, isWarehouseUser, isAdmin);
+    if (!isAdmin) return nav;
     return [
       {
         label: "Back to Admin Center",
         path: "/admin",
         icon: ArrowLeft,
         color: "indigo",
+        end: false,
       },
-      ...navItems,
+      ...nav,
     ];
-  }, [isAdmin]);
+  }, [basePath, isWarehouseUser, isAdmin]);
+
+  const defaultRedirect = `${basePath}/dashboard`;
+  const portalTitle = isWarehouseUser
+    ? (user?.warehouseName || user?.name || "Warehouse Portal")
+    : "Warehouse Operations";
 
   return (
-    <DashboardLayout navItems={effectiveNavItems} title="Warehouse Operations">
+    <DashboardLayout navItems={effectiveNavItems} title={portalTitle}>
       <Routes>
-        <Route path="/" element={<Navigate to="/warehouse-mgmt/dashboard" replace />} />
+        <Route path="/" element={<Navigate to={defaultRedirect} replace />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/warehouses" element={<Warehouses />} />
-        <Route path="/warehouses/:warehouseId" element={<WarehouseDetail />} />
+        {isAdmin && <Route path="/warehouses" element={<Warehouses />} />}
+        {isAdmin && <Route path="/warehouses/:warehouseId" element={<WarehouseDetail />} />}
+        {!isAdmin && <Route path="/warehouses*" element={<Navigate to={defaultRedirect} replace />} />}
         <Route path="/inventory" element={<Inventory />} />
         <Route path="/inward" element={<StockInward />} />
         <Route path="/outward" element={<StockOutward />} />
@@ -143,10 +164,11 @@ const WarehouseMgmtRoutes = () => {
         <Route path="/low-stock" element={<LowStock />} />
         <Route path="/out-of-stock" element={<OutOfStock />} />
         <Route path="/reports" element={<Reports />} />
-        <Route path="*" element={<Navigate to="/warehouse-mgmt/dashboard" replace />} />
+        <Route path="*" element={<Navigate to={defaultRedirect} replace />} />
       </Routes>
     </DashboardLayout>
   );
 };
 
 export default WarehouseMgmtRoutes;
+

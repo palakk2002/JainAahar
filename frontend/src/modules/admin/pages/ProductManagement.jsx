@@ -641,18 +641,16 @@ const ProductManagement = ({ initialOpenAdd = false }) => {
                 <div className="overflow-x-auto">
                     <table className="w-full min-w-[1180px] table-fixed text-left border-collapse">
                         <colgroup>
-                            <col className="w-[24%]" />
-                            <col className="w-[13%]" />
-                            <col className="w-[11%]" />
+                            <col className="w-[28%]" />
+                            <col className="w-[15%]" />
+                            <col className="w-[15%]" />
+                            <col className="w-[15%]" />
                             <col className="w-[12%]" />
-                            <col className="w-[14%]" />
-                            <col className="w-[11%]" />
                             <col className="w-[15%]" />
                         </colgroup>
                         <thead>
                             <tr className="bg-slate-50/50 border-b border-slate-100">
                                 <th className="px-6 py-3 text-left text-[10px] font-medium text-slate-500 uppercase tracking-[0.18em]">Product</th>
-                                <th className="px-6 py-3 text-left text-[10px] font-medium text-slate-500 uppercase tracking-[0.18em]">Seller</th>
                                 <th className="px-6 py-3 text-left text-[10px] font-medium text-slate-500 uppercase tracking-[0.18em]">Variant</th>
                                 <th className="px-6 py-3 text-left text-[10px] font-medium text-slate-500 uppercase tracking-[0.18em]">Category</th>
                                 <th className="px-6 py-3 text-left text-[10px] font-medium text-slate-500 uppercase tracking-[0.18em]">Subcategory</th>
@@ -663,7 +661,7 @@ const ProductManagement = ({ initialOpenAdd = false }) => {
                         <tbody className="divide-y divide-slate-50">
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan={7} className="px-6 py-20 text-center">
+                                    <td colSpan={6} className="px-6 py-20 text-center">
                                         <div className="flex flex-col items-center gap-3">
                                             <HiOutlineArrowPath className="h-8 w-8 text-primary animate-spin" />
                                             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading Products...</p>
@@ -672,7 +670,7 @@ const ProductManagement = ({ initialOpenAdd = false }) => {
                                 </tr>
                             ) : productsList.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="px-6 py-20 text-center text-slate-400 font-bold text-xs uppercase tracking-widest">No products found</td>
+                                    <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-bold text-xs uppercase tracking-widest">No products found</td>
                                 </tr>
                             ) : productsList.map((p) => (
                                 <tr
@@ -692,8 +690,8 @@ const ProductManagement = ({ initialOpenAdd = false }) => {
                                                         alt={p.name}
                                                         className="h-full w-full object-cover group-hover:scale-110 transition-transform duration-500"
                                                         onError={(e) => {
-                                                            e.currentTarget.style.display = 'none';
-                                                            e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                                             e.currentTarget.style.display = 'none';
+                                                             e.currentTarget.nextElementSibling?.classList.remove('hidden');
                                                         }}
                                                     />
                                                 ) : null}
@@ -710,16 +708,6 @@ const ProductManagement = ({ initialOpenAdd = false }) => {
                                                     </p>
                                                 ) : null}
                                             </div>
-                                        </div>
-                                    </td>
-
-                                    {/* Seller Column */}
-                                    <td className="px-6 py-5 align-middle">
-                                        <div className="flex items-center gap-2 min-w-0">
-                                            <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-brand-500 shadow-[0_0_0_4px_rgba(59,130,246,0.12)]" />
-                                            <span className="truncate text-[13px] font-medium text-slate-700" title={p.sellerId?.shopName || 'Admin'}>
-                                                {p.sellerId?.shopName || 'Admin'}
-                                            </span>
                                         </div>
                                     </td>
 
