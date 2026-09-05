@@ -97,13 +97,13 @@ const CustomerLayout = ({
     const isSearch = path === '/search' || path.startsWith('/search');
     const isChat = path === '/chat' || path.startsWith('/chat');
     const isProduct = path.startsWith('/product');
-    const isPaymentStatus = path.startsWith('/payment-status');
+    const isPaymentStatus = path.startsWith('/payment-status') || path.startsWith('/payment');
 
     // Desktop header visibility
     const hideHeaderDesktopRoutes = [
-        '/', '/orders', '/checkout', '/chat', '/support', '/contact', '/contact-us', '/privacy', '/privacy-policy', '/about', '/about-us', '/terms', '/shipping', '/shipping-policy', '/cancellation-refund-policy', '/refund-policy'
+        '/', '/orders', '/checkout', '/chat', '/support', '/contact', '/contact-us', '/privacy', '/privacy-policy', '/about', '/about-us', '/terms', '/shipping', '/shipping-policy', '/cancellation-refund-policy', '/refund-policy', '/payment-status'
     ];
-    const isHeaderHiddenDesktop = hideHeaderDesktopRoutes.includes(path) || isPolicyPage || isCheckout || isChat || path.startsWith('/orders');
+    const isHeaderHiddenDesktop = hideHeaderDesktopRoutes.includes(path) || isPolicyPage || isCheckout || isChat || path.startsWith('/orders') || isPaymentStatus;
     const showHeaderDesktop = showHeaderProp !== undefined ? showHeaderProp : !isHeaderHiddenDesktop;
 
     // Mobile header visibility: Hide layout Header on mobile when page has its own mobile header
@@ -112,9 +112,9 @@ const CustomerLayout = ({
         '/profile/edit', '/wishlist', '/addresses', '/wallet',
         '/support', '/contact', '/contact-us', '/privacy', '/privacy-policy', '/about', '/about-us', '/terms',
         '/shipping', '/shipping-policy', '/cancellation-refund-policy', '/refund-policy',
-        '/checkout', '/search', '/chat', '/notifications'
+        '/checkout', '/search', '/chat', '/notifications', '/payment-status'
     ];
-    const isHeaderHiddenMobile = hideHeaderMobileRoutes.includes(path) || isPolicyPage || path.startsWith('/category') || path.startsWith('/orders') || path.startsWith('/product') || path.startsWith('/kit');
+    const isHeaderHiddenMobile = hideHeaderMobileRoutes.includes(path) || isPolicyPage || path.startsWith('/category') || path.startsWith('/orders') || path.startsWith('/product') || path.startsWith('/kit') || isPaymentStatus;
     const showHeaderMobile = showHeaderProp !== undefined ? showHeaderProp : !isHeaderHiddenMobile;
 
     const hideBottomNav = isCheckout || isSearch || isChat || isProduct || isPaymentStatus;
