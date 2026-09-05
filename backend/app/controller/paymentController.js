@@ -26,9 +26,10 @@ function resolvePaymentErrorMessage(error) {
 export const createPaymentOrder = async (req, res) => {
   try {
     const payload = validateSchema(createPaymentOrderSchema, req.body || {});
+    const userId = req.user?.id || req.user?._id || req.user?.userId;
     const result = await createPaymentOrderForOrderRef({
       orderRef: payload.orderRef || payload.orderId,
-      userId: req.user?.id,
+      userId,
       idempotencyKey: req.headers["idempotency-key"] || null,
       correlationId: req.correlationId || null,
     });
@@ -55,7 +56,7 @@ export const createPaymentOrder = async (req, res) => {
       responseStatus: error?.response?.status || null,
       responseStatusText: error?.response?.statusText || null,
       orderRef: req.body?.orderRef || req.body?.orderId || null,
-      userId: req.user?.id || null,
+      userId: req.user?.id || req.user?._id || req.user?.userId || null,
       correlationId: req.correlationId || null,
     });
     return handleResponse(
@@ -75,9 +76,10 @@ export const verifyPaymentStatus = async (req, res) => {
       return handleResponse(res, 400, "merchantOrderId is required");
     }
 
+    const userId = req.user?.id || req.user?._id || req.user?.userId;
     const verification = await verifyPhonePePaymentStatus({
       merchantOrderId,
-      userId: req.user?.id,
+      userId,
       correlationId: req.correlationId || null,
     });
 
@@ -86,7 +88,7 @@ export const verifyPaymentStatus = async (req, res) => {
       payment: verification.payment,
     });
   } catch (error) {
-    return handleResponse(res, error.statusCode || 500, error.message);
+    return handleResponse(res, error.statusCode || error.status || 500, error.message);
   }
 };
 

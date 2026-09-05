@@ -808,11 +808,12 @@ const CheckoutPage = () => {
             throw new Error("Payment gateway redirect URL not received");
           } catch (payError) {
             setIsPlacingOrder(false);
-            showToast(
+            const errorMsg =
+              payError.response?.data?.message ||
+              payError.response?.data?.error ||
               payError.message ||
-                "Order created but payment gateway failed. Please pay from order details.",
-              "error"
-            );
+              "Order created but payment gateway failed. Please pay from order details.";
+            showToast(errorMsg, "error");
             navigate(`/orders/${mainOrderId}`);
             return;
           }

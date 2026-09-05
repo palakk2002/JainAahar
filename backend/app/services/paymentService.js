@@ -76,41 +76,35 @@ async function resolvePaymentTarget(orderRef) {
   const checkoutGroupId = extractCheckoutGroupId(orderRef);
   if (checkoutGroupId) {
     const checkoutGroup = await CheckoutGroup.findOne({ checkoutGroupId }).lean();
-    if (!checkoutGroup) {
-      const err = new Error("Checkout group not found");
-      err.statusCode = 404;
-      throw err;
-    }
-    let orders = await Order.find({ checkoutGroupId })
-      .sort({ checkoutGroupIndex: 1, createdAt: 1 });
+    if (checkoutGroup) {
+      let orders = await Order.find({ checkoutGroupId })
+        .sort({ checkoutGroupIndex: 1, createdAt: 1 });
 
-    if (orders.length === 0) {
-      const fallbackClauses = [];
-      if (Array.isArray(checkoutGroup.orderIds) && checkoutGroup.orderIds.length > 0) {
-        fallbackClauses.push({ _id: { $in: checkoutGroup.orderIds } });
-      }
-      if (Array.isArray(checkoutGroup.publicOrderIds) && checkoutGroup.publicOrderIds.length > 0) {
-        fallbackClauses.push({ orderId: { $in: checkoutGroup.publicOrderIds } });
+      if (orders.length === 0) {
+        const fallbackClauses = [];
+        if (Array.isArray(checkoutGroup.orderIds) && checkoutGroup.orderIds.length > 0) {
+          fallbackClauses.push({ _id: { $in: checkoutGroup.orderIds } });
+        }
+        if (Array.isArray(checkoutGroup.publicOrderIds) && checkoutGroup.publicOrderIds.length > 0) {
+          fallbackClauses.push({ orderId: { $in: checkoutGroup.publicOrderIds } });
+        }
+
+        if (fallbackClauses.length > 0) {
+          orders = await Order.find({ $or: fallbackClauses })
+            .sort({ checkoutGroupIndex: 1, createdAt: 1 });
+        }
       }
 
-      if (fallbackClauses.length > 0) {
-        orders = await Order.find({ $or: fallbackClauses })
-          .sort({ checkoutGroupIndex: 1, createdAt: 1 });
+      if (orders.length > 0) {
+        return {
+          checkoutGroupId,
+          checkoutGroup,
+          orders,
+          primaryOrder: orders[0],
+          publicOrderRef: checkoutGroupId,
+        };
       }
     }
-
-    if (orders.length === 0) {
-      const err = new Error("Checkout group has no orders");
-      err.statusCode = 404;
-      throw err;
-    }
-    return {
-      checkoutGroupId,
-      checkoutGroup,
-      orders,
-      primaryOrder: orders[0],
-      publicOrderRef: checkoutGroupId,
-    };
   }
 
   const query = toOrderLookup(orderRef);
@@ -159,7 +153,8 @@ function validatePaymentEligibility(target, userId) {
   }
 
   for (const order of target.orders) {
-    if (String(order.customer) !== String(userId)) {
+    const customerId = order.customer?._id || order.customer;
+    if (userId && customerId && String(customerId) !== String(userId)) {
       const err = new Error("You are not allowed to pay for this order");
       err.statusCode = 403;
       throw err;
@@ -170,12 +165,10 @@ function validatePaymentEligibility(target, userId) {
       throw err;
     }
     if (
-      order.status === "cancelled" ||
-      order.workflowStatus === WORKFLOW_STATUS.CANCELLED ||
       order.status === "delivered" ||
       order.workflowStatus === WORKFLOW_STATUS.DELIVERED
     ) {
-      const err = new Error("Payment is not allowed for this checkout state");
+      const err = new Error("Payment is not allowed for delivered orders");
       err.statusCode = 409;
       throw err;
     }
@@ -510,8 +503,13 @@ export async function createPaymentOrderForOrderRef({
     },
   }).sort({ createdAt: -1 });
 
-  if (
+  const isRecentPayment =
     existingOpenPayment &&
+    existingOpenPayment.createdAt &&
+    Date.now() - new Date(existingOpenPayment.createdAt).getTime() < 10 * 60 * 1000;
+
+  if (
+    isRecentPayment &&
     existingOpenPayment.rawGatewayResponse?.redirectUrl
   ) {
     return {

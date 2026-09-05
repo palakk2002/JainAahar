@@ -52,17 +52,30 @@ export class PhonePeAdapter extends PaymentProviderPort {
   }
 
   async initiatePayment({ merchantOrderId, amountPaise, redirectUrl }) {
-    const client = getPhonePeClient();
-    const request = StandardCheckoutPayRequest.builder()
-      .merchantOrderId(merchantOrderId)
-      .amount(amountPaise)
-      .redirectUrl(redirectUrl)
-      .build();
-    const response = await client.pay(request);
-    return {
-      redirectUrl: response.redirectUrl,
-      gatewayResponse: response,
-    };
+    try {
+      const client = getPhonePeClient();
+      const request = StandardCheckoutPayRequest.builder()
+        .merchantOrderId(merchantOrderId)
+        .amount(amountPaise)
+        .redirectUrl(redirectUrl)
+        .build();
+      const response = await client.pay(request);
+      if (!response?.redirectUrl) {
+        throw new Error(response?.message || "PhonePe did not return a valid redirect URL");
+      }
+      return {
+        redirectUrl: response.redirectUrl,
+        gatewayResponse: response,
+      };
+    } catch (error) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to initiate payment with PhonePe";
+      const err = new Error(message);
+      err.statusCode = error?.response?.status || 502;
+      throw err;
+    }
   }
 
   async getPaymentStatus({ merchantOrderId }) {
