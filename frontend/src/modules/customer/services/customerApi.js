@@ -118,6 +118,8 @@ export const customerApi = {
   createPaymentOrder: (data) =>
     axiosInstance.post("/payments/create-order", data),
   createWalletPaymentOrder: async (data) => {
+    invalidateCache("/customer/profile");
+    invalidateCache("/customer/transactions");
     try {
       return await axiosInstance.post("/payments/create-wallet-order", data);
     } catch (err) {
@@ -130,7 +132,6 @@ export const customerApi = {
               return await axiosInstance.post("/customer/create-wallet-order", data);
             } catch (fallbackErr2) {
               if (fallbackErr2?.response?.status === 404) {
-                // Direct wallet topup fallback
                 return await axiosInstance.post("/customer/wallet/add-money", data);
               }
               throw fallbackErr2;

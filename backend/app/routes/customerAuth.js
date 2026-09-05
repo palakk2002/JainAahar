@@ -34,7 +34,7 @@ router.delete("/account", verifyToken, deleteCustomerAccount);
 
 // Wallet
 router.get("/transactions", verifyToken, getCustomerTransactions);
-router.post("/wallet/add-money", verifyToken, addCustomerWalletMoney);
+router.post("/wallet/add-money", verifyToken, createWalletPaymentOrder);
 router.post("/wallet/create-payment-order", verifyToken, createWalletPaymentOrder);
 router.post("/create-wallet-order", verifyToken, createWalletPaymentOrder);
 
