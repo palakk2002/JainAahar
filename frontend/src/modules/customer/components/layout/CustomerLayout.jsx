@@ -101,9 +101,9 @@ const CustomerLayout = ({
 
     // Desktop header visibility
     const hideHeaderDesktopRoutes = [
-        '/', '/checkout', '/chat', '/support', '/contact', '/contact-us', '/privacy', '/privacy-policy', '/about', '/about-us', '/terms', '/shipping', '/shipping-policy', '/cancellation-refund-policy', '/refund-policy'
+        '/', '/orders', '/checkout', '/chat', '/support', '/contact', '/contact-us', '/privacy', '/privacy-policy', '/about', '/about-us', '/terms', '/shipping', '/shipping-policy', '/cancellation-refund-policy', '/refund-policy'
     ];
-    const isHeaderHiddenDesktop = hideHeaderDesktopRoutes.includes(path) || isPolicyPage || isCheckout || isChat;
+    const isHeaderHiddenDesktop = hideHeaderDesktopRoutes.includes(path) || isPolicyPage || isCheckout || isChat || path.startsWith('/orders');
     const showHeaderDesktop = showHeaderProp !== undefined ? showHeaderProp : !isHeaderHiddenDesktop;
 
     // Mobile header visibility: Hide layout Header on mobile when page has its own mobile header

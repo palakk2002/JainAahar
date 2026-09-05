@@ -7,6 +7,7 @@
  * @module core/startup
  */
 
+import dns from 'node:dns';
 import mongoose from 'mongoose';
 import { getProcessRole, isComponentEnabled, validateProcessRole } from './processRole.js';
 import { isRedisEnabled, getRedisClient, waitForRedis } from '../config/redis.js';
@@ -180,6 +181,21 @@ async function connectMongoDB(maxRetries = 5) {
   if (mongoose.connection.readyState === 1) {
     return;
   }
+
+  // Pre-configure DNS servers for mongodb+srv:// URIs to avoid ISP/local DNS SRV issues
+  if (mongoUri.startsWith('mongodb+srv://') && process.env.FORCE_PUBLIC_DNS !== 'false') {
+    try {
+      const publicServers = (process.env.PUBLIC_DNS_SERVERS || '8.8.8.8,8.8.4.4,1.1.1.1')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+      if (publicServers.length > 0) {
+        dns.setServers(publicServers);
+      }
+    } catch (dnsErr) {
+      console.warn('[MongoDB] Unable to set custom DNS servers:', dnsErr.message);
+    }
+  }
   
   const options = {
     serverSelectionTimeoutMS: connectTimeout,
@@ -191,6 +207,19 @@ async function connectMongoDB(maxRetries = 5) {
       await mongoose.connect(mongoUri, options);
       return;
     } catch (error) {
+      // If DNS resolution failed on SRV lookup, fallback to Google/Cloudflare DNS and retry
+      const isDnsError = /querySrv|ECONNREFUSED|ENOTFOUND|EAI_AGAIN/i.test(error.message || '');
+      if (isDnsError && mongoUri.startsWith('mongodb+srv://')) {
+        try {
+          dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
+          console.warn(
+            `[MongoDB] SRV DNS resolution issue detected (attempt ${attempt}/${maxRetries}). Applied public DNS resolvers (8.8.8.8, 8.8.4.4, 1.1.1.1).`
+          );
+        } catch {
+          // ignore error setting servers
+        }
+      }
+
       const isLastAttempt = attempt === maxRetries;
       
       if (isLastAttempt) {
