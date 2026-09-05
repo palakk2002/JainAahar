@@ -6,6 +6,7 @@ import LedgerEntry from "../models/ledgerEntry.js";
 import jwt from "jsonwebtoken";
 import handleResponse from "../utils/helper.js";
 import { creditWallet } from "../services/finance/walletService.js";
+import { createPaymentOrderForWalletTopup } from "../services/paymentService.js";
 import { OWNER_TYPE, LEDGER_TRANSACTION_TYPE } from "../constants/finance.js";
 import {
     issueCustomerOtp,
@@ -320,54 +321,29 @@ export const getCustomerTransactions = async (req, res) => {
 ================================ */
 export const addCustomerWalletMoney = async (req, res) => {
     try {
-        const customerId = req.user.id;
-        const { amount, paymentMethod = "PhonePe UPI", reference: customRef } = req.body || {};
-        const parsedAmount = Number(amount);
-
-        if (!parsedAmount || isNaN(parsedAmount) || parsedAmount <= 0) {
-            return handleResponse(res, 400, "Please enter a valid amount greater than ₹0");
-        }
-
-        if (parsedAmount > 50000) {
-            return handleResponse(res, 400, "Maximum limit per wallet topup is ₹50,000");
-        }
-
-        const reference = customRef || `W-TOPUP-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
-
-        // 1. Credit canonical wallet (automatically syncs User.walletBalance)
-        const creditResult = await creditWallet({
-            ownerType: OWNER_TYPE.CUSTOMER,
-            ownerId: customerId,
-            bucket: "available",
-            amount: parsedAmount,
-            ledgerType: LEDGER_TRANSACTION_TYPE.WALLET_TOPUP,
-            ledgerReference: reference,
-            ledgerDescription: `Added ₹${parsedAmount} via ${paymentMethod}`,
-            metadata: { source: "customer_add_money", paymentMethod, timestamp: new Date() },
+        const customerId = req.user?.id || req.user?._id || req.user?.userId;
+        const { amount } = req.body || {};
+        const result = await createPaymentOrderForWalletTopup({
+            userId: customerId,
+            amount,
+            correlationId: req.correlationId || null,
         });
 
-        // 2. Dual-write legacy Transaction row for frontend transaction listing
-        await Transaction.create({
-            user: customerId,
-            userModel: "User",
-            type: "Wallet Topup",
-            amount: parsedAmount,
-            status: "Settled",
-            reference,
-            date: new Date(),
-            meta: { source: "online_topup", paymentMethod },
-        });
-
-        const updatedBalance = creditResult?.after ?? (creditResult?.wallet?.availableBalance ?? 0);
-
-        return handleResponse(res, 200, `₹${parsedAmount} added to wallet successfully!`, {
-            walletBalance: updatedBalance,
-            amount: parsedAmount,
-            transactionId: reference,
-            paymentMethod,
-        });
+        return handleResponse(
+            res,
+            201,
+            "Wallet payment initiated",
+            {
+                payment: result.payment,
+                provider: result.provider,
+                redirectUrl: result.redirectUrl,
+                merchantOrderId: result.merchantOrderId,
+                amount: result.amount,
+                currency: result.currency,
+            },
+        );
     } catch (error) {
         console.error("Error adding wallet money:", error);
-        return handleResponse(res, 500, error.message || "Failed to add money to wallet");
+        return handleResponse(res, error.statusCode || error.status || 500, error.message || "Failed to initiate payment");
     }
 };

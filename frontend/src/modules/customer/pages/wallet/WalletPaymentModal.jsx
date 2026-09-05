@@ -77,6 +77,13 @@ export const WalletPaymentModal = ({
                 } catch {
                     window.location.href = targetUrl;
                 }
+            } else if (responseData?.success && (responseData?.result?.walletBalance !== undefined || responseData?.message?.includes("success"))) {
+                // If backend directly credited balance
+                showToast(`₹${numericAmount.toLocaleString('en-IN')} added to wallet successfully!`, "success");
+                if (onPaymentSuccess) {
+                    onPaymentSuccess(responseData?.result?.walletBalance ?? responseData?.result, responseData?.result);
+                }
+                if (onClose) onClose();
             } else {
                 throw new Error(
                     responseData?.message ||
