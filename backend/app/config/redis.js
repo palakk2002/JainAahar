@@ -62,7 +62,11 @@ export function isRedisEnabled() {
  * Single error handler so ioredis does not emit "Unhandled error event" when
  * Redis is down; logs are rate-limited.
  */
-function attachRedisErrorHandler(client) {
+/**
+ * Single error handler so ioredis does not emit "Unhandled error event" when
+ * Redis is down; logs are rate-limited.
+ */
+export function attachRedisErrorHandler(client) {
   if (!client || client.__qcRedisErrorHandler) return;
   client.__qcRedisErrorHandler = true;
 
@@ -81,7 +85,7 @@ function attachRedisErrorHandler(client) {
       _lastSharedErrorLog = now;
       const isProduction = process.env.NODE_ENV === "production";
       const message = isProduction
-        ? `[Redis] ERROR: ${err?.code || err?.message || String(err)} - Redis is required in production`
+        ? `[Redis] Notice: ${err?.code || err?.message || String(err)} - Running with in-memory/MongoDB fallback`
         : `[Redis] ${err?.code || err?.message || String(err)} — set REDIS_DISABLED=true to run without Redis.`;
       console.warn(message);
     }
@@ -96,29 +100,29 @@ function attachRedisErrorHandler(client) {
   });
 }
 
+function defaultRetryStrategy(times) {
+  if (times > 5) return null;
+  return Math.min(times * 500, 2000);
+}
+
 function standaloneOptions() {
   return {
     host: process.env.REDIS_HOST || "127.0.0.1",
     port: parseInt(process.env.REDIS_PORT || "6379", 10),
     password: process.env.REDIS_PASSWORD || undefined,
     lazyConnect: true,
-    enableReadyCheck: true,
+    enableReadyCheck: false,
     maxRetriesPerRequest: null,
-    retryStrategy(times) {
-      if (times > 20) return null;
-      return Math.min(times * 200, 3000);
-    },
+    retryStrategy: defaultRetryStrategy,
   };
 }
 
 function urlOptions() {
   return {
     lazyConnect: true,
+    enableReadyCheck: false,
     maxRetriesPerRequest: null,
-    retryStrategy(times) {
-      if (times > 20) return null;
-      return Math.min(times * 200, 3000);
-    },
+    retryStrategy: defaultRetryStrategy,
   };
 }
 
@@ -149,22 +153,21 @@ export function createBullRedisClient(type, config) {
     client = new Redis(config, {
       lazyConnect: true,
       maxRetriesPerRequest: null,
-      retryStrategy(times) {
-        if (times > 20) return null;
-        return Math.min(times * 200, 3000);
-      },
+      retryStrategy: defaultRetryStrategy,
     });
   } else if (["bclient", "subscriber"].includes(type)) {
     client = new Redis({
       ...config,
       lazyConnect: true,
       maxRetriesPerRequest: null,
+      retryStrategy: defaultRetryStrategy,
     });
   } else {
     client = new Redis({
       ...config,
       lazyConnect: true,
       maxRetriesPerRequest: null,
+      retryStrategy: defaultRetryStrategy,
     });
   }
   attachRedisErrorHandler(client);
@@ -199,65 +202,39 @@ export async function validateRedisConnection() {
     const result = await client.ping();
     return result === "PONG";
   } catch (error) {
-    console.error("[Redis] Validation failed:", error.message);
     return false;
   }
 }
 
 /**
- * Wait for Redis connection with exponential backoff retry logic
- * @param {number} maxRetries - Maximum retry attempts (default: 10)
- * @param {number} baseDelay - Base delay in ms (default: 1000)
+ * Wait for Redis connection with quick timeout to avoid blocking startup
+ * @param {number} maxRetries - Maximum retry attempts (default: 2)
+ * @param {number} baseDelay - Base delay in ms (default: 500)
  * @returns {Promise<void>}
- * @throws {Error} if connection fails after max retries
  */
-export async function waitForRedis(maxRetries = 10, baseDelay = 1000) {
+export async function waitForRedis(maxRetries = 2, baseDelay = 500) {
   if (!isRedisEnabled()) {
     return;
   }
 
   const client = getRedisClient();
   if (!client) {
-    throw new Error("Redis client is not initialized");
+    return;
   }
 
-  const isProduction = process.env.NODE_ENV === "production";
-  const effectiveMaxRetries = isProduction ? maxRetries : 2;
-  const maxDelay = isProduction ? 30000 : 1000;
-
-  for (let attempt = 1; attempt <= effectiveMaxRetries; attempt++) {
+  for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      // Try to connect if not already connected
       if (client.status !== "ready" && client.status !== "connect") {
         await client.connect();
       }
 
-      // Validate connection with PING
       const isValid = await validateRedisConnection();
       if (isValid) {
         return;
       }
     } catch (error) {
-      const isMaxClients = String(error?.message || "").includes("max number of clients");
-      const isLastAttempt = attempt === effectiveMaxRetries || (!isProduction && isMaxClients);
-
-      if (isLastAttempt) {
-        const errorMessage = `Failed to connect to Redis: ${error.message}`;
-        if (isProduction) {
-          console.warn(`[Redis] ⚠️ CRITICAL: ${errorMessage} - Continuing without Redis in production.`);
-        } else {
-          console.warn(`[Redis] ${errorMessage} - Continuing without Redis fallback`);
-        }
-        return;
-      }
-
-      const delay = Math.min(baseDelay * Math.pow(2, attempt - 1), maxDelay);
-      console.log(
-        `[Redis] Connection attempt ${attempt}/${effectiveMaxRetries} failed: ${error.message}. ` +
-        `Retrying in ${delay}ms...`
-      );
-
-      await new Promise(resolve => setTimeout(resolve, delay));
+      console.warn(`[Redis] Notice: Redis not reachable (${error.message}) - API continuing with in-memory/MongoDB fallback.`);
+      return;
     }
   }
 }

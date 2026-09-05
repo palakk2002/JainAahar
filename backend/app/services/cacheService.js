@@ -1,4 +1,4 @@
-import { getRedisClient } from "../config/redis.js";
+import { getRedisClient, attachRedisErrorHandler } from "../config/redis.js";
 import * as logger from "./logger.js";
 import { incrementCounter } from "./metrics.js";
 
@@ -302,10 +302,11 @@ export async function subscribeToInvalidations(callback) {
   
   try {
     const redis = getRedisClient();
-    if (!redis) return;
+    if (!redis || redis.status !== "ready") return;
     
-    // Create a separate Redis client for pub/sub
+    // Create a separate Redis client for pub/sub and attach error handler
     const subscriber = redis.duplicate();
+    attachRedisErrorHandler(subscriber);
     
     await subscriber.subscribe(CACHE_INVALIDATION_CHANNEL);
     
@@ -328,7 +329,7 @@ export async function subscribeToInvalidations(callback) {
     logger.info(`[Cache] Subscribed to invalidation channel: ${CACHE_INVALIDATION_CHANNEL}`);
     
   } catch (error) {
-    logger.error("[Cache] Error subscribing to invalidations:", error);
+    logger.warn(`[Cache] Cache invalidations subscription skipped: ${error?.message || error}`);
     // Don't throw - cache invalidation is not critical for app startup
   }
 }
