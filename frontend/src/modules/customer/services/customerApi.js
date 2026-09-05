@@ -30,7 +30,7 @@ export const customerApi = {
   addWalletMoney: (data) => {
     invalidateCache("/customer/profile");
     invalidateCache("/customer/transactions");
-    return axiosInstance.post("/customer/wallet/add-money", data);
+    return axiosInstance.post("/payments/create-wallet-order", data);
   },
   getCategories: (params) =>
     getWithDedupe("/categories", params, { ttl: 60 * 1000 }), // 1 min for categories
