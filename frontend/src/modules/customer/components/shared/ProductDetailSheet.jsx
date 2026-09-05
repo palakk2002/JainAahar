@@ -112,27 +112,28 @@ const ProductDetailSheet = () => {
     const scrollRef = useRef(null);
 
     const allImages = useMemo(() => {
-        if (!selectedProduct) return [];
+        const prod = extendedProduct || selectedProduct;
+        if (!prod) return [];
         const images = [];
-        if (selectedProduct.mainImage) images.push(selectedProduct.mainImage);
-        else if (selectedProduct.image) images.push(selectedProduct.image);
+        if (prod.mainImage) images.push(prod.mainImage);
+        else if (prod.image) images.push(prod.image);
 
-        if (selectedProduct.galleryImages && Array.isArray(selectedProduct.galleryImages)) {
-            images.push(...selectedProduct.galleryImages);
-        } else if (selectedProduct.images && Array.isArray(selectedProduct.images)) {
-            const extra = selectedProduct.images.filter(img => img !== selectedProduct.mainImage && img !== selectedProduct.image);
+        if (prod.galleryImages && Array.isArray(prod.galleryImages)) {
+            images.push(...prod.galleryImages);
+        } else if (prod.images && Array.isArray(prod.images)) {
+            const extra = prod.images.filter(img => img !== prod.mainImage && img !== prod.image);
             images.push(...extra);
         }
 
         // Deduplicate
-        const uniqueImages = [...new Set(images)];
+        const uniqueImages = [...new Set(images)].filter(Boolean);
 
         return uniqueImages.length > 0
           ? uniqueImages
           : [
               "https://images.unsplash.com/photo-1550989460-0adf9ea622e2?auto=format&fit=crop&q=80&w=400&h=400",
             ];
-    }, [selectedProduct]);
+    }, [selectedProduct, extendedProduct]);
 
     const displayHighlights = useMemo(() => {
         if (Array.isArray(selectedProduct?.highlights) && selectedProduct.highlights.length > 0) {

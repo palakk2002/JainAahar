@@ -240,7 +240,12 @@ function ProductCardComponent({
           {/* Product Image */}
           <SafeImage
             ref={imageRef}
-            src={product.mainImage || product.image}
+            src={
+              product?.mainImage ||
+              product?.image ||
+              (Array.isArray(product?.galleryImages) && product?.galleryImages[0]) ||
+              (Array.isArray(product?.images) && product?.images[0])
+            }
             fallbackSrc={DEFAULT_PRODUCT_IMAGE}
             alt={product.name}
             loading="lazy"

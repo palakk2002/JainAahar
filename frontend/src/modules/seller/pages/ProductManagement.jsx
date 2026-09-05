@@ -30,6 +30,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { sellerApi } from "../services/sellerApi";
 import { toast } from "sonner";
+import { clearAllCache } from "@core/api/dedupe";
 import Pagination from "@shared/components/ui/Pagination";
 
 const ProductManagement = () => {
@@ -383,6 +384,7 @@ const ProductManagement = () => {
 
       if (editingItem) {
         const response = await sellerApi.updateProduct(editingItem._id || editingItem.id, data);
+        clearAllCache();
         const approvalStatus = response?.data?.result?.approvalStatus;
         if (approvalStatus === "pending") {
           toast.success("Product changes submitted for admin approval");
@@ -391,6 +393,7 @@ const ProductManagement = () => {
         }
       } else {
         const response = await sellerApi.createProduct(data);
+        clearAllCache();
         const approvalStatus = response?.data?.result?.approvalStatus;
         if (approvalStatus === "pending") {
           toast.success("Product submitted for admin approval");
@@ -439,6 +442,7 @@ const ProductManagement = () => {
   const confirmDelete = async () => {
     try {
       await sellerApi.deleteProduct(itemToDelete._id || itemToDelete.id);
+      clearAllCache();
       toast.success("Product deleted successfully");
       setIsDeleteModalOpen(false);
       setItemToDelete(null);

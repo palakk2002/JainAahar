@@ -4,6 +4,7 @@ import Card from '@shared/components/ui/Card';
 import Badge from '@shared/components/ui/Badge';
 import { adminApi } from '../services/adminApi';
 import { toast } from 'sonner';
+import { clearAllCache } from '@core/api/dedupe';
 import {
     HiOutlinePlus,
     HiOutlineCube,
@@ -258,9 +259,11 @@ const ProductManagement = ({ initialOpenAdd = false }) => {
 
             if (editingItem) {
                 await adminApi.updateProduct(editingItem._id, data);
+                clearAllCache();
                 toast.success('Product updated successfully');
             } else {
                 await adminApi.createProduct(data);
+                clearAllCache();
                 toast.success('Product created successfully');
             }
             handleCloseModal();
@@ -280,9 +283,11 @@ const ProductManagement = ({ initialOpenAdd = false }) => {
         try {
             if (action === 'approve') {
                 const res = await adminApi.approveProductModeration(product._id, { approvalNote });
+                clearAllCache();
                 toast.success(res?.data?.message || 'Product approved successfully');
             } else {
                 const res = await adminApi.rejectProductModeration(product._id, { approvalNote });
+                clearAllCache();
                 toast.success(res?.data?.message || 'Product rejected successfully');
             }
             fetchProducts(page);
@@ -324,6 +329,7 @@ const ProductManagement = ({ initialOpenAdd = false }) => {
         setIsDeleting(true);
         try {
             await adminApi.deleteProduct(itemToDelete._id);
+            clearAllCache();
             toast.success('Product deleted successfully');
             setIsDeleteModalOpen(false);
             setItemToDelete(null);
@@ -339,6 +345,7 @@ const ProductManagement = ({ initialOpenAdd = false }) => {
         setIsDeleting(true);
         try {
             const res = await adminApi.deleteAllProducts();
+            clearAllCache();
             toast.success(res?.data?.message || 'All products deleted successfully');
             setIsDeleteAllModalOpen(false);
             fetchProducts(1);

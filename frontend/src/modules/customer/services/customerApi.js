@@ -32,10 +32,12 @@ export const customerApi = {
     invalidateCache("/customer/transactions");
     return axiosInstance.post("/payments/create-wallet-order", data);
   },
-  getCategories: (params) =>
-    getWithDedupe("/categories", params, { ttl: 60 * 1000 }), // 1 min for categories
-  getProducts: (params) => getWithDedupe("/products", params),
-  getProductById: (id, params) => getWithDedupe(`/products/${id}`, params),
+  getCategories: (params, options) =>
+    getWithDedupe("/categories", params, { ttl: 30 * 1000, ...options }),
+  getProducts: (params, options) =>
+    getWithDedupe("/products", params, { ttl: 5000, ...options }),
+  getProductById: (id, params, options) =>
+    getWithDedupe(`/products/${id}`, params, { ttl: 5000, ...options }),
 
   // Sellers & Location
   getNearbySellers: (params) => getWithDedupe("/seller/nearby", params),
@@ -171,16 +173,19 @@ export const customerApi = {
   },
 
   // Experience sections (home / header pages)
-  getExperienceSections: (params) => getWithDedupe("/experience", params),
+  getExperienceSections: (params, options) =>
+    getWithDedupe("/experience", params, { ttl: 10000, ...options }),
 
   // Hero config (separate hero banners + categories per page; fallback to home)
-  getHeroConfig: (params) =>
-    getWithDedupe("/experience/hero", params, { ttl: 60 * 1000 }),
+  getHeroConfig: (params, options) =>
+    getWithDedupe("/experience/hero", params, { ttl: 30 * 1000, ...options }),
 
   // Public offers
-  getOffers: () => getWithDedupe("/offers"),
+  getOffers: (params, options) =>
+    getWithDedupe("/offers", params, { ttl: 10000, ...options }),
   // Offer sections (category → products, banner + side image)
-  getOfferSections: (params) => getWithDedupe("/offer-sections", params),
+  getOfferSections: (params, options) =>
+    getWithDedupe("/offer-sections", params, { ttl: 10000, ...options }),
 
   // Coupons
   validateCoupon: (data) => axiosInstance.post("/coupons/validate", data),
