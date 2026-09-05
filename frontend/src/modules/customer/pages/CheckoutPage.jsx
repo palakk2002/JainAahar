@@ -33,6 +33,8 @@ import {
   Contact2,
   Wallet,
   MessageSquare,
+  ShieldCheck,
+  Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -135,6 +137,7 @@ const CheckoutPage = () => {
   const [selectedTip, setSelectedTip] = useState(0);
   const [showAllCartItems, setShowAllCartItems] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [isRedirectingToPayment, setIsRedirectingToPayment] = useState(false);
   const [selectedCoupon, setSelectedCoupon] = useState(null);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [isResolvingAddressCoords, setIsResolvingAddressCoords] = useState(false);
@@ -800,6 +803,7 @@ const CheckoutPage = () => {
             const paymentData = paymentRes.data.result || {};
 
             if (paymentData.redirectUrl) {
+              setIsRedirectingToPayment(true);
               clearCart();
               window.location.href = paymentData.redirectUrl;
               return;
@@ -808,6 +812,7 @@ const CheckoutPage = () => {
             throw new Error("Payment gateway redirect URL not received");
           } catch (payError) {
             setIsPlacingOrder(false);
+            setIsRedirectingToPayment(false);
             const errorMsg =
               payError.response?.data?.message ||
               payError.response?.data?.error ||
@@ -885,8 +890,48 @@ const CheckoutPage = () => {
     };
   }, [orderId, showSuccess]);
 
+  // ─── Payment redirecting state ───────────────────────────────────────────────
+  if (isRedirectingToPayment) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
+        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-purple-50 via-transparent to-transparent pointer-events-none" />
+        <div className="absolute -top-20 -right-20 w-80 h-80 bg-purple-100/40 rounded-full blur-3xl pointer-events-none animate-pulse" />
+        <div className="absolute top-40 -left-20 w-60 h-60 bg-brand-100/40 rounded-full blur-3xl pointer-events-none animate-pulse" />
+
+        <motion.div
+          initial={{ scale: 0.92, opacity: 0, y: 15 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
+          className="relative z-10 bg-white rounded-3xl p-8 max-w-sm w-full shadow-[0_20px_60px_rgba(0,0,0,0.08)] border border-slate-100 flex flex-col items-center text-center"
+        >
+          {/* Animated Spinner with PhonePe theme */}
+          <div className="relative mb-6 flex items-center justify-center">
+            <div className="w-20 h-20 rounded-full border-4 border-purple-100 border-t-[#6739b7] animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#5f259f] to-[#7b3fe4] flex items-center justify-center text-white shadow-lg shadow-purple-600/30">
+                <Lock size={22} className="text-white" />
+              </div>
+            </div>
+          </div>
+
+          <h3 className="text-xl font-black text-slate-800 mb-2 tracking-tight">
+            Connecting to PhonePe...
+          </h3>
+          <p className="text-sm text-slate-500 mb-6 leading-relaxed font-medium">
+            Redirecting to secure payment gateway. Please do not refresh or close this window.
+          </p>
+
+          <div className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-3.5 flex items-center justify-center gap-2 text-xs font-semibold text-slate-600">
+            <ShieldCheck size={16} className="text-emerald-600" />
+            <span>256-Bit SSL Bank Grade Security</span>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
   // ─── Empty cart state ────────────────────────────────────────────────────────
-  if (cart.length === 0 && !showSuccess) {
+  if (cart.length === 0 && !showSuccess && !isPlacingOrder && !isRedirectingToPayment) {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
         <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-brand-50/50 via-transparent to-transparent pointer-events-none" />
