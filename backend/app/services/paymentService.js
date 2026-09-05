@@ -531,7 +531,8 @@ export async function createPaymentOrderForOrderRef({
     attemptCount,
   );
 
-  const redirectUrl = `${process.env.FRONTEND_URL}/payment-status?merchantOrderId=${merchantOrderId}`;
+  const frontendBase = String(process.env.FRONTEND_URL || "http://localhost:5173").trim().replace(/\/+$/, "");
+  const redirectUrl = `${frontendBase}/payment-status?merchantOrderId=${merchantOrderId}`;
 
   const initResult = await provider.initiatePayment({
     merchantOrderId,
@@ -594,6 +595,7 @@ export async function createPaymentOrderForOrderRef({
 export async function verifyPhonePePaymentStatus({
   merchantOrderId,
   userId,
+  userRole = null,
   correlationId = null,
 }) {
   const payment = await Payment.findOne({ gatewayOrderId: merchantOrderId });
@@ -603,8 +605,8 @@ export async function verifyPhonePePaymentStatus({
     throw err;
   }
 
-  // Security check: only the owner or admin can verify
-  if (userId && String(payment.customer) !== String(userId)) {
+  // Security check: only reject if an authenticated non-admin user attempts to access someone else's payment
+  if (userId && userRole !== "admin" && payment.customer && String(payment.customer) !== String(userId)) {
       const err = new Error("Not authorized to verify this payment");
       err.statusCode = 403;
       throw err;
@@ -638,9 +640,49 @@ export async function verifyPhonePePaymentStatus({
     provider: provider.providerName,
   });
 
+  // Prepare safe public order summary for receipt display even if session is unauthenticated
+  const orders = await getRelatedOrdersForPayment(payment);
+  const itemsSummary = [];
+  for (const ord of orders) {
+    if (Array.isArray(ord.items)) {
+      for (const item of ord.items) {
+        itemsSummary.push({
+          name: item.name || item.product?.name || "Product",
+          quantity: item.quantity || 1,
+          price: item.price || 0,
+          image: item.image || item.product?.mainImage || null,
+        });
+      }
+    }
+  }
+
+  const primaryOrder = orders[0] || null;
+  const orderSummary = {
+    merchantOrderId,
+    publicOrderId: payment.publicOrderId || primaryOrder?.orderId || merchantOrderId,
+    checkoutGroupId: payment.checkoutGroupId || primaryOrder?.checkoutGroupId || null,
+    orderId: primaryOrder?.orderId || null,
+    amount: payment.amount,
+    currency: payment.currency || "INR",
+    status: nextStatus,
+    paymentMode: "ONLINE",
+    paidAt: payment.capturedAt || payment.updatedAt,
+    totalItems: itemsSummary.reduce((acc, curr) => acc + (curr.quantity || 1), 0),
+    items: itemsSummary.slice(0, 10),
+    address: primaryOrder?.address
+      ? {
+          name: primaryOrder.address.name,
+          address: primaryOrder.address.address,
+          city: primaryOrder.address.city,
+          pincode: primaryOrder.address.pincode,
+        }
+      : null,
+  };
+
   return {
     payment,
     status: nextStatus,
+    orderSummary,
   };
 }
 

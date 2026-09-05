@@ -77,15 +77,18 @@ export const verifyPaymentStatus = async (req, res) => {
     }
 
     const userId = req.user?.id || req.user?._id || req.user?.userId;
+    const userRole = req.user?.role || null;
     const verification = await verifyPhonePePaymentStatus({
       merchantOrderId,
       userId,
+      userRole,
       correlationId: req.correlationId || null,
     });
 
     return handleResponse(res, 200, "Payment status verified", {
       status: verification.status,
       payment: verification.payment,
+      orderSummary: verification.orderSummary || null,
     });
   } catch (error) {
     return handleResponse(res, error.statusCode || error.status || 500, error.message);

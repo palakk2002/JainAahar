@@ -148,6 +148,8 @@ function createApp() {
       "X-Correlation-Id",
       "X-Request-Id",
       "X-Admin-Bootstrap-Secret",
+      "x-access-token",
+      "x-verify",
     ],
   };
 

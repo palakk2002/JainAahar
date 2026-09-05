@@ -14,8 +14,8 @@ import SplashScreen from './shared/components/ui/SplashScreen';
 
 function App() {
     useEffect(() => {
-        // Setup hardware back button listener for Android apps
-        const setupBackButton = async () => {
+        // Setup hardware back button and deep link listeners for Capacitor apps
+        const setupCapacitorListeners = async () => {
             try {
                 await CapacitorApp.addListener('backButton', ({ canGoBack }) => {
                     if (canGoBack) {
@@ -24,11 +24,27 @@ function App() {
                         CapacitorApp.exitApp();
                     }
                 });
+
+                await CapacitorApp.addListener('appUrlOpen', (event) => {
+                    try {
+                        const url = new URL(event.url);
+                        const slug = url.pathname + url.search;
+                        if (slug && slug !== '/') {
+                            window.location.href = slug;
+                        }
+                    } catch (e) {
+                        const raw = String(event?.url || '');
+                        const match = raw.match(/:\/\/[^/]+(\/.*)/);
+                        if (match && match[1]) {
+                            window.location.href = match[1];
+                        }
+                    }
+                });
             } catch (err) {
                 // Ignore errors if running in a standard web browser (not capacitor)
             }
         };
-        setupBackButton();
+        setupCapacitorListeners();
         
         return () => {
             try {
