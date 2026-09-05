@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowUpRight, ArrowDownLeft, ChevronLeft, Wallet, ArrowRight, Plus, X, Loader2, CheckCircle2, ShieldCheck, Sparkles } from 'lucide-react';
 import { customerApi } from '../services/customerApi';
 import { useToast } from '@shared/components/ui/Toast';
+import { invalidateCache } from '@core/api/dedupe';
 import WalletPaymentModal from './wallet/WalletPaymentModal';
 
 const formatDate = (d) => {
@@ -30,6 +31,8 @@ const WalletPage = () => {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
     const fetchData = async (showLoadingState = false) => {
+        invalidateCache("/customer/profile");
+        invalidateCache("/customer/transactions");
         if (showLoadingState || !cachedWalletData) {
             setLoading(true);
         }

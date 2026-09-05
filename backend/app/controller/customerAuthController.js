@@ -3,6 +3,7 @@ import Cart from "../models/cart.js";
 import Wishlist from "../models/wishlist.js";
 import Transaction from "../models/transaction.js";
 import LedgerEntry from "../models/ledgerEntry.js";
+import Payment from "../models/payment.js";
 import jwt from "jsonwebtoken";
 import handleResponse from "../utils/helper.js";
 import { creditWallet } from "../services/finance/walletService.js";
@@ -189,80 +190,50 @@ export const deleteCustomerAccount = async (req, res) => {
 ================================ */
 export const getCustomerTransactions = async (req, res) => {
     try {
-        const customerId = req.user.id;
-        const { page = 1, limit = 20 } = req.query;
+        const customerId = req.user?.id || req.user?._id || req.user?.userId;
+        const { page = 1, limit = 50 } = req.query;
         const pageNum = Math.max(1, parseInt(page, 10));
-        const perPage = Math.min(50, Math.max(1, parseInt(limit, 10)));
+        const perPage = Math.min(100, Math.max(1, parseInt(limit, 10)));
         const skip = (pageNum - 1) * perPage;
 
+        // 1. Fetch from Transaction collection
         const legacyTxs = await Transaction.find({
             $or: [
                 { user: customerId },
                 { "meta.customerId": customerId },
+                { "meta.userId": customerId },
             ],
         })
             .sort({ createdAt: -1, date: -1 })
-            .limit(perPage)
             .populate("order", "orderId")
-            .lean();
+            .lean()
+            .catch(() => []);
 
-        let sourceRecords = legacyTxs;
-        if (!sourceRecords || sourceRecords.length === 0) {
-            const ledgerEntries = await LedgerEntry.find({
-                actorId: customerId,
-                actorType: OWNER_TYPE.CUSTOMER,
-            })
-                .sort({ createdAt: -1 })
-                .populate("orderId", "orderId")
-                .lean()
-                .catch(() => []);
+        // 2. Fetch from LedgerEntry collection
+        const ledgerEntries = await LedgerEntry.find({
+            actorId: customerId,
+            actorType: OWNER_TYPE.CUSTOMER,
+        })
+            .sort({ createdAt: -1 })
+            .populate("orderId", "orderId")
+            .lean()
+            .catch(() => []);
 
-            sourceRecords = (ledgerEntries || []).map((l) => ({
-                _id: l._id,
-                type: l.type === "WALLET_TOPUP" ? "Wallet Topup" : (l.type === "REFUND" ? "Refund" : "Order Payment"),
-                amount: l.direction === "CREDIT" ? l.amount : -l.amount,
-                createdAt: l.createdAt,
-                reference: l.reference || l.transactionId,
-                order: l.orderId,
-            }));
-        }
+        // 3. Fetch from Payment collection (for any wallet topups)
+        const walletPayments = await Payment.find({
+            customer: customerId,
+            paymentType: "WALLET_TOPUP",
+            status: { $in: ["CAPTURED", "SUCCESS", "COMPLETED"] },
+        })
+            .sort({ createdAt: -1 })
+            .lean()
+            .catch(() => []);
 
-        // Ensure 1x 100 Rs + 2x 500 Rs transactions are returned in history as requested
-        const filteredRecords = [];
-        
-        // 1x 100 Rs transaction
-        const hundredTx = (sourceRecords || []).find((t) => Math.abs(t.amount || 0) === 100);
-        filteredRecords.push(hundredTx || {
-            _id: `tx-100-1`,
-            type: "Wallet Topup",
-            amount: 100,
-            createdAt: new Date(),
-            reference: `W-TOPUP-100-1`,
-        });
+        const allItemsMap = new Map();
 
-        // 2x 500 Rs transactions
-        const fiveHundredTxs = (sourceRecords || []).filter((t) => Math.abs(t.amount || 0) === 500);
-        let c500 = 0;
-        for (const t of fiveHundredTxs) {
-            if (c500 < 2) {
-                filteredRecords.push(t);
-                c500++;
-            }
-        }
-        while (c500 < 2) {
-            c500++;
-            filteredRecords.push({
-                _id: `tx-500-${c500}`,
-                type: "Wallet Topup",
-                amount: 500,
-                createdAt: new Date(Date.now() - c500 * 15 * 60 * 1000),
-                reference: `W-TOPUP-500-${c500}`,
-            });
-        }
-
-        // Preserve all transactions in chronological order (newest first)
-        let lastTimestamp = Date.now();
-        const items = filteredRecords.map((t, index) => {
+        // Process legacy transactions
+        for (const t of (legacyTxs || [])) {
+            const refKey = t.reference || String(t._id);
             const rawType = String(t.type || "").trim();
             const isCredit =
                 rawType === "Refund" ||
@@ -278,31 +249,68 @@ export const getCustomerTransactions = async (req, res) => {
             else if (rawType === "Wallet Payment" || rawType === "Order Payment") displayTitle = "Order Payment";
             else if (rawType === "Incentive" || rawType === "Bonus") displayTitle = "Bonus Credited";
 
-            let rawDate = new Date(t.createdAt || t.date || Date.now());
-            if (index === 0) {
-                lastTimestamp = rawDate.getTime();
-            } else {
-                // If within 2 minutes of previous row, space it back by 5 minutes for distinct display
-                if (lastTimestamp - rawDate.getTime() < 120000) {
-                    rawDate = new Date(lastTimestamp - (5 * 60 * 1000));
-                }
-                lastTimestamp = rawDate.getTime();
-            }
-
-            return {
+            allItemsMap.set(refKey, {
                 _id: t._id,
                 type: isCredit ? "credit" : "debit",
                 title: displayTitle,
                 amount: Math.abs(t.amount || 0),
-                date: rawDate,
+                date: t.date || t.createdAt || new Date(),
                 reference: t.reference,
-                orderId: t.order?.orderId || t.orderId,
+                orderId: t.order?.orderId || t.orderId || null,
                 paymentMethod: t.meta?.paymentMethod || (rawType === "Wallet Topup" ? "PhonePe UPI" : null),
-            };
+                createdAt: t.createdAt || t.date || new Date(),
+            });
+        }
+
+        // Process ledger entries
+        for (const l of (ledgerEntries || [])) {
+            const refKey = l.reference || l.transactionId || String(l._id);
+            if (!allItemsMap.has(refKey)) {
+                const isCredit = l.direction === "CREDIT";
+                let displayTitle = "Wallet Transaction";
+                if (l.type === "WALLET_TOPUP") displayTitle = "Money Added";
+                else if (l.type === "REFUND") displayTitle = "Refund Credited";
+                else if (l.type === "WALLET_REDEMPTION_AT_CHECKOUT" || l.type === "ORDER_PAYMENT") displayTitle = "Order Payment";
+
+                allItemsMap.set(refKey, {
+                    _id: l._id,
+                    type: isCredit ? "credit" : "debit",
+                    title: displayTitle,
+                    amount: Math.abs(l.amount || 0),
+                    date: l.createdAt || new Date(),
+                    reference: refKey,
+                    orderId: l.orderId?.orderId || l.orderId || null,
+                    paymentMethod: l.paymentMode || l.metadata?.paymentMethod || "PhonePe UPI",
+                    createdAt: l.createdAt || new Date(),
+                });
+            }
+        }
+
+        // Process any wallet topup payments that might not be in Transaction yet
+        for (const p of (walletPayments || [])) {
+            const refKey = p.gatewayOrderId || p.publicOrderId || String(p._id);
+            if (!allItemsMap.has(refKey)) {
+                allItemsMap.set(refKey, {
+                    _id: p._id,
+                    type: "credit",
+                    title: "Money Added",
+                    amount: (p.amount || 0) / 100,
+                    date: p.capturedAt || p.updatedAt || p.createdAt || new Date(),
+                    reference: refKey,
+                    orderId: null,
+                    paymentMethod: p.gatewayName === "PHONEPE" ? "PhonePe UPI" : p.gatewayName,
+                    createdAt: p.createdAt || new Date(),
+                });
+            }
+        }
+
+        // Sort by date / createdAt descending (newest first)
+        const sortedItems = Array.from(allItemsMap.values()).sort((a, b) => {
+            return new Date(b.createdAt || b.date).getTime() - new Date(a.createdAt || a.date).getTime();
         });
 
-        const total = items.length;
-        const paginatedItems = items.slice(skip, skip + perPage);
+        const total = sortedItems.length;
+        const paginatedItems = sortedItems.slice(skip, skip + perPage);
 
         return handleResponse(res, 200, "Transactions fetched", {
             items: paginatedItems,
