@@ -35,11 +35,17 @@ function tokenForRequestUrl(url) {
     }
     if (
         url.startsWith('/customer') ||
+        url.startsWith('/orders') ||
         url.startsWith('/cart') ||
         url.startsWith('/wishlist') ||
         url.startsWith('/categories') ||
         url.startsWith('/products') ||
-        url.startsWith('/payments')
+        url.startsWith('/payments') ||
+        url.startsWith('/tickets') ||
+        url.startsWith('/reviews') ||
+        url.startsWith('/notifications') ||
+        url.startsWith('/maps') ||
+        url.startsWith('/kits')
     ) {
         return getStoredAuthToken(STORAGE_KEYS.AUTH_CUSTOMER);
     }

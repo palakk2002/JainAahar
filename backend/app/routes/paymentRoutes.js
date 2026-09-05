@@ -4,7 +4,7 @@ import {
   verifyPaymentStatus,
   handlePhonePeWebhook,
 } from "../controller/paymentController.js";
-import { verifyToken } from "../middleware/authMiddleware.js";
+import { verifyToken, optionalVerifyToken } from "../middleware/authMiddleware.js";
 import { paymentRouteRateLimiter } from "../middleware/securityMiddlewares.js";
 
 const paymentRoute = express.Router();
@@ -22,11 +22,11 @@ paymentRoute.post(
 
 /**
  * Verify payment status from client side (PhonePe redirect or status check).
- * Auth: Required
+ * Auth: Optional (allows seamless verification upon return from gateway redirects)
  */
 paymentRoute.get(
   "/status/:id",
-  verifyToken,
+  optionalVerifyToken,
   paymentRouteRateLimiter,
   verifyPaymentStatus,
 );
