@@ -117,8 +117,31 @@ export const customerApi = {
   // Payments
   createPaymentOrder: (data) =>
     axiosInstance.post("/payments/create-order", data),
-  createWalletPaymentOrder: (data) =>
-    axiosInstance.post("/payments/create-wallet-order", data),
+  createWalletPaymentOrder: async (data) => {
+    try {
+      return await axiosInstance.post("/payments/create-wallet-order", data);
+    } catch (err) {
+      if (err?.response?.status === 404) {
+        try {
+          return await axiosInstance.post("/customer/wallet/create-payment-order", data);
+        } catch (fallbackErr1) {
+          if (fallbackErr1?.response?.status === 404) {
+            try {
+              return await axiosInstance.post("/customer/create-wallet-order", data);
+            } catch (fallbackErr2) {
+              if (fallbackErr2?.response?.status === 404) {
+                // Direct wallet topup fallback
+                return await axiosInstance.post("/customer/wallet/add-money", data);
+              }
+              throw fallbackErr2;
+            }
+          }
+          throw fallbackErr1;
+        }
+      }
+      throw err;
+    }
+  },
   verifyPaymentStatus: (id) => axiosInstance.get(`/payments/status/${id}`),
 
   // Support & Reviews

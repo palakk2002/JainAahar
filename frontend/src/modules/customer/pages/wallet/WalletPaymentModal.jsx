@@ -67,6 +67,10 @@ export const WalletPaymentModal = ({
                 showToast("Opening PhonePe Payment Gateway...", "info");
                 // Redirect browser directly to PhonePe PG
                 window.location.href = targetUrl;
+            } else if (responseData?.success && (responseData?.result?.walletBalance !== undefined || responseData?.message?.includes("success"))) {
+                showToast(`₹${numericAmount.toLocaleString('en-IN')} added to wallet successfully!`, "success");
+                if (onPaymentSuccess) onPaymentSuccess(responseData?.result);
+                if (onClose) onClose();
             } else {
                 throw new Error(responseData?.message || "Failed to initiate PhonePe payment gateway");
             }
