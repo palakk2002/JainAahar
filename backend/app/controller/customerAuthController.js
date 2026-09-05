@@ -296,6 +296,7 @@ export const getCustomerTransactions = async (req, res) => {
                 date: rawDate,
                 reference: t.reference,
                 orderId: t.order?.orderId || t.orderId,
+                paymentMethod: t.meta?.paymentMethod || (rawType === "Wallet Topup" ? "PhonePe UPI" : null),
             };
         });
 
@@ -320,7 +321,7 @@ export const getCustomerTransactions = async (req, res) => {
 export const addCustomerWalletMoney = async (req, res) => {
     try {
         const customerId = req.user.id;
-        const { amount } = req.body || {};
+        const { amount, paymentMethod = "PhonePe UPI", reference: customRef } = req.body || {};
         const parsedAmount = Number(amount);
 
         if (!parsedAmount || isNaN(parsedAmount) || parsedAmount <= 0) {
@@ -331,7 +332,7 @@ export const addCustomerWalletMoney = async (req, res) => {
             return handleResponse(res, 400, "Maximum limit per wallet topup is ₹50,000");
         }
 
-        const reference = `W-TOPUP-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+        const reference = customRef || `W-TOPUP-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
         // 1. Credit canonical wallet (automatically syncs User.walletBalance)
         const creditResult = await creditWallet({
@@ -341,8 +342,8 @@ export const addCustomerWalletMoney = async (req, res) => {
             amount: parsedAmount,
             ledgerType: LEDGER_TRANSACTION_TYPE.WALLET_TOPUP,
             ledgerReference: reference,
-            ledgerDescription: `Added ₹${parsedAmount} to wallet`,
-            metadata: { source: "customer_add_money", timestamp: new Date() },
+            ledgerDescription: `Added ₹${parsedAmount} via ${paymentMethod}`,
+            metadata: { source: "customer_add_money", paymentMethod, timestamp: new Date() },
         });
 
         // 2. Dual-write legacy Transaction row for frontend transaction listing
@@ -354,7 +355,7 @@ export const addCustomerWalletMoney = async (req, res) => {
             status: "Settled",
             reference,
             date: new Date(),
-            meta: { source: "online_topup" },
+            meta: { source: "online_topup", paymentMethod },
         });
 
         const updatedBalance = creditResult?.after ?? (creditResult?.wallet?.availableBalance ?? 0);
@@ -363,6 +364,7 @@ export const addCustomerWalletMoney = async (req, res) => {
             walletBalance: updatedBalance,
             amount: parsedAmount,
             transactionId: reference,
+            paymentMethod,
         });
     } catch (error) {
         console.error("Error adding wallet money:", error);

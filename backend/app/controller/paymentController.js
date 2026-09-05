@@ -1,6 +1,7 @@
 import handleResponse from "../utils/helper.js";
 import {
   createPaymentOrderForOrderRef,
+  createPaymentOrderForWalletTopup,
   verifyPhonePePaymentStatus,
   processPhonePeWebhook,
 } from "../services/paymentService.js";
@@ -22,6 +23,43 @@ function resolvePaymentErrorMessage(error) {
 
   return "Unable to initiate payment with payment gateway right now";
 }
+
+export const createWalletPaymentOrder = async (req, res) => {
+  try {
+    const userId = req.user?.id || req.user?._id || req.user?.userId;
+    const { amount } = req.body || {};
+    const result = await createPaymentOrderForWalletTopup({
+      userId,
+      amount,
+      correlationId: req.correlationId || null,
+    });
+
+    return handleResponse(
+      res,
+      201,
+      "Wallet payment initiated",
+      {
+        payment: result.payment,
+        provider: result.provider,
+        redirectUrl: result.redirectUrl,
+        merchantOrderId: result.merchantOrderId,
+        amount: result.amount,
+        currency: result.currency,
+      },
+    );
+  } catch (error) {
+    logger.error("createWalletPaymentOrder failed", {
+      scope: "PaymentController.createWalletPaymentOrder",
+      message: error?.message,
+      statusCode: error?.statusCode || error?.status || 500,
+    });
+    return handleResponse(
+      res,
+      error.statusCode || error.status || 500,
+      resolvePaymentErrorMessage(error),
+    );
+  }
+};
 
 export const createPaymentOrder = async (req, res) => {
   try {

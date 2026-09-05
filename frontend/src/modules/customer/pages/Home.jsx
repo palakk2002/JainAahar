@@ -321,19 +321,38 @@ const Home = () => {
    */
   const applyHomePageData = (data, { cacheKey, persist = true } = {}) => {
     if (!data) return;
-    setCategoryMap(data.categoryMap || {});
-    setSubcategoryMap(data.subcategoryMap || {});
-    setCategories(data.categories || [ALL_CATEGORY]);
-    setQuickCategories(data.quickCategories || []);
+    const catMap = data.categoryMap || {};
+    const subMap = data.subcategoryMap || {};
+    const cats = data.categories || [ALL_CATEGORY];
+    const quickCats = data.quickCategories || [];
+    const prods = data.products || [];
+    const expSecs = data.experienceSections || [];
+    const offSecs = data.offerSections || [];
+
+    setCategoryMap(catMap);
+    setSubcategoryMap(subMap);
+    setCategories(cats);
+    setQuickCategories(quickCats);
     setExpandedCategoryId(prev => {
-      if (!prev && data.quickCategories?.length > 0) {
-        return data.quickCategories[0].id || data.quickCategories[0]._id;
+      if (!prev && quickCats.length > 0) {
+        return quickCats[0].id || quickCats[0]._id;
       }
       return prev;
     });
-    setProducts(data.products || []);
-    setExperienceSections(data.experienceSections || []);
-    setOfferSections(data.offerSections || []);
+    setProducts(prods);
+    setExperienceSections(expSecs);
+    setOfferSections(offSecs);
+
+    if (language === "en") {
+      setDisplayCategories(cats);
+      setDisplayProducts(prods);
+      setDisplayQuickCategories(quickCats);
+      setDisplayCategoryMap(catMap);
+      setDisplaySubcategoryMap(subMap);
+      setDisplayOfferSections(offSecs);
+      setDisplayExperienceSections(expSecs);
+    }
+
     if (data.heroConfig) setHeroConfig(data.heroConfig);
     setActiveCategory((prev) => {
       const parsed = getJSON(STORAGE_KEYS.EXPERIENCE_RETURN, null, { storage: "session" });
@@ -344,20 +363,23 @@ const Home = () => {
       if (!prev || prev._id === "all") return data.activeCategory || data.categories?.[0] || ALL_CATEGORY;
       return (data.categories || []).find((cat) => cat._id === prev._id) || data.activeCategory || prev;
     });
-    if (persist && cacheKey) homePageDataCache.set(cacheKey, data);
+    if (persist && cacheKey && (prods.length > 0 || cats.length > 1)) {
+      homePageDataCache.set(cacheKey, data);
+    }
   };
 
   const fetchData = async ({ forceRefresh = false } = {}) => {
     const cacheKey = getHomePageDataCacheKey(currentLocation);
     if (!forceRefresh) {
       const cached = homePageDataCache.get(cacheKey);
-      if (cached) {
+      if (cached && (cached.products?.length > 0 || cached.categories?.length > 1)) {
         applyHomePageData(cached, { cacheKey, persist: false });
         setIsLoading(false);
-        return;
       }
     }
-    setIsLoading(true);
+    if (products.length === 0) {
+      setIsLoading(true);
+    }
     try {
       const hasValidLocation = Number.isFinite(currentLocation?.latitude) && Number.isFinite(currentLocation?.longitude);
       const productParams = { limit: 20 };

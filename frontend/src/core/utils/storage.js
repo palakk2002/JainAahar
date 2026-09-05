@@ -109,6 +109,10 @@ export function safeParseJson(rawValue, fallback = null) {
 /**
  * Read a JSON value. Supports both plain values and TTL envelopes written by
  * `setJSON`. Expired envelopes are auto-removed and the fallback is returned.
+ * @param {string} key
+ * @param {any} [fallback]
+ * @param {{ storage?: 'local' | 'session' | string }} [options]
+ * @returns {any}
  */
 export function getJSON(key, fallback = null, { storage = 'local' } = {}) {
     const raw = rawGet(key, { storage });
@@ -138,6 +142,10 @@ export function getJSON(key, fallback = null, { storage = 'local' } = {}) {
  *
  * Returns true on success; failure is silent (degraded mode in private browsing
  * or when quota is exhausted).
+ * @param {string} key
+ * @param {any} value
+ * @param {{ storage?: 'local' | 'session' | string, ttlMs?: number }} [options]
+ * @returns {boolean}
  */
 export function setJSON(key, value, { storage = 'local', ttlMs } = {}) {
     if (!isBrowser() || !key) return false;
@@ -160,7 +168,12 @@ export function setJSON(key, value, { storage = 'local', ttlMs } = {}) {
     return rawSet(key, payload, { storage });
 }
 
-/** Remove a key from local or session storage. */
+/** 
+ * Remove a key from local or session storage.
+ * @param {string} key
+ * @param {{ storage?: 'local' | 'session' | string }} [options]
+ * @returns {boolean}
+ */
 export function remove(key, { storage = 'local' } = {}) {
     return rawRemove(key, { storage });
 }

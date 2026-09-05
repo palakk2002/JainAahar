@@ -24,37 +24,37 @@ import DeliveryAuth from '../../modules/delivery/pages/DeliveryAuth';
 import CustomerAuth from '../../modules/customer/pages/CustomerAuth';
 import WarehouseAuth from '../../modules/warehouse-mgmt/pages/WarehouseAuth';
 
-// Customer Pages (lazy-loaded)
-const Home = lazy(() => import('../../modules/customer/pages/Home'));
-const CategoriesPage = lazy(() => import('../../modules/customer/pages/CategoriesPage'));
-const CategoryProductsPage = lazy(() => import('../../modules/customer/pages/CategoryProductsPage'));
-const WishlistPage = lazy(() => import('../../modules/customer/pages/WishlistPage'));
-const OffersPage = lazy(() => import('../../modules/customer/pages/OffersPage'));
-const ShopByStorePage = lazy(() => import('../../modules/customer/pages/ShopByStorePage'));
-const ProfilePage = lazy(() => import('../../modules/customer/pages/ProfilePage'));
-const OrdersPage = lazy(() => import('../../modules/customer/pages/OrdersPage'));
-const OrderTransactionsPage = lazy(() => import('../../modules/customer/pages/OrderTransactionsPage'));
-const AddressesPage = lazy(() => import('../../modules/customer/pages/AddressesPage'));
-const SettingsPage = lazy(() => import('../../modules/customer/pages/SettingsPage'));
-const SupportPage = lazy(() => import('../../modules/customer/pages/SupportPage'));
-const ContactUsPage = lazy(() => import('../../modules/customer/pages/ContactUsPage'));
-const ChatPage = lazy(() => import('../../modules/customer/pages/ChatPage'));
-const TermsPage = lazy(() => import('../../modules/customer/pages/TermsPage'));
-const PrivacyPage = lazy(() => import('../../modules/customer/pages/PrivacyPage'));
-const AboutPage = lazy(() => import('../../modules/customer/pages/AboutPage'));
-const ShippingPolicyPage = lazy(() => import('../../modules/customer/pages/ShippingPolicyPage'));
-const RefundPolicyPage = lazy(() => import('../../modules/customer/pages/RefundPolicyPage'));
-const EditProfilePage = lazy(() => import('../../modules/customer/pages/EditProfilePage'));
-const OrderDetailPage = lazy(() => import('../../modules/customer/pages/OrderDetailPage'));
-const ProductDetailPage = lazy(() => import('../../modules/customer/pages/ProductDetailPage'));
-const KitDetailPage = lazy(() => import('../../modules/customer/pages/KitDetailPage'));
-const CheckoutPage = lazy(() => import('../../modules/customer/pages/CheckoutPage'));
-const PaymentStatusPage = lazy(() => import('../../modules/customer/pages/PaymentStatusPage'));
-const SearchPage = lazy(() => import('../../modules/customer/pages/SearchPage'));
-const WalletPage = lazy(() => import('../../modules/customer/pages/WalletPage'));
-const NotificationsPage = lazy(() => import('../../modules/customer/pages/NotificationsPage'));
+// Core Customer Pages (eagerly imported for instant 0ms page response)
+import Home from '../../modules/customer/pages/Home';
+import CategoriesPage from '../../modules/customer/pages/CategoriesPage';
+import CategoryProductsPage from '../../modules/customer/pages/CategoryProductsPage';
+import WishlistPage from '../../modules/customer/pages/WishlistPage';
+import OffersPage from '../../modules/customer/pages/OffersPage';
+import ShopByStorePage from '../../modules/customer/pages/ShopByStorePage';
+import ProfilePage from '../../modules/customer/pages/ProfilePage';
+import OrdersPage from '../../modules/customer/pages/OrdersPage';
+import OrderTransactionsPage from '../../modules/customer/pages/OrderTransactionsPage';
+import AddressesPage from '../../modules/customer/pages/AddressesPage';
+import SettingsPage from '../../modules/customer/pages/SettingsPage';
+import SupportPage from '../../modules/customer/pages/SupportPage';
+import ContactUsPage from '../../modules/customer/pages/ContactUsPage';
+import ChatPage from '../../modules/customer/pages/ChatPage';
+import TermsPage from '../../modules/customer/pages/TermsPage';
+import PrivacyPage from '../../modules/customer/pages/PrivacyPage';
+import AboutPage from '../../modules/customer/pages/AboutPage';
+import ShippingPolicyPage from '../../modules/customer/pages/ShippingPolicyPage';
+import RefundPolicyPage from '../../modules/customer/pages/RefundPolicyPage';
+import EditProfilePage from '../../modules/customer/pages/EditProfilePage';
+import OrderDetailPage from '../../modules/customer/pages/OrderDetailPage';
+import ProductDetailPage from '../../modules/customer/pages/ProductDetailPage';
+import KitDetailPage from '../../modules/customer/pages/KitDetailPage';
+import CheckoutPage from '../../modules/customer/pages/CheckoutPage';
+import PaymentStatusPage from '../../modules/customer/pages/PaymentStatusPage';
+import SearchPage from '../../modules/customer/pages/SearchPage';
+import WalletPage from '../../modules/customer/pages/WalletPage';
+import NotificationsPage from '../../modules/customer/pages/NotificationsPage';
 
-// Lazy load heavy modules
+// Lazy load heavy admin/seller/delivery/warehouse portals
 const SellerModule = lazy(() => import('../../modules/seller/routes/index'));
 const AdminModule = lazy(() => import('../../modules/admin/routes/index'));
 const DeliveryModule = lazy(() => import('../../modules/delivery/routes/index'));

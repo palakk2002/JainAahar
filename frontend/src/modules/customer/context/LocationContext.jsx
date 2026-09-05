@@ -20,7 +20,7 @@ const LOCATION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const LocationProvider = ({ children }) => {
   // Default location (used until we can resolve a better one)
   const [currentLocation, setCurrentLocation] = useState({
-    name: "214, Rajshri Palace Colony, Pipliyahana, Indore, Madhya Pradesh 452018, India",
+    name: "Indore, Madhya Pradesh",
     time: "12-15 mins",
     city: "Indore",
     state: "Madhya Pradesh",
@@ -221,7 +221,7 @@ export const LocationProvider = ({ children }) => {
       };
 
       // Native Flutter Bridge
-      if (window.Flutter) {
+      if (typeof window !== "undefined" && /** @type {any} */ (window).Flutter) {
         import("../../../lib/appZetoBridge").then(async (m) => {
           const AppZetoBridge = m.default;
           const coords = await AppZetoBridge.getLocation();
@@ -240,15 +240,18 @@ export const LocationProvider = ({ children }) => {
         handleLocationError,
         {
           enableHighAccuracy: true,
-          timeout: 20000,
-          maximumAge: 0,
+          timeout: 4000,
+          maximumAge: 60000,
         },
       );
     });
 
   const refreshAddresses = useCallback(async () => {
     // Skip if user is not logged in – getProfile would 401 and trigger axios reload loop
-    if (!hasValidStoredAuthToken("auth_customer")) return;
+    if (!hasValidStoredAuthToken("auth_customer")) {
+      setSavedAddresses([]);
+      return;
+    }
     try {
       const { data } = await customerApi.getProfile();
       const profile = data?.result ?? data?.data ?? data;
@@ -265,6 +268,11 @@ export const LocationProvider = ({ children }) => {
               .filter(Boolean)
               .join(", ") ||
             "",
+          rawAddress: addr.fullAddress || "",
+          landmark: addr.landmark || "",
+          city: addr.city || "",
+          state: addr.state || "",
+          pincode: addr.pincode || "",
           location:
             addr?.location &&
             typeof addr.location.lat === "number" &&
@@ -274,7 +282,9 @@ export const LocationProvider = ({ children }) => {
               ? { lat: addr.location.lat, lng: addr.location.lng }
               : null,
           placeId: typeof addr?.placeId === "string" ? addr.placeId : null,
-          phone: profile?.phone ?? "",
+          formattedAddress: typeof addr?.formattedAddress === "string" ? addr.formattedAddress : null,
+          name: addr.name || profile?.name || "",
+          phone: addr.phone || profile?.phone || "",
           isCurrent: idx === 0,
         })),
       );

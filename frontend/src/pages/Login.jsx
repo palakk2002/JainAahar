@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@core/context/AuthContext';
 import { UserRole } from '@core/constants/roles';
-import Button from '@shared/components/ui/Button';
-import Input from '@shared/components/ui/Input';
+import { X } from 'lucide-react';
 
 const Login = () => {
     const [email, setEmail] = useState('');
@@ -11,6 +10,14 @@ const Login = () => {
     const [role, setRole] = useState(UserRole.CUSTOMER);
     const { login } = useAuth();
     const navigate = useNavigate();
+
+    const handleClose = () => {
+        if (window.history.length > 1) {
+            navigate(-1);
+        } else {
+            navigate('/', { replace: true });
+        }
+    };
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -28,12 +35,25 @@ const Login = () => {
 
     return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-white px-4 py-8">
-            <div className="w-full max-w-md space-y-8">
+            <div className="w-full max-w-md space-y-6">
+                {/* Header Close Button */}
+                <div className="flex items-center justify-end">
+                    <button
+                        type="button"
+                        onClick={handleClose}
+                        className="p-2 text-gray-400 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 rounded-full transition-all cursor-pointer"
+                        title="Close"
+                    >
+                        <X size={18} />
+                    </button>
+                </div>
+
                 <div className="flex flex-col items-center justify-center">
                     <img 
                         src="/jainaaharlogo-removebg-preview.png" 
                         alt="Jain Aahar Logo" 
-                        className="h-32 w-auto object-contain" 
+                        className="h-28 w-auto object-contain cursor-pointer" 
+                        onClick={() => navigate('/')}
                     />
                 </div>
                 
@@ -41,7 +61,7 @@ const Login = () => {
                     <h2 className="text-2xl font-bold text-gray-900">
                         Login / Signup
                     </h2>
-                    <p className="mt-2 text-sm text-gray-500">
+                    <p className="mt-1 text-sm text-gray-500">
                         Enter your details to continue
                     </p>
                 </div>
@@ -85,7 +105,7 @@ const Login = () => {
                     <div className="pt-2">
                         <button
                             type="submit"
-                            className="flex w-full justify-center rounded-xl bg-[#f97316] px-4 py-3.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+                            className="flex w-full justify-center rounded-xl bg-[#f97316] px-4 py-3.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 cursor-pointer"
                         >
                             Continue
                         </button>
@@ -112,3 +132,4 @@ const Login = () => {
 };
 
 export default Login;
+

@@ -17,6 +17,7 @@ import {
   X,
   Camera,
   XCircle,
+  Home,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Lottie from "lottie-react";
@@ -359,6 +360,22 @@ const DeliveryAuth = () => {
     exit: { opacity: 0, x: -30, transition: { duration: 0.2 } },
   };
 
+  const handleBack = () => {
+    if (step === "otp") {
+      setStep("form");
+      return;
+    }
+    if (mode === "signup" && signupStep > 1) {
+      setSignupStep((prev) => prev - 1);
+      return;
+    }
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate("/", { replace: true });
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-white px-4 py-8 font-['Outfit',_sans-serif]">
       <motion.div
@@ -367,12 +384,35 @@ const DeliveryAuth = () => {
         transition={{ duration: 0.5 }}
         className="w-full max-w-[380px] bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-50 relative z-10"
       >
+        {/* Header Navigation Bar */}
+        <div className="flex items-center justify-between pb-3 mb-4 border-b border-gray-100">
+          <button
+            type="button"
+            onClick={handleBack}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-gray-700 hover:text-gray-950 bg-gray-100 hover:bg-gray-200 border border-gray-200/80 rounded-xl transition-all shadow-xs cursor-pointer active:scale-95"
+            title="Go Back"
+          >
+            <ChevronLeft size={16} className="-ml-0.5 text-gray-600" />
+            <span>Back</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100/70 border border-orange-200/60 rounded-xl transition-all cursor-pointer"
+            title="Go to Customer Store"
+          >
+            <Home size={14} />
+            <span>Store</span>
+          </button>
+        </div>
+
         {/* Logo */}
         <div className="flex flex-col items-center justify-center mb-6">
             <img 
                 src="/bg%20remove%20logo%20.png" 
                 alt="Logo" 
-                className="h-28 w-auto object-contain" 
+                className="h-24 w-auto object-contain" 
             />
         </div>
 

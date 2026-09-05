@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@core/context/AuthContext';
 import { useSettings } from '@core/context/SettingsContext';
 import { useTranslation } from '@core/context/LanguageContext';
-import { ChevronLeft, Globe, ChevronDown, Mail, Phone } from 'lucide-react';
+import { ChevronLeft, Globe, ChevronDown, Mail, Phone, ArrowLeft, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { customerApi } from '../services/customerApi';
 
 const CustomerAuth = () => {
-    const [isLogin, setIsLogin] = useState(true);
+    const location = useLocation();
+    const navigate = useNavigate();
+    const [isLogin, setIsLogin] = useState(location.pathname !== '/signup');
     const [authMethod, setAuthMethod] = useState('phone'); // 'phone' | 'email'
     const [isLoading, setIsLoading] = useState(false);
     const [showOtp, setShowOtp] = useState(false);
@@ -19,7 +21,6 @@ const CustomerAuth = () => {
     const [isLangOpen, setIsLangOpen] = useState(false);
     const dropdownRef = useRef(null);
     const appName = settings?.appName || 'App';
-    const navigate = useNavigate();
 
     const [formData, setFormData] = useState({
         phone: '',
@@ -29,6 +30,16 @@ const CustomerAuth = () => {
         referralCode: new URLSearchParams(window.location.search).get('ref') || ''
     });
 
+    // Synchronize mode with current route
+    useEffect(() => {
+        if (location.pathname === '/signup') {
+            setIsLogin(false);
+        } else if (location.pathname === '/login') {
+            setIsLogin(true);
+        }
+    }, [location.pathname]);
+
+    // Handle timer for OTP resend
     useEffect(() => {
         let interval;
         if (timer > 0) {
@@ -37,6 +48,7 @@ const CustomerAuth = () => {
         return () => clearInterval(interval);
     }, [timer]);
 
+    // Language dropdown outside click listener
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -46,6 +58,36 @@ const CustomerAuth = () => {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    // Handle Android hardware back & browser popstate to prevent sudden app exit
+    useEffect(() => {
+        // If loaded as first entry with no history stack, tag state to safely fallback to Home
+        if (window.history.state?.idx === 0) {
+            window.history.replaceState({ ...window.history.state, initialAuth: true }, '');
+            window.history.pushState({ authPage: true }, '');
+        }
+
+        const handlePopState = (e) => {
+            if (showOtp) {
+                setShowOtp(false);
+                return;
+            }
+            if (e.state?.initialAuth) {
+                navigate('/', { replace: true });
+            }
+        };
+
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, [showOtp, navigate]);
+
+    const handleClose = () => {
+        if (window.history.length > 1) {
+            navigate(-1);
+        } else {
+            navigate('/', { replace: true });
+        }
+    };
 
     const handleSendOtp = async (e) => {
         e?.preventDefault();
@@ -145,25 +187,39 @@ const CustomerAuth = () => {
     };
 
     return (
-        <div className="flex min-h-screen flex-col items-center justify-center bg-white px-4 py-8 font-['Outfit',_sans-serif]">
-            <div className="w-full max-w-[380px] bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-50">
+        <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50/50 px-4 py-8 font-['Outfit',_sans-serif]">
+            <div className="w-full max-w-[390px] bg-white rounded-3xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-gray-100 relative">
+                {/* Close (Cross) Icon Button */}
+                <div className="flex items-center justify-end mb-2">
+                    <button
+                        type="button"
+                        onClick={handleClose}
+                        className="p-2 text-gray-400 hover:text-gray-800 bg-gray-100/80 hover:bg-gray-200 rounded-full transition-all cursor-pointer active:scale-95 shadow-2xs"
+                        aria-label="Close"
+                        title="Close and return to app"
+                    >
+                        <X size={18} />
+                    </button>
+                </div>
+
                 {/* Logo */}
-                <div className="flex flex-col items-center justify-center mb-6">
+                <div className="flex flex-col items-center justify-center mb-5 -mt-1">
                     <img 
                         src="/jainaaharlogo-removebg-preview.png" 
                         alt="Jain Aahar Logo" 
-                        className="h-28 w-auto object-contain" 
+                        className="h-24 w-auto object-contain cursor-pointer hover:opacity-90 transition-opacity" 
+                        onClick={() => navigate('/')}
                     />
                 </div>
 
                 {/* Language Switcher Section */}
-                <div className="mb-6 pb-4 border-b border-gray-100 flex flex-col items-center">
+                <div className="mb-5 pb-4 border-b border-gray-100 flex flex-col items-center">
                     {/* Desktop Dropdown */}
                     <div ref={dropdownRef} className="hidden md:block relative w-full">
                         <button
                             type="button"
                             onClick={() => setIsLangOpen(!isLangOpen)}
-                            className="w-full flex items-center justify-between bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-gray-700 transition-all focus:outline-none"
+                            className="w-full flex items-center justify-between bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl px-4 py-2 text-sm font-semibold text-gray-700 transition-all focus:outline-none"
                         >
                             <div className="flex items-center gap-2">
                                 <Globe size={16} className="text-gray-400" />
@@ -192,7 +248,7 @@ const CustomerAuth = () => {
                         )}
                     </div>
 
-                    {/* Mobile pills (dropdown nhi) */}
+                    {/* Mobile pills */}
                     <div className="block md:hidden w-full">
                         <div className="flex items-center justify-between mb-2">
                             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -205,7 +261,7 @@ const CustomerAuth = () => {
                                     key={lang.code}
                                     type="button"
                                     onClick={() => setLanguage(lang.code)}
-                                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 ${
+                                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 cursor-pointer ${
                                         language === lang.code
                                             ? 'bg-orange-500 border-orange-500 text-white shadow-sm shadow-orange-500/20'
                                             : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
@@ -223,12 +279,12 @@ const CustomerAuth = () => {
                     <>
                         <div className="text-left mb-4">
                             <h2 className="text-xl font-bold text-gray-900">
-                                {t('loginSignup')}
+                                {isLogin ? t('loginSignup') : t('createAccount')}
                             </h2>
-                            <p className="mt-1 text-sm text-gray-500">
+                            <p className="mt-1 text-xs text-gray-500">
                                 {isLogin
                                     ? (authMethod === 'phone' ? (t('enterMobile') || 'Enter your mobile number to continue') : 'Enter your email address to continue')
-                                    : t('createAccount')}
+                                    : 'Fill in your details to create a new account'}
                             </p>
                         </div>
 
@@ -237,7 +293,7 @@ const CustomerAuth = () => {
                             <button
                                 type="button"
                                 onClick={() => setAuthMethod('phone')}
-                                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                                     authMethod === 'phone'
                                         ? 'bg-white text-orange-600 shadow-xs border border-gray-200/50'
                                         : 'text-gray-500 hover:text-gray-800'
@@ -249,7 +305,7 @@ const CustomerAuth = () => {
                             <button
                                 type="button"
                                 onClick={() => setAuthMethod('email')}
-                                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                                     authMethod === 'email'
                                         ? 'bg-white text-orange-600 shadow-xs border border-gray-200/50'
                                         : 'text-gray-500 hover:text-gray-800'
@@ -260,17 +316,17 @@ const CustomerAuth = () => {
                             </button>
                         </div>
 
-                        <form className="space-y-4" onSubmit={handleSendOtp}>
+                        <form className="space-y-3.5" onSubmit={handleSendOtp}>
                             {!isLogin && (
-                                <div className="space-y-4">
+                                <div className="space-y-3.5">
                                     <div className="relative">
                                         <input
                                             required
                                             type="text"
                                             name="name"
                                             value={formData.name}
-                                            placeholder={t('fullName')}
-                                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3.5 text-sm font-semibold text-gray-800 outline-none focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316] transition-all"
+                                            placeholder={t('fullName') || 'Your Full Name'}
+                                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold text-gray-800 outline-none focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316] transition-all"
                                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                         />
                                     </div>
@@ -279,8 +335,8 @@ const CustomerAuth = () => {
                                             type="text"
                                             name="referralCode"
                                             value={formData.referralCode}
-                                            placeholder={t('referralCode')}
-                                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3.5 text-sm font-semibold text-gray-800 outline-none focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316] transition-all uppercase"
+                                            placeholder={t('referralCode') || 'Referral Code (Optional)'}
+                                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold text-gray-800 outline-none focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316] transition-all uppercase"
                                             onChange={(e) => setFormData({ ...formData, referralCode: e.target.value.toUpperCase() })}
                                         />
                                     </div>
@@ -289,7 +345,7 @@ const CustomerAuth = () => {
 
                             {authMethod === 'phone' ? (
                                 <div className="relative flex items-center border border-gray-200 rounded-xl overflow-hidden focus-within:border-[#f97316] focus-within:ring-1 focus-within:ring-[#f97316] transition-all bg-white">
-                                    <div className="pl-4 pr-3 py-3.5 text-gray-600 font-bold text-sm border-r border-gray-200 bg-gray-50 flex items-center gap-1.5">
+                                    <div className="pl-4 pr-3 py-3 text-gray-600 font-bold text-sm border-r border-gray-200 bg-gray-50 flex items-center gap-1.5">
                                         <Phone size={15} className="text-gray-400" />
                                         <span>+91</span>
                                     </div>
@@ -300,13 +356,13 @@ const CustomerAuth = () => {
                                         maxLength={10}
                                         value={formData.phone}
                                         placeholder={t('enterMobile') || 'Enter 10-digit mobile number'}
-                                        className="w-full px-4 py-3.5 text-sm font-semibold text-gray-800 outline-none bg-transparent"
+                                        className="w-full px-4 py-3 text-sm font-semibold text-gray-800 outline-none bg-transparent"
                                         onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                                     />
                                 </div>
                             ) : (
                                 <div className="relative flex items-center border border-gray-200 rounded-xl overflow-hidden focus-within:border-[#f97316] focus-within:ring-1 focus-within:ring-[#f97316] transition-all bg-white">
-                                    <div className="pl-4 pr-3 py-3.5 text-gray-400 border-r border-gray-200 bg-gray-50 flex items-center justify-center">
+                                    <div className="pl-4 pr-3 py-3 text-gray-400 border-r border-gray-200 bg-gray-50 flex items-center justify-center">
                                         <Mail size={18} />
                                     </div>
                                     <input
@@ -315,7 +371,7 @@ const CustomerAuth = () => {
                                         name="email"
                                         value={formData.email}
                                         placeholder="Enter your email address"
-                                        className="w-full px-4 py-3.5 text-sm font-semibold text-gray-800 outline-none bg-transparent"
+                                        className="w-full px-4 py-3 text-sm font-semibold text-gray-800 outline-none bg-transparent"
                                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                     />
                                 </div>
@@ -324,16 +380,20 @@ const CustomerAuth = () => {
                             <button
                                 type="submit"
                                 disabled={isLoading}
-                                className="w-full mt-2 text-white bg-[#f97316] hover:bg-orange-600 py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center gap-3 transition-all cursor-pointer"
+                                className="w-full mt-2 text-white bg-[#f97316] hover:bg-orange-600 py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center gap-3 transition-all cursor-pointer shadow-md shadow-orange-500/20 active:scale-[0.99]"
                             >
                                 {isLoading ? t('pleaseWait') : t('continue')}
                             </button>
                         </form>
 
-                        <div className="mt-6 text-center">
+                        <div className="mt-5 text-center">
                             <button
-                                onClick={() => setIsLogin(!isLogin)}
-                                className="text-sm font-semibold text-gray-500 hover:text-[#f97316] transition-colors cursor-pointer"
+                                onClick={() => {
+                                    const nextIsLogin = !isLogin;
+                                    setIsLogin(nextIsLogin);
+                                    navigate(nextIsLogin ? '/login' : '/signup', { replace: true });
+                                }}
+                                className="text-xs font-semibold text-gray-600 hover:text-[#f97316] transition-colors cursor-pointer"
                             >
                                 {isLogin ? t('newUser') : t('alreadyAccount')}
                             </button>
@@ -341,25 +401,26 @@ const CustomerAuth = () => {
                     </>
                 ) : (
                     <>
-                        <div className="text-left mb-6">
-                            <div className="flex items-center gap-3 mb-1">
+                        <div className="text-left mb-5">
+                            <div className="flex items-center gap-2.5 mb-1">
                                 <button
                                     onClick={() => setShowOtp(false)}
-                                    className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+                                    className="p-1 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                                    aria-label="Back to Phone/Email input"
                                 >
-                                    <ChevronLeft size={20} />
+                                    <ArrowLeft size={18} />
                                 </button>
                                 <h2 className="text-xl font-bold text-gray-900">
                                     {t('verifyOtp')}
                                 </h2>
                             </div>
-                            <p className="mt-1 text-sm text-gray-500 ml-8">
+                            <p className="mt-1 text-xs text-gray-500 ml-7">
                                 Sent to {authMethod === 'phone' ? `+91 ${formData.phone}` : formData.email}
                             </p>
                         </div>
 
-                        <form onSubmit={handleVerifyOtp} className="space-y-6">
-                            <div className="flex justify-center gap-2">
+                        <form onSubmit={handleVerifyOtp} className="space-y-5">
+                            <div className="flex justify-center gap-2.5">
                                 {[...Array(4)].map((_, i) => (
                                     <input
                                         key={i}
@@ -389,11 +450,11 @@ const CustomerAuth = () => {
                                 ))}
                             </div>
 
-                            <div className="space-y-4">
+                            <div className="space-y-3.5">
                                 <button
                                     type="submit"
                                     disabled={isLoading}
-                                    className="w-full text-white bg-[#f97316] hover:bg-orange-600 py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center transition-all cursor-pointer"
+                                    className="w-full text-white bg-[#f97316] hover:bg-orange-600 py-3.5 rounded-xl text-sm font-bold tracking-wide flex items-center justify-center transition-all cursor-pointer shadow-md shadow-orange-500/20 active:scale-[0.99]"
                                 >
                                     {isLoading ? t('verifying') : t('verifyProceed')}
                                 </button>
@@ -402,7 +463,7 @@ const CustomerAuth = () => {
                                         type="button"
                                         disabled={timer > 0}
                                         onClick={handleSendOtp}
-                                        className={`text-sm font-semibold cursor-pointer ${timer > 0 ? 'text-gray-400' : 'text-[#f97316] hover:underline'}`}
+                                        className={`text-xs font-semibold cursor-pointer ${timer > 0 ? 'text-gray-400' : 'text-[#f97316] hover:underline'}`}
                                     >
                                         {timer > 0 ? `${t('resendIn')} ${timer}s` : t('resendCode')}
                                     </button>
@@ -413,21 +474,21 @@ const CustomerAuth = () => {
                 )}
 
                 {/* Legal Agreement Footer */}
-                <div className="pt-8 flex flex-col items-center gap-1.5">
+                <div className="pt-6 mt-4 border-t border-gray-100 flex flex-col items-center gap-1.5">
                     <p className="text-[11px] text-gray-400 text-center font-medium">
                         {t('agreeText')}
                     </p>
                     <div className="flex items-center gap-2">
                         <button 
                             onClick={() => navigate('/terms')}
-                            className="text-[11px] font-semibold text-gray-500 hover:text-[#f97316] transition-colors"
+                            className="text-[11px] font-semibold text-gray-500 hover:text-[#f97316] transition-colors cursor-pointer"
                         >
                             {t('terms')}
                         </button>
                         <span className="text-[10px] text-gray-300">•</span>
                         <button 
                             onClick={() => navigate('/privacy-policy')}
-                            className="text-[11px] font-semibold text-gray-500 hover:text-[#f97316] transition-colors"
+                            className="text-[11px] font-semibold text-gray-500 hover:text-[#f97316] transition-colors cursor-pointer"
                         >
                             {t('privacy')}
                         </button>
@@ -439,5 +500,6 @@ const CustomerAuth = () => {
 };
 
 export default CustomerAuth;
+
 
 

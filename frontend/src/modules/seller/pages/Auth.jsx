@@ -25,6 +25,8 @@ import {
   Loader2,
   Eye,
   EyeOff,
+  ChevronLeft,
+  Home,
 } from "lucide-react";
 import { toast } from "sonner";
 import Lottie from "lottie-react";
@@ -558,6 +560,22 @@ const Auth = () => {
     }
   };
 
+  const handleBack = () => {
+    if (!isLogin && signupStep > 1) {
+      setSignupStep((prev) => prev - 1);
+      return;
+    }
+    if (forgotPasswordStep > 0) {
+      setForgotPasswordStep(0);
+      return;
+    }
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate("/", { replace: true });
+    }
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#fcfaff] p-6 font-['Outfit'] overflow-hidden relative">
       {/* Elegant Ambient Background */}
@@ -618,19 +636,43 @@ const Auth = () => {
 
         {/* Form Content Side */}
         <div
-          className="w-full md:w-[55%] min-h-0 p-8 pt-12 md:p-12 md:pt-16 flex flex-col justify-center bg-white overflow-y-auto overscroll-contain touch-pan-y custom-scrollbar relative"
+          className="w-full md:w-[55%] min-h-0 p-8 pt-6 md:p-12 md:pt-8 flex flex-col justify-start bg-white overflow-y-auto overscroll-contain touch-pan-y custom-scrollbar relative"
           onWheelCapture={handlePanelWheel}
           style={{ WebkitOverflowScrolling: "touch" }}>
-          <div className="hidden md:flex absolute top-8 right-8 z-20">
-            <div className="w-20 h-20 rounded-2xl bg-slate-50 border border-slate-200 shadow-sm flex items-center justify-center overflow-hidden">
+          
+          {/* Top Navigation Row */}
+          <div className="flex items-center justify-between pb-4 mb-2 border-b border-slate-100 z-20">
+            <button
+              type="button"
+              onClick={handleBack}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 hover:text-slate-950 bg-slate-100 hover:bg-slate-200 border border-slate-200/80 rounded-xl transition-all shadow-xs cursor-pointer active:scale-95"
+              title="Go Back"
+            >
+              <ChevronLeft size={16} className="-ml-0.5 text-slate-600" />
+              <span>Back</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate("/")}
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100/70 border border-orange-200/60 rounded-xl transition-all cursor-pointer"
+              title="Go to Customer Store"
+            >
+              <Home size={14} />
+              <span>Customer Store</span>
+            </button>
+          </div>
+
+          <div className="hidden md:flex absolute top-6 right-8 z-10 pointer-events-none opacity-40">
+            <div className="w-14 h-14 rounded-2xl bg-slate-50 border border-slate-200 shadow-sm flex items-center justify-center overflow-hidden">
               {logoUrl ? (
                 <img
                   src={logoUrl}
                   alt={`${appName} logo`}
-                  className="w-14 h-14 object-contain"
+                  className="w-10 h-10 object-contain"
                 />
               ) : (
-                <Store size={30} className="text-slate-700" />
+                <Store size={22} className="text-slate-700" />
               )}
             </div>
           </div>
@@ -641,7 +683,7 @@ const Auth = () => {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
-              className="space-y-8 py-4 md:py-6">
+              className="space-y-6 py-2 md:py-4">
               <div className="space-y-4">
                 <span className="inline-block px-4 py-1 bg-slate-100 text-slate-800 rounded-full text-[10px] font-black uppercase tracking-widest border border-slate-200">
                   {isLogin

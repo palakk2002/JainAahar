@@ -117,6 +117,8 @@ export const customerApi = {
   // Payments
   createPaymentOrder: (data) =>
     axiosInstance.post("/payments/create-order", data),
+  createWalletPaymentOrder: (data) =>
+    axiosInstance.post("/payments/create-wallet-order", data),
   verifyPaymentStatus: (id) => axiosInstance.get(`/payments/status/${id}`),
 
   // Support & Reviews

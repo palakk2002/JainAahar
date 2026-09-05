@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Home, Briefcase, MapPin, Trash2, Edit2, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -17,46 +18,79 @@ import { toast } from 'sonner';
 import { customerApi } from '../services/customerApi';
 import { useLocation } from '../context/LocationContext';
 
+let addressesMemoryCache = null;
+
 const AddressesPage = () => {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
-    const { refreshAddresses } = useLocation();
-    const [addresses, setAddresses] = useState([]);
-    const [rawAddresses, setRawAddresses] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [profileName, setProfileName] = useState('');
-    const [profilePhone, setProfilePhone] = useState('');
+    const { savedAddresses = [], refreshAddresses } = useLocation();
+    
+    const [addresses, setAddresses] = useState(() => {
+        if (addressesMemoryCache?.formatted) return addressesMemoryCache.formatted;
+        if (savedAddresses.length > 0) {
+            return savedAddresses.map((addr, idx) => ({
+                id: addr.id ?? idx,
+                type: addr.label || 'Home',
+                name: addr.name || '',
+                address: addr.address || addr.rawAddress || '',
+                city: addr.city,
+                state: addr.state,
+                pincode: addr.pincode,
+                phone: addr.phone || '',
+                isDefault: idx === 0
+            }));
+        }
+        return [];
+    });
+    const [rawAddresses, setRawAddresses] = useState(() => addressesMemoryCache?.raw || []);
+    const [loading, setLoading] = useState(() => !addressesMemoryCache && savedAddresses.length === 0);
+    const [profileName, setProfileName] = useState(() => addressesMemoryCache?.profileName || '');
+    const [profilePhone, setProfilePhone] = useState(() => addressesMemoryCache?.profilePhone || '');
 
-    const fetchAddresses = useCallback(async () => {
+    const fetchAddresses = useCallback(async (showLoader = false) => {
+        if (showLoader) setLoading(true);
         try {
             const { data } = await customerApi.getProfile();
             const profile = data?.result ?? data?.data ?? data;
             const raw = Array.isArray(profile?.addresses) ? profile.addresses : [];
-            setRawAddresses(raw);
-            setProfileName(profile?.name ?? '');
-            setProfilePhone(profile?.phone ?? '');
-            setAddresses(raw.map((addr, idx) => ({
+            const pName = profile?.name ?? '';
+            const pPhone = profile?.phone ?? '';
+            const formatted = raw.map((addr, idx) => ({
                 id: addr._id ?? idx,
                 type: (addr.label || 'home').charAt(0).toUpperCase() + (addr.label || 'home').slice(1),
-                name: profile?.name ?? '',
+                name: pName,
                 address: addr.fullAddress || [addr.landmark, addr.city, addr.state, addr.pincode].filter(Boolean).join(', ') || '',
                 city: addr.city,
                 state: addr.state,
                 pincode: addr.pincode,
-                phone: profile?.phone ?? '',
+                phone: pPhone,
                 isDefault: idx === 0
-            })));
+            }));
+
+            addressesMemoryCache = {
+                raw,
+                formatted,
+                profileName: pName,
+                profilePhone: pPhone,
+            };
+
+            setRawAddresses(raw);
+            setProfileName(pName);
+            setProfilePhone(pPhone);
+            setAddresses(formatted);
         } catch {
-            setAddresses([]);
-            setRawAddresses([]);
+            if (!addressesMemoryCache) {
+                setAddresses([]);
+                setRawAddresses([]);
+            }
         } finally {
             setLoading(false);
         }
     }, []);
 
     useEffect(() => {
-        fetchAddresses();
-    }, [fetchAddresses]);
+        fetchAddresses(!addressesMemoryCache && savedAddresses.length === 0);
+    }, [fetchAddresses, savedAddresses.length]);
 
     // Auto-open Add modal when navigated from LocationDrawer with ?add=1
     useEffect(() => {

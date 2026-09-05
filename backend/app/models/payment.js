@@ -40,7 +40,13 @@ const paymentSchema = new mongoose.Schema(
     order: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Order",
-      required: true,
+      required: false,
+      index: true,
+    },
+    paymentType: {
+      type: String,
+      enum: ["ORDER", "WALLET_TOPUP"],
+      default: "ORDER",
       index: true,
     },
     checkoutGroupId: {

@@ -1,6 +1,7 @@
 import express from "express";
 import {
   createPaymentOrder,
+  createWalletPaymentOrder,
   verifyPaymentStatus,
   handlePhonePeWebhook,
 } from "../controller/paymentController.js";
@@ -18,6 +19,17 @@ paymentRoute.post(
   verifyToken,
   paymentRouteRateLimiter,
   createPaymentOrder,
+);
+
+/**
+ * Initiate a PhonePe payment order for Wallet Top-up.
+ * Auth: Required
+ */
+paymentRoute.post(
+  "/create-wallet-order",
+  verifyToken,
+  paymentRouteRateLimiter,
+  createWalletPaymentOrder,
 );
 
 /**

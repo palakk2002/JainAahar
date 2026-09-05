@@ -32,7 +32,9 @@ export const getWithDedupe = async (url, params = {}, options = {}) => {
 
     const request = axiosInstance.get(url, { params })
         .then((response) => {
-            apiCache.set(key, { ts: Date.now(), response });
+            if (response && response.status >= 200 && response.status < 300 && response.data?.success !== false) {
+                apiCache.set(key, { ts: Date.now(), response });
+            }
             return response;
         })
         .finally(() => {

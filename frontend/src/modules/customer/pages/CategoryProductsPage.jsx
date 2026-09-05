@@ -18,6 +18,8 @@ import { useLocation as useAppLocation } from '../context/LocationContext';
 import { useSettings } from '@core/context/SettingsContext';
 import Lottie from 'lottie-react';
 
+const categoryProductsMemoryCache = new Map();
+
 const CategoryProductsPage = () => {
     const { categoryName: catId } = useParams();
     const navigate = useNavigate();
@@ -26,11 +28,14 @@ const CategoryProductsPage = () => {
     const { settings } = useSettings();
     const initialSubcategoryId = location.state?.activeSubcategoryId || 'all';
     const { isOpen: isProductDetailOpen } = useProductDetail();
+
+    const cachedEntry = categoryProductsMemoryCache.get(catId);
+
     const [selectedSubCategory, setSelectedSubCategory] = useState(initialSubcategoryId);
-    const [category, setCategory] = useState(null);
-    const [subCategories, setSubCategories] = useState([{ id: 'all', name: 'All', icon: DEFAULT_CATEGORY_IMAGE }]);
-    const [products, setProducts] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [category, setCategory] = useState(() => cachedEntry?.category || null);
+    const [subCategories, setSubCategories] = useState(() => cachedEntry?.subCategories || [{ id: 'all', name: 'All', icon: DEFAULT_CATEGORY_IMAGE }]);
+    const [products, setProducts] = useState(() => cachedEntry?.products || []);
+    const [isLoading, setIsLoading] = useState(() => !cachedEntry);
     const [noServiceData, setNoServiceData] = useState(null);
 
     // Dynamically load no-service Lottie on mount
@@ -40,8 +45,8 @@ const CategoryProductsPage = () => {
             .catch(() => {});
     }, []);
 
-    const fetchData = async () => {
-        setIsLoading(true);
+    const fetchData = async (showLoader = false) => {
+        if (showLoader) setIsLoading(true);
         try {
             const hasValidLocation =
                 Number.isFinite(currentLocation?.latitude) &&
@@ -58,6 +63,10 @@ const CategoryProductsPage = () => {
                 customerApi.getProducts(prodParams),
                 customerApi.getCategories({ tree: true }),
             ]);
+
+            let fetchedProducts = [];
+            let fetchedCat = category;
+            let fetchedSubs = subCategories;
 
             if (prodRes.data.success) {
                 const rawResult = prodRes.data.result;
@@ -81,7 +90,8 @@ const CategoryProductsPage = () => {
                     weight: p.weight || "1 unit",
                     deliveryTime: p.deliveryTime
                 }));
-                setProducts(Array.isArray(formattedProds) ? formattedProds : []);
+                fetchedProducts = Array.isArray(formattedProds) ? formattedProds : [];
+                setProducts(fetchedProducts);
             } else {
                 setProducts([]);
             }
@@ -98,15 +108,24 @@ const CategoryProductsPage = () => {
                 }
 
                 if (currentCat) {
+                    fetchedCat = currentCat;
                     setCategory(currentCat);
                     const subs = (currentCat.children || []).map(s => ({
                         id: s._id,
                         name: s.name,
                         icon: s.image || getRealCategoryFallback(s.name)
                     }));
-                    setSubCategories([{ id: 'all', name: 'All', icon: getRealCategoryFallback(currentCat.name) }, ...subs]);
+                    fetchedSubs = [{ id: 'all', name: 'All', icon: getRealCategoryFallback(currentCat.name) }, ...subs];
+                    setSubCategories(fetchedSubs);
                 }
             }
+
+            // Save in memory cache
+            categoryProductsMemoryCache.set(catId, {
+                category: fetchedCat,
+                subCategories: fetchedSubs,
+                products: fetchedProducts,
+            });
         } catch (error) {
             console.error("Error fetching category data:", error);
         } finally {
@@ -115,7 +134,16 @@ const CategoryProductsPage = () => {
     };
 
     useEffect(() => {
-        fetchData();
+        const cached = categoryProductsMemoryCache.get(catId);
+        if (cached && cached.products && cached.products.length > 0) {
+            setCategory(cached.category);
+            setSubCategories(cached.subCategories);
+            setProducts(cached.products);
+            setIsLoading(false);
+            fetchData(false);
+        } else {
+            fetchData(true);
+        }
         setSelectedSubCategory(location.state?.activeSubcategoryId || 'all');
     }, [catId, location.state?.activeSubcategoryId, currentLocation?.latitude, currentLocation?.longitude]);
 

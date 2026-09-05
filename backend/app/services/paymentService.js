@@ -5,7 +5,9 @@ import Order from "../models/order.js";
 import CheckoutGroup from "../models/checkoutGroup.js";
 import Payment from "../models/payment.js";
 import PaymentWebhookEvent from "../models/paymentWebhookEvent.js";
-import { ORDER_PAYMENT_STATUS } from "../constants/finance.js";
+import Transaction from "../models/transaction.js";
+import { ORDER_PAYMENT_STATUS, OWNER_TYPE, LEDGER_TRANSACTION_TYPE } from "../constants/finance.js";
+import { creditWallet } from "./finance/walletService.js";
 import {
   PAYMENT_EVENT_SOURCE,
   PAYMENT_STATUS,
@@ -592,6 +594,80 @@ export async function createPaymentOrderForOrderRef({
   };
 }
 
+export async function createPaymentOrderForWalletTopup({
+  userId,
+  amount,
+  correlationId = null,
+}) {
+  const parsedAmount = Number(amount);
+  if (!parsedAmount || isNaN(parsedAmount) || parsedAmount <= 0) {
+    const err = new Error("Please enter a valid amount greater than ₹0");
+    err.statusCode = 400;
+    throw err;
+  }
+  if (parsedAmount > 50000) {
+    const err = new Error("Maximum limit per wallet topup is ₹50,000");
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const provider = getActivePaymentProvider();
+  const amountPaise = Math.round(parsedAmount * 100);
+  const merchantOrderId = buildGatewayMerchantOrderId(
+    `WTOPUP-${String(userId || "").slice(-6)}-${Date.now()}`,
+    1,
+  );
+
+  const frontendBase = String(process.env.FRONTEND_URL || "http://localhost:5173")
+    .trim()
+    .replace(/\/+$/, "");
+  const redirectUrl = `${frontendBase}/payment-status?merchantOrderId=${merchantOrderId}`;
+
+  const initResult = await provider.initiatePayment({
+    merchantOrderId,
+    amountPaise,
+    redirectUrl,
+  });
+
+  const payment = await Payment.create({
+    publicOrderId: merchantOrderId,
+    customer: userId,
+    gatewayName: provider.providerName,
+    gatewayOrderId: merchantOrderId,
+    amount: amountPaise,
+    currency: "INR",
+    paymentType: "WALLET_TOPUP",
+    status: PAYMENT_STATUS.PENDING,
+    rawGatewayResponse: initResult.gatewayResponse || { redirectUrl: initResult.redirectUrl },
+    statusHistory: [
+      {
+        fromStatus: PAYMENT_STATUS.CREATED,
+        toStatus: PAYMENT_STATUS.PENDING,
+        source: PAYMENT_EVENT_SOURCE.SYSTEM,
+        reason: `${provider.providerName} checkout initiated for wallet topup`,
+        changedAt: new Date(),
+      },
+    ],
+  });
+
+  logger.info("wallet_topup_payment_created", {
+    correlationId,
+    userId,
+    merchantOrderId,
+    amountPaise,
+    redirectUrl: initResult.redirectUrl,
+  });
+
+  return {
+    payment,
+    provider: provider.providerName,
+    redirectUrl: initResult.redirectUrl,
+    merchantOrderId,
+    amount: amountPaise,
+    currency: "INR",
+  };
+}
+
 export async function verifyPhonePePaymentStatus({
   merchantOrderId,
   userId,
@@ -624,14 +700,76 @@ export async function verifyPhonePePaymentStatus({
     rawGatewayResponse: statusResp.gatewayResponse,
   });
 
+  payment.correlationId = correlationId || payment.correlationId;
+  await payment.save();
+
+  // Handle Wallet Top-up specific fulfillment
+  if (payment.paymentType === "WALLET_TOPUP" || merchantOrderId.startsWith("WTOPUP-")) {
+    if (nextStatus === PAYMENT_STATUS.CAPTURED) {
+      const topupAmount = (payment.amount || 0) / 100;
+      const existingTx = await Transaction.findOne({
+        reference: merchantOrderId,
+        status: "Settled",
+      });
+
+      if (!existingTx && topupAmount > 0) {
+        await creditWallet({
+          ownerType: OWNER_TYPE.CUSTOMER,
+          ownerId: payment.customer,
+          bucket: "available",
+          amount: topupAmount,
+          ledgerType: LEDGER_TRANSACTION_TYPE.WALLET_TOPUP,
+          ledgerReference: merchantOrderId,
+          ledgerDescription: `Added ₹${topupAmount} via PhonePe UPI`,
+          metadata: {
+            source: "phonepe_topup",
+            gateway: provider.providerName,
+            transactionId: statusResp.transactionId,
+            paymentId: payment._id,
+            timestamp: new Date(),
+          },
+        });
+
+        await Transaction.create({
+          user: payment.customer,
+          userModel: "User",
+          type: "Wallet Topup",
+          amount: topupAmount,
+          status: "Settled",
+          reference: merchantOrderId,
+          date: new Date(),
+          meta: {
+            source: "phonepe_gateway",
+            paymentMethod: "PhonePe UPI",
+            gatewayPaymentId: statusResp.transactionId,
+          },
+        });
+      }
+    }
+
+    const orderSummary = {
+      merchantOrderId,
+      publicOrderId: merchantOrderId,
+      isWalletTopup: true,
+      amount: payment.amount,
+      currency: payment.currency || "INR",
+      status: nextStatus,
+      paymentMode: "PhonePe UPI",
+      paidAt: payment.capturedAt || payment.updatedAt || new Date(),
+    };
+
+    return {
+      payment,
+      status: nextStatus,
+      orderSummary,
+    };
+  }
+
   await handleOrderSideEffectsFromPaymentStatus(
     payment,
     nextStatus,
     statusResp.responseCode || statusResp.state,
   );
-
-  payment.correlationId = correlationId || payment.correlationId;
-  await payment.save();
 
   logger.info("payment_status_verified", {
     correlationId,
@@ -750,6 +888,59 @@ export async function processPhonePeWebhook({
       },
     },
   );
+
+  // Handle Wallet Topup webhook
+  if (payment.paymentType === "WALLET_TOPUP" || merchantOrderId.startsWith("WTOPUP-")) {
+    if (nextStatus === PAYMENT_STATUS.CAPTURED) {
+      const topupAmount = (payment.amount || 0) / 100;
+      const existingTx = await Transaction.findOne({
+        reference: merchantOrderId,
+        status: "Settled",
+      });
+
+      if (!existingTx && topupAmount > 0) {
+        await creditWallet({
+          ownerType: OWNER_TYPE.CUSTOMER,
+          ownerId: payment.customer,
+          bucket: "available",
+          amount: topupAmount,
+          ledgerType: LEDGER_TRANSACTION_TYPE.WALLET_TOPUP,
+          ledgerReference: merchantOrderId,
+          ledgerDescription: `Added ₹${topupAmount} via PhonePe Webhook`,
+          metadata: {
+            source: "phonepe_webhook",
+            gateway: provider.providerName,
+            transactionId: decoded.transactionId,
+            paymentId: payment._id,
+            timestamp: new Date(),
+          },
+        });
+
+        await Transaction.create({
+          user: payment.customer,
+          userModel: "User",
+          type: "Wallet Topup",
+          amount: topupAmount,
+          status: "Settled",
+          reference: merchantOrderId,
+          date: new Date(),
+          meta: {
+            source: "phonepe_webhook",
+            paymentMethod: "PhonePe UPI",
+            gatewayPaymentId: decoded.transactionId,
+          },
+        });
+      }
+    }
+
+    return {
+      accepted: true,
+      duplicate: false,
+      paymentStatus: nextStatus,
+      publicOrderId: payment.publicOrderId,
+      isWalletTopup: true,
+    };
+  }
 
   await handleOrderSideEffectsFromPaymentStatus(
     payment,

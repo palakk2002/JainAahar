@@ -1,12 +1,19 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Button from '@shared/components/ui/Button';
-import Input from '@shared/components/ui/Input';
 import { UserRole } from '@core/constants/roles';
+import { X } from 'lucide-react';
 
 const Signup = () => {
     const navigate = useNavigate();
     const [role, setRole] = useState(UserRole.CUSTOMER);
+
+    const handleClose = () => {
+        if (window.history.length > 1) {
+            navigate(-1);
+        } else {
+            navigate('/', { replace: true });
+        }
+    };
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -16,25 +23,61 @@ const Signup = () => {
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
-            <div className="w-full max-w-md space-y-8 rounded-xl bg-white p-10 shadow-lg">
+            <div className="w-full max-w-md space-y-6 rounded-2xl bg-white p-8 shadow-lg border border-gray-100 relative">
+                {/* Header Close Cross */}
+                <div className="flex items-center justify-end">
+                    <button
+                        type="button"
+                        onClick={handleClose}
+                        className="p-2 text-gray-400 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 rounded-full transition-all cursor-pointer"
+                        title="Close"
+                    >
+                        <X size={18} />
+                    </button>
+                </div>
+
                 <div>
-                    <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 leading-9">
+                    <h2 className="text-center text-2xl font-extrabold text-gray-900 leading-9">
                         Create Account
                     </h2>
-                    <p className="mt-2 text-center text-sm text-gray-600">
+                    <p className="mt-1 text-center text-sm text-gray-600">
                         Join Quick Commerce today
                     </p>
                 </div>
-                <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-                    <div className="space-y-4 rounded-md shadow-sm">
-                        <Input label="Full Name" type="text" required placeholder="John Doe" />
-                        <Input label="Email address" type="email" required placeholder="user@example.com" />
-                        <Input label="Password" type="password" required placeholder="••••••••" />
+                <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-700 mb-1">Full Name</label>
+                            <input
+                                type="text"
+                                required
+                                placeholder="John Doe"
+                                className="block w-full rounded-xl border border-gray-200 px-4 py-3.5 text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 sm:text-sm"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-700 mb-1">Email Address</label>
+                            <input
+                                type="email"
+                                required
+                                placeholder="user@example.com"
+                                className="block w-full rounded-xl border border-gray-200 px-4 py-3.5 text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 sm:text-sm"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-700 mb-1">Password</label>
+                            <input
+                                type="password"
+                                required
+                                placeholder="••••••••"
+                                className="block w-full rounded-xl border border-gray-200 px-4 py-3.5 text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 sm:text-sm"
+                            />
+                        </div>
 
-                        <div className="w-full">
-                            <label className="mb-1 block text-sm font-medium text-gray-700">Join as</label>
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-700 mb-1">Join as</label>
                             <select
-                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                                className="block w-full rounded-xl border border-gray-200 px-4 py-3.5 text-gray-900 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 sm:text-sm bg-white"
                                 value={role}
                                 onChange={(e) => setRole(e.target.value)}
                             >
@@ -45,16 +88,19 @@ const Signup = () => {
                         </div>
                     </div>
 
-                    <div>
-                        <Button type="submit" className="w-full">
+                    <div className="pt-2">
+                        <button
+                            type="submit"
+                            className="flex w-full justify-center rounded-xl bg-[#f97316] px-4 py-3.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600 cursor-pointer transition-all"
+                        >
                             Sign Up
-                        </Button>
+                        </button>
                     </div>
 
                     <div className="text-center">
                         <p className="text-sm text-gray-600">
                             Already have an account?{' '}
-                            <span className="cursor-pointer font-medium text-primary-600 hover:text-primary-500" onClick={() => navigate('/login')}>
+                            <span className="cursor-pointer font-medium text-orange-600 hover:text-orange-500" onClick={() => navigate('/login')}>
                                 Sign in
                             </span>
                         </p>
@@ -66,3 +112,4 @@ const Signup = () => {
 };
 
 export default Signup;
+

@@ -5,13 +5,16 @@ import { customerApi } from '../services/customerApi';
 import { getOrderStatusLabel, getLegacyStatusFromOrder } from '@/shared/utils/orderStatus';
 import { applyCloudinaryTransform } from '@/core/utils/imageUtils';
 
+let ordersMemoryCache = null;
+
 const OrdersPage = () => {
     const navigate = useNavigate();
-    const [orders, setOrders] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [orders, setOrders] = useState(() => ordersMemoryCache || []);
+    const [loading, setLoading] = useState(() => !ordersMemoryCache);
 
     useEffect(() => {
-        const fetchOrders = async () => {
+        const fetchOrders = async (showLoader = false) => {
+            if (showLoader) setLoading(true);
             try {
                 const response = await customerApi.getMyOrders();
                 // Backend uses handleResponse():
@@ -29,11 +32,12 @@ const OrdersPage = () => {
                     return oid.endsWith('395AKN') || oid.includes('395AKN');
                 });
                 const visibleOrders = cutoffIndex !== -1 ? items.slice(0, cutoffIndex) : items;
-                setOrders(Array.isArray(visibleOrders) ? visibleOrders : []);
+                const finalOrders = Array.isArray(visibleOrders) ? visibleOrders : [];
+                ordersMemoryCache = finalOrders;
+                setOrders(finalOrders);
             } catch (error) {
                 console.error("Failed to fetch orders:", error);
                 const apiMessage = error?.response?.data?.message;
-                // Orders page is a primary screen; surface failures instead of silently showing empty state.
                 if (apiMessage) {
                     console.warn("[OrdersPage] API error:", apiMessage);
                 }
@@ -42,10 +46,10 @@ const OrdersPage = () => {
             }
         };
 
-        fetchOrders();
+        fetchOrders(!ordersMemoryCache);
     }, []);
 
-    if (loading) {
+    if (loading && orders.length === 0) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-white">
                 <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-white shadow-sm border border-slate-100">

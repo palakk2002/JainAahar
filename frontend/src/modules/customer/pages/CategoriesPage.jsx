@@ -6,14 +6,16 @@ import { DEFAULT_CATEGORY_IMAGE, getRealCategoryFallback, THUMBNAIL_TRANSFORM, C
 import SafeImage from '@/shared/components/SafeImage';
 import { useSettings } from '@core/context/SettingsContext';
 
+let categoriesTreeMemoryCache = null;
+
 const CategoriesPage = () => {
-    const [categories, setCategories] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [categories, setCategories] = useState(() => categoriesTreeMemoryCache || []);
+    const [isLoading, setIsLoading] = useState(() => !categoriesTreeMemoryCache);
     const navigate = useNavigate();
     const { settings } = useSettings();
 
-    const fetchCategories = async () => {
-        setIsLoading(true);
+    const fetchCategories = async (showLoader = false) => {
+        if (showLoader) setIsLoading(true);
         try {
             // Try tree first for better organization
             const res = await customerApi.getCategories({ tree: true });
@@ -37,6 +39,7 @@ const CategoriesPage = () => {
                 const visibleCats = cutoffIndex !== -1 ? flatCats.slice(0, cutoffIndex + 1) : flatCats;
 
                 if (visibleCats.length > 0) {
+                    categoriesTreeMemoryCache = visibleCats;
                     setCategories(visibleCats);
                     setIsLoading(false);
                     return;
@@ -58,6 +61,7 @@ const CategoriesPage = () => {
 
                 const cutoffIndex = formattedCats.findIndex(cat => String(cat.name || '').trim().toLowerCase() === 'baby accessories');
                 const visibleCats = cutoffIndex !== -1 ? formattedCats.slice(0, cutoffIndex + 1) : formattedCats;
+                categoriesTreeMemoryCache = visibleCats;
                 setCategories(visibleCats);
             }
         } catch (error) {
@@ -69,7 +73,7 @@ const CategoriesPage = () => {
 
 
     useEffect(() => {
-        fetchCategories();
+        fetchCategories(!categoriesTreeMemoryCache);
     }, []);
 
     const banner = settings?.categoriesBanner || {

@@ -56,19 +56,25 @@ const PaymentStatusPage = () => {
           setStatus("success");
           if (pollInterval.current) clearInterval(pollInterval.current);
 
-          // Only auto-redirect if the user is authenticated in this browser session
+          const isWallet = summary?.isWalletTopup || merchantOrderId?.startsWith("WTOPUP-");
+
+          // Fast auto-redirect if the user is authenticated
           if (isAuthenticated) {
             setTimeout(() => {
-              const targetId =
-                summary?.publicOrderId ||
-                summary?.orderId ||
-                payment?.checkoutGroupId ||
-                payment?.publicOrderId ||
-                payment?.order;
-              if (targetId) {
-                navigate(`/orders/${targetId}`, { replace: true });
+              if (isWallet) {
+                navigate("/wallet", { replace: true });
+              } else {
+                const targetId =
+                  summary?.publicOrderId ||
+                  summary?.orderId ||
+                  payment?.checkoutGroupId ||
+                  payment?.publicOrderId ||
+                  payment?.order;
+                if (targetId) {
+                  navigate(`/orders/${targetId}`, { replace: true });
+                }
               }
-            }, 3500);
+            }, isWallet ? 1000 : 1200);
           }
         } else if (
           paymentStatus === "FAILED" ||
@@ -101,6 +107,7 @@ const PaymentStatusPage = () => {
   useEffect(() => {
     if (merchantOrderId) {
       verifyPayment();
+      // Fast 1.2s polling for rapid gateway status resolution
       pollInterval.current = setInterval(() => {
         setRetryCount((prev) => {
           if (prev >= maxRetries) {
@@ -111,7 +118,7 @@ const PaymentStatusPage = () => {
           verifyPayment();
           return prev;
         });
-      }, 3000);
+      }, 1200);
     } else {
       setStatus("failure");
       setError("Invalid payment reference");
@@ -266,7 +273,7 @@ const PaymentStatusPage = () => {
                 animate={{ opacity: 1 }}
               >
                 <h1 className="text-2xl font-black text-slate-800 mb-1 uppercase tracking-tight">
-                  Order Confirmed!
+                  {(orderSummary?.isWalletTopup || merchantOrderId?.startsWith("WTOPUP-")) ? "Wallet Top-up Confirmed!" : "Order Confirmed!"}
                 </h1>
                 <p className="text-emerald-600 text-xs font-black mb-6 uppercase tracking-wider">
                   Payment Successful
@@ -276,7 +283,7 @@ const PaymentStatusPage = () => {
                 <div className="bg-slate-50 rounded-2xl p-4 mb-6 border border-slate-100 text-left space-y-2.5">
                   <div className="flex justify-between items-center">
                     <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                      Order Reference
+                      {(orderSummary?.isWalletTopup || merchantOrderId?.startsWith("WTOPUP-")) ? "Top-up Reference" : "Order Reference"}
                     </span>
                     <span className="text-xs font-black text-slate-800 font-mono">
                       #{targetOrderId || merchantOrderId}
@@ -286,7 +293,7 @@ const PaymentStatusPage = () => {
                   {displayAmount && (
                     <div className="flex justify-between items-center">
                       <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                        Amount Paid
+                        {(orderSummary?.isWalletTopup || merchantOrderId?.startsWith("WTOPUP-")) ? "Amount Added" : "Amount Paid"}
                       </span>
                       <span className="text-sm font-black text-emerald-600">
                         ₹{displayAmount}
@@ -299,7 +306,7 @@ const PaymentStatusPage = () => {
                       Payment Mode
                     </span>
                     <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                      <CreditCard size={13} className="text-emerald-500" /> PhonePe UPI / Online
+                      <CreditCard size={13} className="text-emerald-500" /> PhonePe UPI / Gateway
                     </span>
                   </div>
 
@@ -319,7 +326,9 @@ const PaymentStatusPage = () => {
                   {isAuthenticated && (
                     <div className="pt-2 border-t border-slate-200/60">
                       <p className="text-[11px] text-slate-400 text-center font-medium">
-                        Redirecting to order tracking in a few seconds...
+                        {(orderSummary?.isWalletTopup || merchantOrderId?.startsWith("WTOPUP-"))
+                          ? "Redirecting to your wallet in a few seconds..."
+                          : "Redirecting to order tracking in a few seconds..."}
                       </p>
                     </div>
                   )}
@@ -327,18 +336,27 @@ const PaymentStatusPage = () => {
 
                 {/* Action Buttons */}
                 <div className="flex flex-col gap-2.5">
-                  <Button
-                    onClick={() => {
-                      if (targetOrderId) {
-                        navigate(`/orders/${targetOrderId}`);
-                      } else {
-                        navigate("/orders");
-                      }
-                    }}
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-12 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20"
-                  >
-                    View Order Details <ArrowRight size={18} />
-                  </Button>
+                  {(orderSummary?.isWalletTopup || merchantOrderId?.startsWith("WTOPUP-")) ? (
+                    <Button
+                      onClick={() => navigate("/wallet")}
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-12 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20"
+                    >
+                      Go to Wallet <ArrowRight size={18} />
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => {
+                        if (targetOrderId) {
+                          navigate(`/orders/${targetOrderId}`);
+                        } else {
+                          navigate("/orders");
+                        }
+                      }}
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-12 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20"
+                    >
+                      View Order Details <ArrowRight size={18} />
+                    </Button>
+                  )}
 
                   <Button
                     variant="outline"

@@ -35,6 +35,10 @@ import {
   MessageSquare,
   ShieldCheck,
   Lock,
+  LocateFixed,
+  Home,
+  Briefcase,
+  Building,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -61,10 +65,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-
 // Sub-components
 import CheckoutAddressSection from "./checkout/components/CheckoutAddressSection";
-
 import CheckoutCartSummary from "./checkout/components/CheckoutCartSummary";
 import CheckoutPricingBreakdown from "./checkout/components/CheckoutPricingBreakdown";
 import CheckoutPaymentSelector from "./checkout/components/CheckoutPaymentSelector";
@@ -123,11 +125,12 @@ const CheckoutPage = () => {
 
   const appName = settings?.appName || "App";
   const {
-    savedAddresses: locationSavedAddresses,
+    savedAddresses: locationSavedAddresses = [],
     currentLocation,
     refreshLocation,
     isFetchingLocation,
     updateLocation,
+    refreshAddresses,
   } = useAppLocation();
   const navigate = useNavigate();
 
@@ -140,6 +143,9 @@ const CheckoutPage = () => {
   const [isRedirectingToPayment, setIsRedirectingToPayment] = useState(false);
   const [selectedCoupon, setSelectedCoupon] = useState(null);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [isAddAddressOpen, setIsAddAddressOpen] = useState(false);
+  const [isEditAddressOpen, setIsEditAddressOpen] = useState(false);
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
   const [isResolvingAddressCoords, setIsResolvingAddressCoords] = useState(false);
   const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
   const [useWallet, setUseWallet] = useState(false);
@@ -147,52 +153,55 @@ const CheckoutPage = () => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [orderId, setOrderId] = useState(null);
   const [pricingPreview, setPricingPreview] = useState(null);
+  const [sellerBreakdowns, setSellerBreakdowns] = useState([]);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [whatsappOptIn, setWhatsappOptIn] = useState(
     user?.whatsappNotificationsEnabled !== false
   );
   const postOrderNavigateRef = useRef(null);
   const previewDebounceRef = useRef(null);
-/**
- * @typedef {Object} AddressInfo
- * @property {string} [id]
- * @property {string} [type]
- * @property {string} [name]
- * @property {string} [address]
- * @property {string} [landmark]
- * @property {string} [city]
- * @property {string} [phone]
- * @property {{ lat: number, lng: number } | null} [location]
- * @property {string | null} [placeId]
- * @property {string | null} [formattedAddress]
- */
 
-  const [currentAddress, setCurrentAddress] = useState(
-    /** @type {AddressInfo} */ ({
-      id: "",
-      type: "Home",
-      name: "Harshvardhan Panchal",
-      address: "81 Pipliyahana Road, Near 214",
-      landmark: "",
-      city: "Indore - 452018",
-      phone: "6268423925",
-      location: null,
-      placeId: null,
-      formattedAddress: null,
-    })
-  );
-  const [isEditAddressOpen, setIsEditAddressOpen] = useState(false);
-  const [editAddressForm, setEditAddressForm] = useState(
-    /** @type {AddressInfo} */ ({
-      id: "",
-      type: "Home",
-      name: "Harshvardhan Panchal",
-      address: "81 Pipliyahana Road, Near 214",
-      landmark: "",
-      city: "Indore - 452018",
-      phone: "6268423925",
-    })
-  );
+  /**
+   * @typedef {Object} AddressInfo
+   * @property {string} [id]
+   * @property {string} [type]
+   * @property {string} [name]
+   * @property {string} [address]
+   * @property {string} [landmark]
+   * @property {string} [city]
+   * @property {string} [state]
+   * @property {string} [pincode]
+   * @property {string} [phone]
+   * @property {{ lat: number, lng: number } | null} [location]
+   * @property {string | null} [placeId]
+   * @property {string | null} [formattedAddress]
+   */
+
+  const [currentAddress, setCurrentAddress] = useState(/** @type {AddressInfo | null} */ (null));
+
+  const [addAddressForm, setAddAddressForm] = useState({
+    type: "Home",
+    name: user?.name || "",
+    phone: user?.phone || "",
+    address: "",
+    landmark: "",
+    city: "",
+    state: "",
+    pincode: "",
+  });
+
+  const [editAddressForm, setEditAddressForm] = useState({
+    id: "",
+    type: "Home",
+    name: "",
+    phone: "",
+    address: "",
+    landmark: "",
+    city: "",
+    state: "",
+    pincode: "",
+  });
+
   const [showRecipientForm, setShowRecipientForm] = useState(false);
   const [recipientData, setRecipientData] = useState({
     completeAddress: "",
@@ -206,6 +215,33 @@ const CheckoutPage = () => {
   const [coupons, setCoupons] = useState([]);
   const [manualCode, setManualCode] = useState("");
   const [emptyBoxData, setEmptyBoxData] = useState(null);
+
+  // Auto-sync currentAddress with savedAddresses if user has saved addresses and currentAddress is not set
+  useEffect(() => {
+    if (!currentAddress && locationSavedAddresses && locationSavedAddresses.length > 0) {
+      const defaultAddr =
+        locationSavedAddresses.find((a) => a.isCurrent || a.isDefault) ||
+        locationSavedAddresses[0];
+      if (defaultAddr) {
+        setCurrentAddress({
+          id: defaultAddr.id || defaultAddr._id || "",
+          type: defaultAddr.label || "Home",
+          name: defaultAddr.name || user?.name || "",
+          address: defaultAddr.rawAddress || defaultAddr.address || "",
+          landmark: defaultAddr.landmark || "",
+          city: defaultAddr.city
+            ? `${defaultAddr.city}${defaultAddr.pincode ? ` - ${defaultAddr.pincode}` : ""}`
+            : defaultAddr.pincode || "",
+          state: defaultAddr.state || "",
+          pincode: defaultAddr.pincode || "",
+          phone: defaultAddr.phone || user?.phone || "",
+          location: defaultAddr.location || null,
+          placeId: defaultAddr.placeId || null,
+          formattedAddress: defaultAddr.formattedAddress || null,
+        });
+      }
+    }
+  }, [locationSavedAddresses, currentAddress, user]);
 
   // Dynamically load empty-box Lottie only when cart is empty
   useEffect(() => {
@@ -245,12 +281,34 @@ const CheckoutPage = () => {
   const RECIPIENT_STORAGE_KEY = STORAGE_KEYS.RECIPIENT_ADDRESS;
 
   // Derived display values for primary delivery card
-  const displayName = savedRecipient?.name || currentAddress.name;
-  const displayPhone =
-    savedRecipient?.phone || currentAddress.phone || "6268423925";
+  const displayName = savedRecipient?.name || currentAddress?.name || user?.name || "";
+  const displayPhone = savedRecipient?.phone || currentAddress?.phone || user?.phone || "";
   const displayAddress = savedRecipient
     ? `${savedRecipient.completeAddress}${savedRecipient.landmark ? `, ${savedRecipient.landmark}` : ""}${savedRecipient.pincode ? ` - ${savedRecipient.pincode}` : ""}`
-    : `${currentAddress.address}${currentAddress.landmark ? `, ${currentAddress.landmark}` : ""}, ${currentAddress.city}`;
+    : currentAddress?.address
+      ? `${currentAddress.address}${currentAddress.landmark ? `, ${currentAddress.landmark}` : ""}${currentAddress.city ? `, ${currentAddress.city}` : ""}`
+      : "";
+
+  const hasValidAddress = Boolean(savedRecipient?.completeAddress || currentAddress?.address);
+
+  // Dynamic estimated delivery time based on distance from sellers
+  const estimatedDeliveryTime = useMemo(() => {
+    if (!hasValidAddress) {
+      return "10-15 mins";
+    }
+    const maxDist = (sellerBreakdowns || []).reduce(
+      (max, s) => Math.max(max, Number(s.distanceKm) || 0),
+      0
+    );
+    if (maxDist <= 0) return "10-15 mins";
+    if (maxDist <= 2) return "10-15 mins";
+    if (maxDist <= 5) return "15-25 mins";
+    if (maxDist <= 8) return "25-35 mins";
+    if (maxDist <= 12) return "35-45 mins";
+    const minMins = Math.round(15 + maxDist * 2.5);
+    const maxMins = Math.round(20 + maxDist * 3);
+    return `${minMins}-${maxMins} mins`;
+  }, [hasValidAddress, sellerBreakdowns]);
 
   useEffect(() => {
     if (!paymentMethods.length) return;
@@ -288,6 +346,10 @@ const CheckoutPage = () => {
       };
     }
 
+    if (!currentAddress || !currentAddress.address) {
+      return null;
+    }
+
     const addrLoc = currentAddress?.location;
     const hasAddrLoc =
       addrLoc &&
@@ -321,11 +383,6 @@ const CheckoutPage = () => {
     addToWishlist(item);
     removeFromCart(item.id || item._id, item.variantSku);
     showToast(`${item.name} moved to wishlist`, "success");
-  };
-
-  const handleOpenEditAddress = () => {
-    setEditAddressForm(currentAddress);
-    setIsEditAddressOpen(true);
   };
 
   const isValidLatLng = (loc) =>
@@ -366,149 +423,364 @@ const CheckoutPage = () => {
     return null;
   };
 
-  const handleSelectSavedAddress = async (addr) => {
-    const rawText = addr?.address || "";
+  // Open Add Address Modal
+  const handleOpenAddAddress = () => {
+    setAddAddressForm({
+      type: "Home",
+      name: user?.name || "",
+      phone: user?.phone || "",
+      address: "",
+      landmark: "",
+      city: currentLocation?.city || "Indore",
+      state: currentLocation?.state || "Madhya Pradesh",
+      pincode: currentLocation?.pincode || "",
+    });
+    setIsAddressModalOpen(false);
+    setIsAddAddressOpen(true);
+  };
+
+  // Open Edit Address Modal
+  const handleOpenEditAddress = () => {
+    if (!currentAddress || !currentAddress.address) {
+      handleOpenAddAddress();
+      return;
+    }
+    setEditAddressForm({
+      id: currentAddress.id || "",
+      type: currentAddress.type || "Home",
+      name: currentAddress.name || user?.name || "",
+      phone: currentAddress.phone || user?.phone || "",
+      address: currentAddress.address || "",
+      landmark: currentAddress.landmark || "",
+      city: currentAddress.city || "",
+      state: currentAddress.state || "",
+      pincode: currentAddress.pincode || "",
+    });
+    setIsEditAddressOpen(true);
+  };
+
+  // Live Location detect inside Add Address Modal
+  const handleUseLiveLocationForAdd = async () => {
+    const result = await refreshLocation();
+    if (result?.ok && result.location) {
+      const loc = result.location;
+      setAddAddressForm((prev) => ({
+        ...prev,
+        address: loc.name || prev.address,
+        city: loc.city || prev.city,
+        state: loc.state || prev.state,
+        pincode: loc.pincode || prev.pincode,
+      }));
+      showToast("Live location detected", "success");
+    } else if (currentLocation?.name) {
+      setAddAddressForm((prev) => ({
+        ...prev,
+        address: currentLocation.name,
+        city: currentLocation.city || prev.city,
+        state: currentLocation.state || prev.state,
+        pincode: currentLocation.pincode || prev.pincode,
+      }));
+      showToast("Using current location", "success");
+    } else {
+      showToast(result?.error || "Could not detect location", "error");
+    }
+  };
+
+  // Save new address from modal - INSTANT & OPTIMISTIC
+  const handleSaveNewAddress = () => {
+    const name = addAddressForm.name?.trim() || user?.name || "Customer";
+    const phone = addAddressForm.phone?.trim() || user?.phone || "";
+    const address = addAddressForm.address?.trim();
+    const landmark = addAddressForm.landmark?.trim() || "";
+    const city = addAddressForm.city?.trim() || "";
+    const state = addAddressForm.state?.trim() || "";
+    const pincode = addAddressForm.pincode?.trim() || "";
+
+    if (!address) {
+      showToast("Please enter complete delivery address", "error");
+      return;
+    }
+
+    // Determine initial coordinates: form GPS location > currentLocation > Indore default
+    let initialLoc =
+      addAddressForm.location ||
+      (currentLocation?.latitude && currentLocation?.longitude
+        ? { lat: currentLocation.latitude, lng: currentLocation.longitude }
+        : null);
+
+    const activeAddr = {
+      id: Date.now().toString(),
+      type: addAddressForm.type || "Home",
+      name: name,
+      phone: phone,
+      address: address,
+      landmark: landmark,
+      city: [city, pincode].filter(Boolean).join(" - "),
+      state: state,
+      pincode: pincode,
+      ...(initialLoc ? { location: initialLoc } : {}),
+    };
+
+    // 1. INSTANT UI UPDATE: Set address and close modal immediately
+    setCurrentAddress(activeAddr);
+    setIsAddAddressOpen(false);
+    showToast("Address saved and selected", "success");
+
+    if (initialLoc) {
+      updateLocation(
+        {
+          name: [address, city, state].filter(Boolean).join(", "),
+          time: currentLocation?.time || "12-15 mins",
+          city: city || currentLocation?.city,
+          state: state || currentLocation?.state,
+          pincode: pincode || currentLocation?.pincode,
+          latitude: initialLoc.lat,
+          longitude: initialLoc.lng,
+        },
+        { persist: true, updateSavedHome: false }
+      );
+    }
+
+    // 2. BACKGROUND PERSISTENCE & GEOCODING
+    (async () => {
+      try {
+        let preciseLoc = initialLoc;
+        let placeId = null;
+        let formattedAddress = null;
+
+        // Geocode in background if not already provided via live GPS
+        if (!addAddressForm.location) {
+          try {
+            const query = [address, landmark, city, state, pincode].filter(Boolean).join(", ");
+            const geoResp = await customerApi.geocodeAddress(query);
+            const loc = geoResp.data?.result?.location;
+            if (isValidLatLng(loc)) {
+              preciseLoc = { lat: loc.lat, lng: loc.lng };
+              placeId = geoResp.data?.result?.placeId || null;
+              formattedAddress = geoResp.data?.result?.formattedAddress || null;
+              setCurrentAddress((prev) =>
+                prev && prev.id === activeAddr.id
+                  ? { ...prev, location: preciseLoc, placeId, formattedAddress }
+                  : prev
+              );
+            }
+          } catch {}
+        }
+
+        if (isAuthenticated) {
+          const rawAddresses = Array.isArray(locationSavedAddresses)
+            ? locationSavedAddresses.map((a) => ({
+                label: (a.label || "home").toLowerCase(),
+                fullAddress: a.rawAddress || a.address,
+                landmark: a.landmark || "",
+                city: a.city || "",
+                state: a.state || "",
+                pincode: a.pincode || "",
+                location: a.location || null,
+                placeId: a.placeId || null,
+              }))
+            : [];
+
+          const newAddrPayload = {
+            label: (addAddressForm.type || "home").toLowerCase(),
+            fullAddress: address,
+            ...(landmark ? { landmark } : {}),
+            ...(city ? { city } : {}),
+            ...(state ? { state } : {}),
+            ...(pincode ? { pincode } : {}),
+            ...(preciseLoc ? { location: preciseLoc } : {}),
+            ...(placeId ? { placeId } : {}),
+            ...(formattedAddress ? { formattedAddress } : {}),
+          };
+
+          await customerApi.updateProfile({
+            ...(name ? { name } : {}),
+            ...(phone ? { phone } : {}),
+            addresses: [...rawAddresses, newAddrPayload],
+          });
+
+          refreshAddresses?.();
+        }
+      } catch (e) {
+        console.warn("Background address persistence warning:", e);
+      }
+    })();
+  };
+
+  // Select a saved address from modal - INSTANT
+  const handleSelectSavedAddress = (addr) => {
+    const rawText = addr?.rawAddress || addr?.address || "";
     const addrLoc = addr?.location;
     const hasLoc = isValidLatLng(addrLoc);
     const pid = typeof addr?.placeId === "string" ? addr.placeId.trim() : "";
 
-    setIsResolvingAddressCoords(true);
-    try {
-      let resolvedLoc = null;
-      try {
-        if (hasLoc) {
-          resolvedLoc = addrLoc;
-        } else if (pid) {
-          const cacheKey = `pid:${pid}`;
-          const cached = getCachedGeocode(cacheKey);
-          if (cached?.location?.lat && cached?.location?.lng) {
-            resolvedLoc = cached.location;
-          } else {
+    const selected = {
+      id: addr.id || addr._id || "",
+      type: addr.label || "Home",
+      name: addr.name || user?.name || "",
+      address: rawText,
+      city: addr.city ? `${addr.city}${addr.pincode ? ` - ${addr.pincode}` : ""}` : (addr.pincode || ""),
+      state: addr.state || "",
+      pincode: addr.pincode || "",
+      phone: addr.phone || user?.phone || "",
+      landmark: addr.landmark || "",
+      ...(pid ? { placeId: pid } : {}),
+      ...(hasLoc ? { location: addrLoc } : {}),
+    };
+
+    // INSTANT UI UPDATE
+    setCurrentAddress(selected);
+    setIsAddressModalOpen(false);
+    showToast(`Delivering to ${addr.label || "Selected Address"}`, "success");
+
+    if (hasLoc) {
+      updateLocation(
+        {
+          name: rawText,
+          time: currentLocation?.time || "12-15 mins",
+          city: addr.city || currentLocation?.city,
+          state: addr.state || currentLocation?.state,
+          pincode: addr.pincode || currentLocation?.pincode,
+          latitude: addrLoc.lat,
+          longitude: addrLoc.lng,
+        },
+        { persist: true, updateSavedHome: false }
+      );
+    } else {
+      // Resolve coords in background if missing
+      (async () => {
+        try {
+          let resolvedLoc = null;
+          if (pid) {
             const resp = await customerApi.geocodePlaceId(pid);
-            const loc = resp.data?.result?.location;
-            if (isValidLatLng(loc)) {
-              resolvedLoc = { lat: loc.lat, lng: loc.lng };
-              setCachedGeocode(cacheKey, { location: resolvedLoc });
+            if (isValidLatLng(resp.data?.result?.location)) {
+              resolvedLoc = resp.data.result.location;
             }
           }
-        } else {
-          resolvedLoc = await resolveAddressCoords(rawText);
-        }
-      } catch (e) {
-        showToast(
-          e?.__serverMsg ||
-            e?.message ||
-            "Could not fetch coordinates for this address. Delivery charges may not update.",
-          "error",
-        );
-      }
-
-      if (!resolvedLoc) {
-        showToast(
-          "Could not fetch coordinates for this address. Please edit the address or choose a different one.",
-          "error",
-        );
-        return;
-      }
-
-      setCurrentAddress({
-        id: addr.id || addr._id || "",
-        type: addr.label,
-        name: user?.name || currentAddress.name,
-        address: rawText,
-        city: "",
-        phone: addr.phone || currentAddress.phone,
-        landmark: "",
-        ...(pid ? { placeId: pid } : {}),
-        ...(resolvedLoc ? { location: resolvedLoc } : {}),
-      });
-
-
-      if (resolvedLoc) {
-        updateLocation(
-          {
-            name: rawText,
-            time: currentLocation?.time || "12-15 mins",
-            city: currentLocation?.city,
-            state: currentLocation?.state,
-            pincode: currentLocation?.pincode,
-            latitude: resolvedLoc.lat,
-            longitude: resolvedLoc.lng,
-          },
-          { persist: true, updateSavedHome: false },
-        );
-      }
-
-      setIsAddressModalOpen(false);
-    } finally {
-      setIsResolvingAddressCoords(false);
+          if (!resolvedLoc && rawText) {
+            resolvedLoc = await resolveAddressCoords(rawText);
+          }
+          if (resolvedLoc) {
+            setCurrentAddress((prev) =>
+              prev && prev.id === selected.id ? { ...prev, location: resolvedLoc } : prev
+            );
+            updateLocation(
+              {
+                name: rawText,
+                time: currentLocation?.time || "12-15 mins",
+                city: addr.city || currentLocation?.city,
+                state: addr.state || currentLocation?.state,
+                pincode: addr.pincode || currentLocation?.pincode,
+                latitude: resolvedLoc.lat,
+                longitude: resolvedLoc.lng,
+              },
+              { persist: true, updateSavedHome: false }
+            );
+          }
+        } catch {}
+      })();
     }
   };
 
-  const handleSaveEditedAddress = async () => {
-    if (
-      !editAddressForm.name.trim() ||
-      !editAddressForm.address.trim() ||
-      !editAddressForm.city.trim()
-    ) {
-      showToast("Please fill name, address and city", "error");
+  // Save edited address - INSTANT
+  const handleSaveEditedAddress = () => {
+    if (!editAddressForm.address.trim()) {
+      showToast("Please enter an address", "error");
       return;
     }
 
-    let location = null;
-    let placeId = null;
-    let formattedAddress = null;
-    try {
-      const query = [
-        editAddressForm.address,
-        editAddressForm.landmark,
-        editAddressForm.city,
-      ]
-        .filter(Boolean)
-        .join(", ");
-      const resp = await customerApi.geocodeAddress(query);
-      const loc = resp.data?.result?.location;
-      if (
-        loc &&
-        typeof loc.lat === "number" &&
-        typeof loc.lng === "number" &&
-        Number.isFinite(loc.lat) &&
-        Number.isFinite(loc.lng)
-      ) {
-        location = { lat: loc.lat, lng: loc.lng };
-        placeId = resp.data?.result?.placeId || null;
-        formattedAddress = resp.data?.result?.formattedAddress || null;
-        updateLocation(
-          {
-            name: resp.data?.result?.formattedAddress || query,
-            time: currentLocation?.time || "12-15 mins",
-            city: currentLocation?.city,
-            state: currentLocation?.state,
-            pincode: currentLocation?.pincode,
-            latitude: loc.lat,
-            longitude: loc.lng,
-          },
-          { persist: true, updateSavedHome: false },
-        );
-      }
-    } catch (e) {
-      showToast(
-        e.response?.data?.message ||
-          "Could not fetch coordinates for this address. Delivery charges may be inaccurate.",
-        "error",
-      );
-    }
-
-    setCurrentAddress({
-      id: editAddressForm.id || currentAddress.id || "",
+    const updated = {
+      ...currentAddress,
       ...editAddressForm,
-      ...(location ? { location } : {}),
-      ...(placeId ? { placeId } : {}),
-      ...(formattedAddress ? { formattedAddress } : {}),
-    });
+    };
 
+    // INSTANT UI UPDATE
+    setCurrentAddress(updated);
     setIsEditAddressOpen(false);
     showToast("Delivery address updated", "success");
+
+    // BACKGROUND PERSISTENCE
+    (async () => {
+      try {
+        let location = currentAddress?.location || null;
+        let placeId = currentAddress?.placeId || null;
+        let formattedAddress = currentAddress?.formattedAddress || null;
+
+        try {
+          const query = [
+            editAddressForm.address,
+            editAddressForm.landmark,
+            editAddressForm.city,
+            editAddressForm.state,
+            editAddressForm.pincode,
+          ]
+            .filter(Boolean)
+            .join(", ");
+          const resp = await customerApi.geocodeAddress(query);
+          const loc = resp.data?.result?.location;
+          if (isValidLatLng(loc)) {
+            location = { lat: loc.lat, lng: loc.lng };
+            placeId = resp.data?.result?.placeId || null;
+            formattedAddress = resp.data?.result?.formattedAddress || null;
+            setCurrentAddress((prev) =>
+              prev && prev.id === updated.id
+                ? { ...prev, location, placeId, formattedAddress }
+                : prev
+            );
+          }
+        } catch {}
+
+        if (isAuthenticated && editAddressForm.id) {
+          const rawAddresses = Array.isArray(locationSavedAddresses)
+            ? locationSavedAddresses.map((a) => {
+                if (String(a.id || a._id) === String(editAddressForm.id)) {
+                  return {
+                    label: (editAddressForm.type || "home").toLowerCase(),
+                    fullAddress: editAddressForm.address,
+                    landmark: editAddressForm.landmark || "",
+                    city: editAddressForm.city || "",
+                    state: editAddressForm.state || "",
+                    pincode: editAddressForm.pincode || "",
+                    ...(location ? { location } : {}),
+                    ...(placeId ? { placeId } : {}),
+                    ...(formattedAddress ? { formattedAddress } : {}),
+                  };
+                }
+                return {
+                  label: (a.label || "home").toLowerCase(),
+                  fullAddress: a.rawAddress || a.address,
+                  landmark: a.landmark || "",
+                  city: a.city || "",
+                  state: a.state || "",
+                  pincode: a.pincode || "",
+                  location: a.location || null,
+                  placeId: a.placeId || null,
+                };
+              })
+            : [];
+
+          await customerApi.updateProfile({ addresses: rawAddresses });
+          refreshAddresses?.();
+        }
+
+        if (location) {
+          updateLocation(
+            {
+              name: formattedAddress || [editAddressForm.address, editAddressForm.city].filter(Boolean).join(", "),
+              time: currentLocation?.time || "12-15 mins",
+              city: editAddressForm.city || currentLocation?.city,
+              state: editAddressForm.state || currentLocation?.state,
+              pincode: editAddressForm.pincode || currentLocation?.pincode,
+              latitude: location.lat,
+              longitude: location.lng,
+            },
+            { persist: true, updateSavedHome: false }
+          );
+        }
+      } catch (e) {
+        console.warn("Background update warning:", e);
+      }
+    })();
   };
 
   const handleUseCurrentLiveLocation = async () => {
@@ -517,7 +789,10 @@ const CheckoutPage = () => {
     if (result?.ok && result.location) {
       const liveLocation = result.location;
       setCurrentAddress((prev) => ({
-        ...prev,
+        id: prev?.id || Date.now().toString(),
+        type: prev?.type || "Home",
+        name: user?.name || prev?.name || "Customer",
+        phone: user?.phone || prev?.phone || "",
         address: liveLocation.name,
         landmark: "",
         city: [liveLocation.city, liveLocation.state, liveLocation.pincode]
@@ -534,7 +809,10 @@ const CheckoutPage = () => {
 
     if (currentLocation?.name) {
       setCurrentAddress((prev) => ({
-        ...prev,
+        id: prev?.id || Date.now().toString(),
+        type: prev?.type || "Home",
+        name: user?.name || prev?.name || "Customer",
+        phone: user?.phone || prev?.phone || "",
         address: currentLocation.name,
         landmark: "",
         city: [currentLocation.city, currentLocation.state, currentLocation.pincode]
@@ -550,23 +828,6 @@ const CheckoutPage = () => {
     }
 
     showToast(result?.error || "Unable to detect current location", "error");
-  };
-
-  const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `${appName} Checkout`,
-          text: `Hey! I am ordering some goodies from ${appName}.`,
-          url: window.location.href,
-        });
-      } catch (err) {
-        console.log("Error sharing:", err);
-      }
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      showToast("Link copied to clipboard!", "success");
-    }
   };
 
   const handleApplyCoupon = async (coupon) => {
@@ -592,7 +853,7 @@ const CheckoutPage = () => {
     } catch (error) {
       showToast(
         error.response?.data?.message || "Unable to apply coupon",
-        "error",
+        "error"
       );
     }
   };
@@ -623,7 +884,7 @@ const CheckoutPage = () => {
     } catch (error) {
       showToast(
         error.response?.data?.message || "Invalid coupon",
-        "error",
+        "error"
       );
     }
   };
@@ -635,7 +896,7 @@ const CheckoutPage = () => {
 
   const getCartItem = (productId) => cart.find((item) => item.id === productId);
 
-  // Stable key for recommended products effect — only changes when product IDs change
+  // Stable key for recommended products effect
   const cartProductIdKey = useMemo(
     () =>
       cart
@@ -671,8 +932,11 @@ const CheckoutPage = () => {
   useEffect(() => {
     if (!isAuthenticated || cart.length === 0) {
       setPricingPreview(null);
+      setSellerBreakdowns([]);
       return;
     }
+
+    const orderAddress = buildAddressForOrder();
 
     const buildPreviewPayload = () => ({
       items: cart.map((item) => ({
@@ -683,7 +947,7 @@ const CheckoutPage = () => {
         price: item.price,
         image: item.image,
       })),
-      address: buildAddressForOrder(),
+      address: orderAddress || undefined,
       discountTotal: discountAmount,
       taxTotal: 0,
       tipAmount: selectedTip,
@@ -697,6 +961,7 @@ const CheckoutPage = () => {
         const res = await customerApi.checkoutPreview(buildPreviewPayload());
         if (res.data?.success) {
           setPricingPreview(res.data.result?.breakdown ?? null);
+          setSellerBreakdowns(res.data.result?.sellerBreakdowns ?? []);
         }
       } catch (error) {
         console.error("Checkout preview failed", error);
@@ -721,7 +986,7 @@ const CheckoutPage = () => {
     currentLocation,
   ]);
 
-  // Recommended products — only re-fetches when the set of product IDs changes
+  // Recommended products
   useEffect(() => {
     if (cart.length === 0) {
       setRecommendedProducts([]);
@@ -745,11 +1010,18 @@ const CheckoutPage = () => {
   }, [cartProductIdKey]);
 
   const handlePlaceOrder = async () => {
+    const orderAddress = buildAddressForOrder();
+    if (!orderAddress || !orderAddress.address) {
+      showToast("Please add or select a delivery address first", "error");
+      handleOpenAddAddress();
+      return;
+    }
+
     setIsPlacingOrder(true);
     try {
       const taxAmount = pricingPreview?.taxTotal || 0;
       const orderData = {
-        address: buildAddressForOrder(),
+        address: orderAddress,
         paymentMode: selectedPayment === "online" ? "ONLINE" : "COD",
         discountTotal: discountAmount,
         taxTotal: taxAmount,
@@ -787,7 +1059,7 @@ const CheckoutPage = () => {
           return;
         }
 
-        if (selectedPayment === "online") {
+        if (selectedPayment === "online" && finalAmountToPay > 0) {
           try {
             const paymentRes = await customerApi.createPaymentOrder({
               orderRef: paymentRef,
@@ -852,7 +1124,7 @@ const CheckoutPage = () => {
     }
   };
 
-  // After order placement: WebSocket listener + single fallback fetch
+  // After order placement: WebSocket listener + fallback fetch
   useEffect(() => {
     if (!orderId || !showSuccess) return undefined;
 
@@ -874,7 +1146,6 @@ const CheckoutPage = () => {
       return false;
     };
 
-    // Single immediate check (covers WebSocket-unavailable case)
     customerApi
       .getOrderDetails(orderId)
       .then((r) => {
@@ -890,7 +1161,7 @@ const CheckoutPage = () => {
     };
   }, [orderId, showSuccess]);
 
-  // ─── Payment redirecting state ───────────────────────────────────────────────
+  // Payment redirecting state
   if (isRedirectingToPayment) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
@@ -902,9 +1173,7 @@ const CheckoutPage = () => {
           initial={{ scale: 0.92, opacity: 0, y: 15 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: "easeOut" }}
-          className="relative z-10 bg-white rounded-3xl p-8 max-w-sm w-full shadow-[0_20px_60px_rgba(0,0,0,0.08)] border border-slate-100 flex flex-col items-center text-center"
-        >
-          {/* Animated Spinner with PhonePe theme */}
+          className="relative z-10 bg-white rounded-3xl p-8 max-w-sm w-full shadow-[0_20px_60px_rgba(0,0,0,0.08)] border border-slate-100 flex flex-col items-center text-center">
           <div className="relative mb-6 flex items-center justify-center">
             <div className="w-20 h-20 rounded-full border-4 border-purple-100 border-t-[#6739b7] animate-spin" />
             <div className="absolute inset-0 flex items-center justify-center">
@@ -930,7 +1199,7 @@ const CheckoutPage = () => {
     );
   }
 
-  // ─── Empty cart state ────────────────────────────────────────────────────────
+  // Empty cart state
   if (cart.length === 0 && !showSuccess && !isPlacingOrder && !isRedirectingToPayment) {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
@@ -987,7 +1256,6 @@ const CheckoutPage = () => {
     );
   }
 
-  // ─── Main checkout return ────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-white pb-32 font-sans">
       {/* Order Success Overlay */}
@@ -997,6 +1265,7 @@ const CheckoutPage = () => {
       <div className="bg-white py-4 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 md:px-8 flex items-center justify-between relative">
           <button
+            type="button"
             onClick={() => navigate(-1)}
             className="p-1 -ml-1 hover:bg-slate-50 rounded-full transition-all">
             <ChevronLeft size={24} className="text-gray-900" />
@@ -1014,28 +1283,15 @@ const CheckoutPage = () => {
 
       <div className="max-w-7xl mx-auto px-4 md:px-8 mt-6 relative z-20">
         <div className="lg:grid lg:grid-cols-12 lg:gap-8 items-start">
-
           {/* Left Column */}
           <div className="lg:col-span-7 xl:col-span-8 space-y-6 pb-8">
-            {/* Delivery Time Banner */}
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 mt-3">
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-full bg-brand-50 flex items-center justify-center flex-shrink-0">
-                  <Clock size={24} className="text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-black text-slate-800 text-lg">Delivery in 12-15 mins</h3>
-                  <p className="text-sm text-slate-500">Shipment of {cartCount} items</p>
-                </div>
-              </div>
-            </div>
-
             {/* Address Section */}
             <CheckoutAddressSection
               currentAddress={currentAddress}
               savedRecipient={savedRecipient}
               savedAddresses={locationSavedAddresses}
               onSelectAddress={() => setIsAddressModalOpen(true)}
+              onAddNewAddress={handleOpenAddAddress}
               onEditAddress={handleOpenEditAddress}
               onUseCurrentLocation={handleUseCurrentLiveLocation}
               isFetchingLocation={isFetchingLocation}
@@ -1116,37 +1372,19 @@ const CheckoutPage = () => {
               finalAmountToPay={finalAmountToPay}
             />
 
-            {/* WhatsApp Notification Opt-in Card hidden for now */}
-            {false && (
-              <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shrink-0">
-                    <MessageSquare size={18} />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900">WhatsApp Order Updates</h4>
-                    <p className="text-[11px] text-slate-500">Get instant live tracking & delivery alerts on WhatsApp</p>
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                  <input
-                    type="checkbox"
-                    checked={whatsappOptIn}
-                    onChange={(e) => setWhatsappOptIn(e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                </label>
-              </div>
-            )}
-
             {/* Desktop Slide to Pay */}
             <div className="hidden lg:block">
               <SlideToPay
                 amount={finalAmountToPay}
-                onSuccess={handlePlaceOrder}
-                isLoading={isPlacingOrder || isPreviewLoading || !pricingPreview}
-                text={finalAmountToPay === 0 ? "Place Free Order" : "Order Now"}
+                onSuccess={hasValidAddress ? handlePlaceOrder : handleOpenAddAddress}
+                isLoading={isPlacingOrder || isPreviewLoading || (hasValidAddress && !pricingPreview)}
+                text={
+                  !hasValidAddress
+                    ? "Add Address to Order"
+                    : finalAmountToPay === 0
+                      ? "Place Free Order"
+                      : "Order Now"
+                }
               />
               <p className="text-center text-[10px] text-slate-400 font-bold mt-4 uppercase tracking-[0.1em]">
                 🔒 SSL encrypted secure checkout
@@ -1161,51 +1399,259 @@ const CheckoutPage = () => {
         <div className="max-w-4xl mx-auto">
           <SlideToPay
             amount={finalAmountToPay}
-            onSuccess={handlePlaceOrder}
-            isLoading={isPlacingOrder || isPreviewLoading || !pricingPreview}
-            text={finalAmountToPay === 0 ? "Place Free Order" : "Slide to Pay"}
+            onSuccess={hasValidAddress ? handlePlaceOrder : handleOpenAddAddress}
+            isLoading={isPlacingOrder || isPreviewLoading || (hasValidAddress && !pricingPreview)}
+            text={
+              !hasValidAddress
+                ? "Add Address to Proceed"
+                : finalAmountToPay === 0
+                  ? "Place Free Order"
+                  : "Slide to Pay"
+            }
           />
         </div>
       </div>
 
       {/* Address Selection Modal */}
       <Dialog open={isAddressModalOpen} onOpenChange={setIsAddressModalOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Select Delivery Address</DialogTitle>
-            <DialogDescription>Choose where you want your order delivered.</DialogDescription>
+        <DialogContent className="sm:max-w-[440px] max-h-[85vh] flex flex-col p-6 rounded-3xl">
+          <DialogHeader className="mb-2">
+            <DialogTitle className="text-lg font-black text-slate-900">
+              Select Delivery Address
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Choose an address for this order or add a new one.
+            </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            {locationSavedAddresses.map((addr) => (
-              <button
-                key={addr.id}
-                onClick={() => handleSelectSavedAddress(addr)}
-                disabled={isResolvingAddressCoords}
-                className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${
-                  currentAddress.id === addr.id
-                    ? "border-primary bg-brand-50 shadow-sm"
-                    : "border-slate-100 bg-white hover:border-slate-200"
-                }`}>
-                <div className="flex items-center gap-3 mb-2">
-                  <div className={`p-2 rounded-full ${currentAddress.id === addr.id ? "bg-primary text-primary-foreground" : "bg-slate-100 text-slate-500"}`}>
-                    <MapPin size={16} />
-                  </div>
-                  <span className="font-black text-slate-800 uppercase tracking-widest text-[10px]">{addr.label}</span>
+
+          <div className="flex-1 overflow-y-auto space-y-3 py-2 pr-1 no-scrollbar">
+            {locationSavedAddresses && locationSavedAddresses.length > 0 ? (
+              locationSavedAddresses.map((addr) => {
+                const isSelected =
+                  currentAddress &&
+                  (currentAddress.id === addr.id ||
+                    currentAddress.address === addr.rawAddress ||
+                    currentAddress.address === addr.address);
+
+                return (
+                  <button
+                    key={addr.id}
+                    type="button"
+                    onClick={() => handleSelectSavedAddress(addr)}
+                    disabled={isResolvingAddressCoords}
+                    className={`w-full p-4 rounded-2xl border-2 text-left transition-all relative ${
+                      isSelected
+                        ? "border-primary bg-brand-50/70 shadow-xs"
+                        : "border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50/50"
+                    }`}>
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`p-2 rounded-xl mt-0.5 shrink-0 ${
+                          isSelected
+                            ? "bg-primary text-white"
+                            : "bg-slate-100 text-slate-600"
+                        }`}>
+                        {addr.label?.toLowerCase() === "work" ? (
+                          <Briefcase size={16} />
+                        ) : addr.label?.toLowerCase() === "other" ? (
+                          <Building size={16} />
+                        ) : (
+                          <Home size={16} />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <span className="font-black text-slate-800 uppercase tracking-wider text-[11px]">
+                            {addr.label || "Address"}
+                          </span>
+                          {isSelected && (
+                            <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center shrink-0">
+                              <Check size={12} className="text-white stroke-[3]" />
+                            </div>
+                          )}
+                        </div>
+                        {addr.name && (
+                          <p className="text-xs font-bold text-slate-800 mb-0.5">{addr.name}</p>
+                        )}
+                        <p className="text-xs text-slate-600 leading-relaxed mb-1 break-words">
+                          {addr.address || addr.rawAddress}
+                        </p>
+                        {addr.phone && (
+                          <p className="text-[11px] text-slate-400 font-medium">
+                            Phone: {addr.phone}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })
+            ) : (
+              <div className="text-center py-8">
+                <div className="h-12 w-12 rounded-full bg-brand-50 text-primary flex items-center justify-center mx-auto mb-3">
+                  <MapPin size={22} />
                 </div>
-                <p className="text-sm font-bold text-slate-800">{user?.name || currentAddress.name}</p>
-                <p className="text-xs text-slate-500 leading-relaxed mb-1">{addr.address}</p>
-                {addr.phone && (
-                  <p className="text-[11px] text-slate-400 font-medium">Phone: {addr.phone}</p>
-                )}
-              </button>
-            ))}
+                <p className="text-sm font-bold text-slate-700">No saved addresses</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Add an address to deliver your order quickly.
+                </p>
+              </div>
+            )}
           </div>
-          <DialogFooter>
+
+          <DialogFooter className="mt-4 pt-3 border-t border-slate-100">
             <Button
+              type="button"
+              className="w-full h-12 bg-primary hover:bg-[#0b721b] text-white font-bold rounded-2xl shadow-xs flex items-center justify-center gap-2"
+              onClick={handleOpenAddAddress}>
+              <Plus size={18} /> Add New Address
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add New Address Modal */}
+      <Dialog open={isAddAddressOpen} onOpenChange={setIsAddAddressOpen}>
+        <DialogContent className="sm:max-w-[460px] max-h-[90vh] flex flex-col p-6 rounded-3xl">
+          <DialogHeader className="mb-2">
+            <DialogTitle className="text-lg font-black text-slate-900">
+              Add Delivery Address
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Enter your address details to complete your order.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto space-y-4 py-2 pr-1 no-scrollbar">
+            {/* Address Type Selector */}
+            <div>
+              <Label className="text-xs font-bold text-slate-700 mb-2 block">
+                Save Address As
+              </Label>
+              <div className="grid grid-cols-3 gap-2">
+                {["Home", "Work", "Other"].map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => setAddAddressForm((prev) => ({ ...prev, type: tag }))}
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                      addAddressForm.type === tag
+                        ? "border-primary bg-brand-50 text-primary shadow-xs"
+                        : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                    }`}>
+                    {tag === "Home" && <Home size={14} />}
+                    {tag === "Work" && <Briefcase size={14} />}
+                    {tag === "Other" && <Building size={14} />}
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* GPS Helper Button */}
+            <button
+              type="button"
+              onClick={handleUseLiveLocationForAdd}
+              disabled={isFetchingLocation}
+              className="w-full py-2.5 px-3 rounded-xl border border-dashed border-primary/60 bg-brand-50/50 text-primary text-xs font-bold flex items-center justify-center gap-2 hover:bg-brand-50 transition-all">
+              <LocateFixed size={15} />
+              {isFetchingLocation ? "Detecting GPS location..." : "Use Current GPS Location"}
+            </button>
+
+            {/* Receiver Name & Phone */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">Contact Name*</Label>
+                <Input
+                  value={addAddressForm.name}
+                  onChange={(e) => setAddAddressForm((p) => ({ ...p, name: e.target.value }))}
+                  placeholder="Your Name"
+                  className="h-10 rounded-xl"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">Phone Number*</Label>
+                <Input
+                  value={addAddressForm.phone}
+                  onChange={(e) => setAddAddressForm((p) => ({ ...p, phone: e.target.value }))}
+                  placeholder="10-digit Phone"
+                  className="h-10 rounded-xl"
+                />
+              </div>
+            </div>
+
+            {/* Complete Address */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-700">
+                Flat, House No., Building, Street*
+              </Label>
+              <Input
+                value={addAddressForm.address}
+                onChange={(e) => setAddAddressForm((p) => ({ ...p, address: e.target.value }))}
+                placeholder="e.g. Flat 302, Maple Heights, Main Road"
+                className="h-11 rounded-xl"
+              />
+            </div>
+
+            {/* Landmark */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-700">
+                Landmark (Optional)
+              </Label>
+              <Input
+                value={addAddressForm.landmark}
+                onChange={(e) => setAddAddressForm((p) => ({ ...p, landmark: e.target.value }))}
+                placeholder="e.g. Near City Mall / Opp. Temple"
+                className="h-10 rounded-xl"
+              />
+            </div>
+
+            {/* City, State & Pincode */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">City</Label>
+                <Input
+                  value={addAddressForm.city}
+                  onChange={(e) => setAddAddressForm((p) => ({ ...p, city: e.target.value }))}
+                  placeholder="City"
+                  className="h-10 rounded-xl"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">State</Label>
+                <Input
+                  value={addAddressForm.state}
+                  onChange={(e) => setAddAddressForm((p) => ({ ...p, state: e.target.value }))}
+                  placeholder="State"
+                  className="h-10 rounded-xl"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">Pincode</Label>
+                <Input
+                  value={addAddressForm.pincode}
+                  onChange={(e) => setAddAddressForm((p) => ({ ...p, pincode: e.target.value }))}
+                  placeholder="Pincode"
+                  className="h-10 rounded-xl"
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-4 pt-3 border-t border-slate-100 flex flex-col sm:flex-row gap-2">
+            <Button
+              type="button"
               variant="outline"
-              className="w-full border-brand-600 text-brand-600 hover:bg-brand-50"
-              onClick={() => navigate("/addresses")}>
-              <Plus size={16} className="mr-2" /> Add New Address
+              onClick={() => setIsAddAddressOpen(false)}
+              className="w-full sm:w-auto h-11 border-slate-200 text-slate-600 rounded-xl">
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={isSavingAddress}
+              onClick={handleSaveNewAddress}
+              className="w-full sm:flex-1 h-11 bg-primary hover:bg-[#0b721b] text-white font-bold rounded-xl shadow-xs">
+              {isSavingAddress ? "Saving Address..." : "Save & Deliver Here"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1213,63 +1659,114 @@ const CheckoutPage = () => {
 
       {/* Edit Current Address Modal */}
       <Dialog open={isEditAddressOpen} onOpenChange={setIsEditAddressOpen}>
-        <DialogContent className="sm:max-w-[425px] overflow-hidden p-0">
-          <motion.div
-            initial={{ y: "100%", opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: "100%", opacity: 0 }}
-            transition={{ type: "spring", stiffness: 260, damping: 25 }}
-            className="p-6">
-            <DialogHeader>
-              <DialogTitle>Edit Delivery Address</DialogTitle>
-              <DialogDescription>Update the details of your current delivery address.</DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="edit-address" className="text-xs font-semibold text-slate-700">Address</Label>
+        <DialogContent className="sm:max-w-[450px] max-h-[90vh] flex flex-col p-6 rounded-3xl">
+          <DialogHeader className="mb-2">
+            <DialogTitle className="text-lg font-black text-slate-900">
+              Edit Delivery Address
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Update the details of your current delivery address.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto space-y-4 py-2 pr-1 no-scrollbar">
+            {/* Address Type Selector */}
+            <div>
+              <Label className="text-xs font-bold text-slate-700 mb-2 block">
+                Address Tag
+              </Label>
+              <div className="grid grid-cols-3 gap-2">
+                {["Home", "Work", "Other"].map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => setEditAddressForm((prev) => ({ ...prev, type: tag }))}
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                      editAddressForm.type === tag
+                        ? "border-primary bg-brand-50 text-primary shadow-xs"
+                        : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                    }`}>
+                    {tag === "Home" && <Home size={14} />}
+                    {tag === "Work" && <Briefcase size={14} />}
+                    {tag === "Other" && <Building size={14} />}
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">Contact Name</Label>
                 <Input
-                  id="edit-address"
-                  value={editAddressForm.address}
-                  onChange={(e) => setEditAddressForm((prev) => ({ ...prev, address: e.target.value }))}
-                  className="h-10"
-                  placeholder="House, street, area"
+                  value={editAddressForm.name}
+                  onChange={(e) => setEditAddressForm((p) => ({ ...p, name: e.target.value }))}
+                  placeholder="Your Name"
+                  className="h-10 rounded-xl"
                 />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-landmark" className="text-xs font-semibold text-slate-700">Nearest Landmark (optional)</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-700">Phone</Label>
                 <Input
-                  id="edit-landmark"
-                  value={editAddressForm.landmark || ""}
-                  onChange={(e) => setEditAddressForm((prev) => ({ ...prev, landmark: e.target.value }))}
-                  className="h-10"
-                  placeholder="e.g. Near City Mall, Opp. Temple"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-city" className="text-xs font-semibold text-slate-700">City / Pincode</Label>
-                <Input
-                  id="edit-city"
-                  value={editAddressForm.city}
-                  onChange={(e) => setEditAddressForm((prev) => ({ ...prev, city: e.target.value }))}
-                  className="h-10"
-                  placeholder="City - Pincode"
+                  value={editAddressForm.phone}
+                  onChange={(e) => setEditAddressForm((p) => ({ ...p, phone: e.target.value }))}
+                  placeholder="Phone"
+                  className="h-10 rounded-xl"
                 />
               </div>
             </div>
-            <DialogFooter className="mt-2">
-              <Button
-                variant="outline"
-                onClick={() => setIsEditAddressOpen(false)}
-                className="border-slate-200 text-slate-600 hover:bg-slate-50">
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSaveEditedAddress}
-                className="bg-primary hover:bg-[#0b721b] text-white font-bold">
-                Save changes
-              </Button>
-            </DialogFooter>
-          </motion.div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-700">
+                Complete Address*
+              </Label>
+              <Input
+                value={editAddressForm.address}
+                onChange={(e) => setEditAddressForm((p) => ({ ...p, address: e.target.value }))}
+                placeholder="House, street, area"
+                className="h-11 rounded-xl"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-700">
+                Landmark (Optional)
+              </Label>
+              <Input
+                value={editAddressForm.landmark}
+                onChange={(e) => setEditAddressForm((p) => ({ ...p, landmark: e.target.value }))}
+                placeholder="Nearest landmark"
+                className="h-10 rounded-xl"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-700">City / Pincode</Label>
+              <Input
+                value={editAddressForm.city}
+                onChange={(e) => setEditAddressForm((p) => ({ ...p, city: e.target.value }))}
+                placeholder="City - Pincode"
+                className="h-10 rounded-xl"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="mt-4 pt-3 border-t border-slate-100 flex flex-col sm:flex-row gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsEditAddressOpen(false)}
+              className="w-full sm:w-auto h-11 border-slate-200 text-slate-600 rounded-xl">
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={isSavingAddress}
+              onClick={handleSaveEditedAddress}
+              className="w-full sm:flex-1 h-11 bg-primary hover:bg-[#0b721b] text-white font-bold rounded-xl shadow-xs">
+              {isSavingAddress ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

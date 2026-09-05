@@ -104,7 +104,21 @@ function CheckoutPaymentSelector({
           )}
         </div>
 
-        {safePaymentMethods.length === 0 ? (
+        {isFullyCoveredByWallet ? (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/80 flex items-center gap-3.5 shadow-sm">
+            <div className="h-11 w-11 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-emerald-500/20">
+              <Check size={22} className="stroke-[3]" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-black text-sm text-emerald-900 tracking-tight">
+                100% Covered by Wallet Balance
+              </p>
+              <p className="text-xs text-emerald-700 font-medium mt-0.5 leading-relaxed">
+                ₹{numericWalletToUse.toLocaleString("en-IN")} will be deducted from your wallet. No Online or Cash payment required!
+              </p>
+            </div>
+          </div>
+        ) : safePaymentMethods.length === 0 ? (
           <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 text-center text-xs text-slate-500 font-medium">
             No payment methods currently available.
           </div>
